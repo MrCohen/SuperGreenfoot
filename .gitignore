@@ -38,3 +38,5 @@ greenfoot/build
 
 # SuperGreenfoot: installer build output at the repo root
 /build/
+# BlueJ editor metadata in the regression scenarios
+super-scenarios/**/*.ctxt
