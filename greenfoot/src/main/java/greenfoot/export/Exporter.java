@@ -331,12 +331,46 @@ public class Exporter implements PublishListener
      * Swing player + BlueJ support classes + MP3 decoder) and standalone.properties;
      * it runs with "java -jar" on any JDK 21 or later and needs no JavaFX.
      */
+    /**
+     * Locate supergreenfoot-runtime.jar in the given candidate directories (first
+     * match wins); null if absent everywhere.
+     */
+    @OnThread(Tag.Any)
+    static File findRuntimeJar(File... dirs)
+    {
+        for (File d : dirs)
+        {
+            if (d == null)
+            {
+                continue;
+            }
+            File f = new File(d, "supergreenfoot-runtime.jar");
+            if (f.isFile())
+            {
+                return f;
+            }
+        }
+        return null;
+    }
+
     private void makeApplication()
     {
         dialog.setProgress(true, Config.getString("export.progress.writingJar"));
         File exportFile = new File(scenarioInfo.getExportFileName());
         File exportDir = exportFile.getParentFile();
         String jarName = exportFile.getName();
+
+        // The runtime jar (engine + player) lives in the BlueJ lib directory next to
+        // boot.jar: build/resources/main/lib when run from Gradle, Contents/app when
+        // installed. Without it the exported jar cannot run, so stop here.
+        File runtime = findRuntimeJar(Config.getBlueJLibDir(), Config.getGreenfootLibDir());
+        if (runtime == null)
+        {
+            Debug.reportError("supergreenfoot-runtime.jar not found in " + Config.getBlueJLibDir()
+                    + " or " + Config.getGreenfootLibDir());
+            dialog.setProgress(false, Config.getString("export.app.noRuntime"));
+            return;
+        }
 
         JarCreator jarCreator = new JarCreator(project, exportDir, jarName, worldName, scenarioInfo.isLocked());
         jarCreator.includeSource(false);
@@ -345,17 +379,7 @@ public class Exporter implements PublishListener
         {
             jarCreator.setProperty("scenario.hideControls", "true");
         }
-
-        // The runtime jar lives next to greenfoot.jar in the lib directory
-        File runtime = new File(Config.getGreenfootLibDir(), "supergreenfoot-runtime.jar");
-        if (runtime.exists())
-        {
-            jarCreator.addJarToJar(runtime);
-        }
-        else
-        {
-            Debug.reportError("supergreenfoot-runtime.jar not found in " + Config.getGreenfootLibDir());
-        }
+        jarCreator.addJarToJar(runtime);
 
         File[] jarFiles = getJarsInPlusLib(project);
         if (jarFiles != null) {

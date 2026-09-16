@@ -98,6 +98,16 @@ public class NativePackagerTest extends TestCase
         assertNotNull(r.message);
     }
 
+    public void testFindRuntimeJarSearchesCandidates() throws Exception
+    {
+        File a = java.nio.file.Files.createTempDirectory("sgf-a").toFile();
+        File b = java.nio.file.Files.createTempDirectory("sgf-b").toFile();
+        assertNull(Exporter.findRuntimeJar(a, b, null));
+        File jar = new File(b, "supergreenfoot-runtime.jar");
+        assertTrue(jar.createNewFile());
+        assertEquals(jar, Exporter.findRuntimeJar(null, a, b));
+    }
+
     public void testFindJpackageReturnsFileOrNull()
     {
         File f = NativePackager.findJpackage();

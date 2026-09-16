@@ -386,3 +386,4 @@ export.app.notarize=Notarize with profile:
 export.app.signHint=Signing and notarizing lets other Macs open the app without warnings. The profile is the name given to "xcrun notarytool store-credentials". Notarization takes a few minutes.
 export.app.noIdentity=No "Developer ID Application" certificate found in the keychain; the app will be unsigned (other Macs must right-click > Open).
 export.app.nativeFailed=Native app could not be built:
+export.app.noRuntime=Export failed: supergreenfoot-runtime.jar is missing from this installation, so the game could not be built.

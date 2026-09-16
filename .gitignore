@@ -40,3 +40,9 @@ greenfoot/build
 /build/
 # BlueJ editor metadata in the regression scenarios
 super-scenarios/**/*.ctxt
+# Exports written next to the regression scenarios
+super-scenarios/*.jar
+super-scenarios/*.app/
+super-scenarios/*.dmg
+super-scenarios/*.msi
+super-scenarios/*/saves/
