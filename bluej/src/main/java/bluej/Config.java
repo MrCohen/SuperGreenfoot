@@ -589,7 +589,10 @@ public final class Config
     {
         String programName = "bluej";
         if(isGreenfoot) {
-            programName = "greenfoot";
+            // SuperGreenfoot: use a separate preferences directory so that a
+            // SuperGreenfoot build never reads or overwrites the settings of
+            // an installed upstream Greenfoot on the same machine.
+            programName = "supergreenfoot";
         }
         if(isMacOS()) {
             return "Library/Preferences/org." + programName;

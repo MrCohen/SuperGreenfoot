@@ -84,6 +84,34 @@ public abstract class Actor
     /** Rotation in degrees (0-359) */
     int rotation = 0;
 
+    // ---- SuperGreenfoot precision fields ----
+    // The int fields x, y and rotation above are kept for API compatibility
+    // and always hold the rounded value of the precise fields below.
+
+    /** Precise x-coordinate in cell units. x == neutralRound(preciseX). */
+    double preciseX;
+
+    /** Precise y-coordinate in cell units. y == neutralRound(preciseY). */
+    double preciseY;
+
+    /** Precise rotation in degrees, 0 <= preciseRotation < 360. rotation == round(preciseRotation). */
+    double preciseRotation = 0;
+
+    /**
+     * Precise rotation of the image as drawn (and as used for collision bounds).
+     * Follows preciseRotation unless imageRotationLocked is true.
+     */
+    double imageRotation = 0;
+
+    /** Rounded image rotation (0-359), used for bounds and non-smooth rendering. */
+    int imageRotationInt = 0;
+
+    /** When true, the image rotation is independent of the movement rotation. */
+    boolean imageRotationLocked = false;
+
+    /** Paint depth within this actor's paint-order group. Higher z is painted later (on top). */
+    double z = 0;
+
     /** Reference to the world that this actor is a part of. */
     World world;
     
@@ -199,6 +227,284 @@ public abstract class Actor
         return rotation;
     }
 
+    // ==================================
+    //
+    // SuperGreenfoot: precise position and rotation
+    //
+    // ==================================
+
+    /**
+     * Return the precise (fractional) x-coordinate of the actor's location, in cell
+     * units. This is the value set by {@link #setLocation(double, double)} or accumulated
+     * by {@link #move(double)}; {@link #getX()} returns the same value rounded to the
+     * nearest cell.
+     *
+     * @return The precise x-coordinate.
+     * @throws IllegalStateException If the actor has not been added into a world.
+     * @since SuperGreenfoot 1.0
+     */
+    public double getPreciseX()
+    {
+        failIfNotInWorld();
+        return preciseX;
+    }
+
+    /**
+     * Return the precise (fractional) y-coordinate of the actor's location, in cell
+     * units. See {@link #getPreciseX()}.
+     *
+     * @return The precise y-coordinate.
+     * @throws IllegalStateException If the actor has not been added into a world.
+     * @since SuperGreenfoot 1.0
+     */
+    public double getPreciseY()
+    {
+        failIfNotInWorld();
+        return preciseY;
+    }
+
+    /**
+     * Return the precise (fractional) rotation of this actor in degrees, in the
+     * range 0 (inclusive) to 360 (exclusive). {@link #getRotation()} returns the same
+     * value rounded to the nearest whole degree.
+     *
+     * @return The precise rotation in degrees.
+     * @since SuperGreenfoot 1.0
+     */
+    public double getPreciseRotation()
+    {
+        return preciseRotation;
+    }
+
+    /**
+     * Set the rotation of this actor to a fractional number of degrees. Any value is
+     * accepted and normalised into the range 0 (inclusive) to 360 (exclusive).
+     * Zero degrees is to the east (right-hand side of the world), and the angle
+     * increases clockwise.
+     *
+     * <p>Unless the image rotation has been locked (see {@link #setImageRotation(double)}),
+     * the actor's image turns with it.
+     *
+     * @param rotation The rotation in degrees.
+     * @see #turn(double)
+     * @since SuperGreenfoot 1.0
+     */
+    public void setRotation(double rotation)
+    {
+        double precise = normalizeDegrees(rotation);
+        setRotationImpl(precise, roundDegrees(precise));
+    }
+
+    /**
+     * Turn this actor by a fractional number of degrees; positive values turn clockwise.
+     * The precise rotation accumulates, so repeated small turns are not lost to rounding.
+     *
+     * @param amount The number of degrees to turn.
+     * @see #setRotation(double)
+     * @since SuperGreenfoot 1.0
+     */
+    public void turn(double amount)
+    {
+        setRotation(preciseRotation + amount);
+    }
+
+    /**
+     * Turn this actor to face towards a precise location.
+     *
+     * @param x The precise x-coordinate to turn towards
+     * @param y The precise y-coordinate to turn towards
+     * @since SuperGreenfoot 1.0
+     */
+    public void turnTowards(double x, double y)
+    {
+        double a = Math.atan2(y - preciseY, x - preciseX);
+        setRotation(Math.toDegrees(a));
+    }
+
+    /**
+     * Turn this actor to face towards another actor.
+     *
+     * @param other The actor to face; must not be null.
+     * @since SuperGreenfoot 1.0
+     */
+    public void turnTowards(Actor other)
+    {
+        turnTowards(other.preciseX, other.preciseY);
+    }
+
+    /**
+     * Return the distance from this actor to another actor, in cell units, measured
+     * between their precise locations.
+     *
+     * @param other The other actor; must not be null.
+     * @return The distance between the two actors.
+     * @since SuperGreenfoot 1.0
+     */
+    public double distanceTo(Actor other)
+    {
+        return Math.hypot(other.preciseX - preciseX, other.preciseY - preciseY);
+    }
+
+    /**
+     * Set the rotation of this actor's image independently of the direction the
+     * actor moves in, and lock it there. After calling this, {@link #setRotation(int)},
+     * {@link #turn(int)} and their precise variants still change the movement
+     * direction used by {@link #move(int)}, but the image stays at the given angle
+     * until {@link #setImageRotationLocked(boolean)} is called with {@code false}.
+     *
+     * <p>This is useful for characters that should stay upright while moving
+     * at an angle, or for a turret that aims independently of its vehicle.
+     *
+     * @param degrees The image rotation in degrees (any value; normalised to 0-359).
+     * @since SuperGreenfoot 1.0
+     */
+    public void setImageRotation(double degrees)
+    {
+        imageRotationLocked = true;
+        double precise = normalizeDegrees(degrees);
+        setImageRotationImpl(precise, roundDegrees(precise));
+    }
+
+    /**
+     * Return the rotation at which this actor's image is currently drawn, rounded to
+     * whole degrees. Unless the image rotation is locked this equals {@link #getRotation()}.
+     *
+     * @return The image rotation in degrees (0-359).
+     * @since SuperGreenfoot 1.0
+     */
+    public int getImageRotation()
+    {
+        return imageRotationInt;
+    }
+
+    /**
+     * Return the precise rotation at which this actor's image is currently drawn.
+     *
+     * @return The image rotation in degrees, 0 (inclusive) to 360 (exclusive).
+     * @since SuperGreenfoot 1.0
+     */
+    public double getPreciseImageRotation()
+    {
+        return imageRotation;
+    }
+
+    /**
+     * Lock or unlock the image rotation. While locked, the image keeps its own angle
+     * (initially the current rotation) regardless of changes to the actor's rotation.
+     * Unlocking makes the image follow the actor's rotation again immediately.
+     *
+     * @param locked true to lock the image rotation, false to unlock it.
+     * @see #setImageRotation(double)
+     * @since SuperGreenfoot 1.0
+     */
+    public void setImageRotationLocked(boolean locked)
+    {
+        imageRotationLocked = locked;
+        if (!locked) {
+            setImageRotationImpl(preciseRotation, rotation);
+        }
+    }
+
+    /**
+     * @return true if the image rotation is currently locked independently of the
+     *         actor's rotation.
+     * @since SuperGreenfoot 1.0
+     */
+    public boolean isImageRotationLocked()
+    {
+        return imageRotationLocked;
+    }
+
+    /**
+     * Set the paint depth of this actor. Actors with a higher z value are painted
+     * later, and therefore appear in front of actors with a lower z value. Actors
+     * with equal z keep the order in which they were added to the world.
+     *
+     * <p>Class paint order set with {@link World#setPaintOrder(Class...)} still takes
+     * precedence: z only orders actors within the same paint-order group, unless
+     * {@link World#setGlobalZOrder(boolean)} is enabled.
+     *
+     * <p>Changing z never removes the actor from the world or affects act order.
+     *
+     * @param z The new depth (default 0).
+     * @since SuperGreenfoot 1.0
+     */
+    public void setZ(double z)
+    {
+        this.z = z;
+        if (z != 0 && world != null) {
+            world.noteZUsed();
+        }
+    }
+
+    /**
+     * @return The paint depth of this actor (default 0).
+     * @see #setZ(double)
+     * @since SuperGreenfoot 1.0
+     */
+    public double getZ()
+    {
+        return z;
+    }
+
+    /**
+     * Round half away from zero, so that -2.5 becomes -3 and 2.5 becomes 3.
+     * This is the rounding used to derive the int cell coordinates from the
+     * precise coordinates (matching the SuperSmoothMover convention).
+     */
+    static int neutralRound(double value)
+    {
+        return (int) (value + 0.5 * Math.signum(value));
+    }
+
+    /** Normalise an angle into the range 0 (inclusive) to 360 (exclusive). */
+    static double normalizeDegrees(double degrees)
+    {
+        double d = degrees % 360;
+        if (d < 0) {
+            d += 360;
+        }
+        if (d >= 360) {
+            d -= 360;
+        }
+        return d;
+    }
+
+    /** Round a normalised angle to a whole degree in 0-359. */
+    static int roundDegrees(double normalised)
+    {
+        int r = (int) Math.round(normalised);
+        return r >= 360 ? r - 360 : r;
+    }
+
+    /**
+     * Store the rotation (precise and rounded) and, unless locked, propagate it to
+     * the image rotation.
+     */
+    private void setRotationImpl(double precise, int rounded)
+    {
+        this.preciseRotation = precise;
+        this.rotation = rounded;
+        if (!imageRotationLocked) {
+            setImageRotationImpl(precise, rounded);
+        }
+    }
+
+    /**
+     * Store the image rotation; invalidate bounds when the rounded value changes.
+     */
+    private void setImageRotationImpl(double precise, int rounded)
+    {
+        this.imageRotation = precise;
+        if (this.imageRotationInt != rounded) {
+            this.imageRotationInt = rounded;
+            // Recalculate the bounding rect.
+            boundingRect = null;
+            // since the rotation have changed, the size probably has too.
+            sizeChanged();
+        }
+    }
+
     /**
      * Set the rotation of this actor. Rotation is expressed as a degree
      * value, range (0..359). Zero degrees is to the east (right-hand side of the
@@ -232,13 +538,7 @@ public abstract class Actor
             }
         }
         
-        if (this.rotation != rotation) {
-            this.rotation = rotation;
-            // Recalculate the bounding rect.
-            boundingRect = null;
-            // since the rotation have changed, the size probably has too.
-            sizeChanged();
-        }
+        setRotationImpl(rotation, rotation);
     }
     
     /**
@@ -287,7 +587,43 @@ public abstract class Actor
     {
         setLocationDrag(x, y);
     }
-    
+
+    /**
+     * Assign a new precise location for this actor, in (fractional) cell units.
+     * The actor's cell coordinates ({@link #getX()}, {@link #getY()}) become the
+     * given values rounded to the nearest whole cell, while the precise values are
+     * kept and returned by {@link #getPreciseX()} and {@link #getPreciseY()}.
+     *
+     * <p>Note that this method does not call {@link #setLocation(int, int)}, and
+     * vice versa; a subclass that needs to intercept every movement must override
+     * both. Calling the int version snaps the precise location to whole cells.
+     *
+     * @param x Precise location on the x-axis
+     * @param y Precise location on the y-axis
+     * @see #move(double)
+     * @since SuperGreenfoot 1.0
+     */
+    public void setLocation(double x, double y)
+    {
+        setLocationImpl(x, y);
+    }
+
+    /**
+     * Move this actor a fractional distance in the direction it is currently facing,
+     * using the precise rotation. Fractional movement accumulates in the precise
+     * location, so an actor moving 0.3 cells per act really advances 3 cells every
+     * 10 acts.
+     *
+     * @param distance The distance to move (in cell-size units); negative moves backwards.
+     * @see #setLocation(double, double)
+     * @since SuperGreenfoot 1.0
+     */
+    public void move(double distance)
+    {
+        double radians = Math.toRadians(preciseRotation);
+        setLocation(preciseX + Math.cos(radians) * distance, preciseY + Math.sin(radians) * distance);
+    }
+
     /**
      * Move this actor the specified distance in the direction it is
      * currently facing.
@@ -360,21 +696,31 @@ public abstract class Actor
      */
     private void setLocationDrag(int x, int y)
     {
+        setLocationImpl(x, y);
+    }
+
+    /**
+     * The shared implementation of all location changes. Stores the precise location
+     * (clamped to the world if bounded), derives the rounded cell coordinates, and
+     * notifies the collision checker only when the cell coordinates changed.
+     */
+    private void setLocationImpl(double px, double py)
+    {
         // Note this should not call user code - because it is called off the
         // simulation thread. We must access world fields (width, height, cellSize) directly.
-        
+
         if (world != null) {
             int oldX = this.x;
             int oldY = this.y;
 
             if (world.isBounded()) {
-                this.x = limitValue(x, world.width);
-                this.y = limitValue(y, world.height);
+                px = limitValue(px, world.width);
+                py = limitValue(py, world.height);
             }
-            else {
-                this.x = x;
-                this.y = y;
-            }
+            this.preciseX = px;
+            this.preciseY = py;
+            this.x = neutralRound(px);
+            this.y = neutralRound(py);
 
             if (this.x != oldX || this.y != oldY) {
                 if (boundingRect != null) {
@@ -403,6 +749,21 @@ public abstract class Actor
             v = 0;
         }
         if (limit <= v) {
+            v = limit - 1;
+        }
+        return v;
+    }
+
+    /**
+     * Limits the precise value v to the range 0 to limit-1 inclusive, so that its
+     * rounded cell coordinate is always inside the world.
+     */
+    private static double limitValue(double v, int limit)
+    {
+        if (v < 0) {
+            v = 0;
+        }
+        if (v > limit - 1) {
             v = limit - 1;
         }
         return v;
@@ -560,9 +921,14 @@ public abstract class Actor
         
         this.x = x;
         this.y = y;
+        this.preciseX = x;
+        this.preciseY = y;
         boundingRect = null;
 
         this.setWorld(world, null);
+        if (z != 0) {
+            world.noteZUsed();
+        }
         
         // This call is not necessary, however setLocation may be overridden
         // so it must still be called. (Asteroids scenario relies on setLocation
@@ -606,12 +972,12 @@ public abstract class Actor
             return;
         }
         
-        if (rotation % 90 == 0) {
+        if (imageRotationInt % 90 == 0) {
             // Special fast calculation when rotated a multiple of 90
             int width = 0;
             int height = 0;
             
-            if(rotation % 180 == 0) {
+            if(imageRotationInt % 180 == 0) {
                 // Rotated by 180 multiple
                 width = image.getWidth();
                 height = image.getHeight();
@@ -773,7 +1139,7 @@ public abstract class Actor
         ys[2] = ys[1] + height - 1;
         ys[3] = ys[2];
         
-        double rotR = Math.toRadians(rotation);
+        double rotR = Math.toRadians(imageRotationInt);
         double sinR = Math.sin(rotR);
         double cosR = Math.cos(rotR);
         
@@ -864,7 +1230,7 @@ public abstract class Actor
         else {
             Rect thisBounds = getBoundingRect();
             Rect otherBounds = other.getBoundingRect();
-            if (rotation == 0 && other.rotation == 0) {
+            if (imageRotationInt == 0 && other.imageRotationInt == 0) {
                 return thisBounds.intersects(otherBounds);
             }
             else {
@@ -1051,7 +1417,7 @@ public abstract class Actor
             calcBounds(); // Make sure bounds are up-to-date
         }
         
-        if (rotation == 0 || rotation == 90 || rotation == 270) {
+        if (imageRotationInt == 0 || imageRotationInt == 90 || imageRotationInt == 270) {
             // We can just check the bounding rectangle
             return (px >= boundingRect.getX() && px < boundingRect.getRight()
                     && py >= boundingRect.getY() && py < boundingRect.getTop());

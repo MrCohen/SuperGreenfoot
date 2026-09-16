@@ -315,6 +315,7 @@ public class GreenfootImage
         }
         this.image = getBufferedImage(image);
         copyOnWrite = false;
+        modCount++;
     }
 
 
@@ -328,9 +329,10 @@ public class GreenfootImage
     public BufferedImage getAwtImage()
     {
         ensureWritableImage();
+        modCount++;
         return image;
     }
-    
+
     /**
      * Remember to call dispose() when no longer using the graphics object.
      */
@@ -339,9 +341,77 @@ public class GreenfootImage
         if (copyOnWrite) {
         ensureWritableImage();
         }
+        modCount++;
         Graphics2D graphics = image.createGraphics();
         initGraphics(graphics);
         return graphics;
+    }
+
+    // ==================================
+    //
+    // SuperGreenfoot: smooth (sub-pixel) drawing support
+    //
+    // ==================================
+
+    /**
+     * Incremented whenever the pixels may have been modified (a graphics context or
+     * the AWT image was handed out, or a pixel was set). Used to invalidate the
+     * padded copy below.
+     */
+    private int modCount = 0;
+
+    /** Cached copy of the image with a 1-pixel transparent margin, or null. */
+    private BufferedImage paddedImage;
+    /** The backing image the padded copy was made from. */
+    private BufferedImage paddedSource;
+    /** The modCount at which the padded copy was made. */
+    private int paddedModCount = -1;
+
+    /**
+     * Get a copy of this image with a one-pixel transparent margin on every side.
+     * Java2D only blends the edges of an image drawn at a fractional position or
+     * rotation if there are transparent pixels to blend with, so smooth rendering
+     * draws this padded copy instead of the image itself. The copy is cached and
+     * rebuilt when the image is modified.
+     */
+    BufferedImage getPaddedImage()
+    {
+        if (paddedImage == null || paddedSource != image || paddedModCount != modCount) {
+            BufferedImage padded = GraphicsUtilities.createCompatibleTranslucentImage(
+                    image.getWidth() + 2, image.getHeight() + 2);
+            Graphics2D g = padded.createGraphics();
+            g.drawImage(image, 1, 1, null);
+            g.dispose();
+            paddedImage = padded;
+            paddedSource = image;
+            paddedModCount = modCount;
+        }
+        return paddedImage;
+    }
+
+    /**
+     * Draw this image onto the given graphics context so that its top-left corner
+     * is at the (possibly fractional) position x, y, using whatever transform and
+     * interpolation the context already has. Edges are blended against the
+     * background.
+     */
+    void drawImageSmooth(Graphics2D g, double x, double y, boolean useTransparency)
+    {
+        Composite oldComposite = null;
+        if (useTransparency) {
+            float opacity = getTransparency() / 255f;
+            if (opacity < 1) {
+                if (opacity < 0) opacity = 0;
+                oldComposite = g.getComposite();
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+            }
+        }
+
+        g.drawImage(getPaddedImage(), java.awt.geom.AffineTransform.getTranslateInstance(x - 1, y - 1), null);
+
+        if (oldComposite != null) {
+            g.setComposite(oldComposite);
+        }
     }
 
     /**
@@ -627,6 +697,7 @@ public class GreenfootImage
         }
 
         ensureWritableImage();
+        modCount++;
         image.setRGB(x,y,rgb);
     }
  
@@ -695,12 +766,48 @@ public class GreenfootImage
         Graphics2D g = getGraphics();
         g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         int height = g.getFontMetrics(g.getFont()).getHeight();
-        
+
         String[] lines = GraphicsUtilities.splitLines(string);
         for (int i = 0; i < lines.length; i++) {
             g.drawString(lines[i], x, y + (i * height));
         }
-        
+
+        g.dispose();
+    }
+
+    /**
+     * Draw text centred on the given point, using the current font and colour.
+     * Each line is centred horizontally on <i>centerX</i> by its drawn (ink) width.
+     * Vertically, the block of text is placed so that the region from the top of
+     * capital letters to the baseline of the last line is centred on <i>centerY</i>;
+     * descenders (the tails of "g", "p", "y") hang below, which is how text looks
+     * visually centred in a box.
+     *
+     * <p>Use {@link Font#getStringWidth(String)} and {@link Font#getStringHeight(String)}
+     * if you need the measurements themselves, for example to size a box.
+     *
+     * @param string the text to draw; may contain newlines.
+     * @param centerX the <i>x</i> coordinate of the centre.
+     * @param centerY the <i>y</i> coordinate of the centre.
+     * @since SuperGreenfoot 1.0
+     */
+    public void drawCenteredString(String string, int centerX, int centerY)
+    {
+        greenfoot.Font font = getFont();
+        String[] lines = GraphicsUtilities.splitLines(string);
+        int lineHeight = font.getLineHeight();
+        int capAscent = font.getCapAscent();
+        int blockHeight = capAscent + (lines.length - 1) * lineHeight;
+        int firstBaseline = centerY - blockHeight / 2 + capAscent;
+
+        Graphics2D g = getGraphics();
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        for (int i = 0; i < lines.length; i++) {
+            int inkWidth = font.getStringWidth(lines[i]);
+            int inkLeft = font.getInkLeft(lines[i]);
+            int x = centerX - inkWidth / 2 - inkLeft;
+            g.drawString(lines[i], x, firstBaseline + i * lineHeight);
+        }
         g.dispose();
     }
 

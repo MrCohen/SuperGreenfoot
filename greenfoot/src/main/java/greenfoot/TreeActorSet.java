@@ -158,6 +158,17 @@ public class TreeActorSet extends AbstractSet<Actor>
         return new TasIterator();
     }
 
+    /**
+     * SuperGreenfoot: the ordered list of per-class subsets, in iteration order.
+     * Used by the world to apply z-ordering within each class group. The list
+     * must not be modified by the caller.
+     */
+    @OnThread(value = Tag.Simulation, ignoreParent = true)
+    List<ActorSet> getSubSets()
+    {
+        return subSets;
+    }
+
     @OnThread(value = Tag.Simulation, ignoreParent = true)
     @Override
     public int size()

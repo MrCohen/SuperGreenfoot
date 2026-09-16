@@ -33,6 +33,7 @@ import threadchecker.Tag;
 import java.awt.Graphics;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -95,6 +96,27 @@ public abstract class World
     
     /** Whether actors are bound to stay inside the world */
     private boolean isBounded;
+
+    // ---- SuperGreenfoot paint ordering and rendering options ----
+
+    /** Set once any actor in this world has a non-zero z; enables z sorting at paint time. */
+    private boolean zUsed = false;
+
+    /** When true, actors are painted in order of their precise y (then z, then insertion). */
+    private boolean zSortByY = false;
+
+    /** When true, z (and y-sorting) apply across all classes, ignoring class paint order. */
+    private boolean globalZOrder = false;
+
+    /** When true, actors are drawn at their precise positions and rotations with interpolation. */
+    private boolean smoothRendering = false;
+
+    /** Comparator for z-only ordering (stable sort preserves insertion order for ties). */
+    private static final Comparator<Actor> BY_Z = Comparator.comparingDouble(a -> a.z);
+
+    /** Comparator for y-then-z ordering. */
+    private static final Comparator<Actor> BY_Y_THEN_Z =
+            Comparator.<Actor>comparingDouble(a -> a.preciseY).thenComparingDouble(a -> a.z);
 
     /**
      * Construct a new world. The size of the world (in number of cells) and the
@@ -823,6 +845,137 @@ public abstract class World
         else {
             return objectsDisordered;
         }
+    }
+
+    // ==================================
+    //
+    // SuperGreenfoot: depth ordering and rendering options
+    //
+    // ==================================
+
+    /**
+     * Paint actors in order of their vertical position: actors lower on the screen
+     * (larger y) are painted later and so appear in front of actors higher up. This
+     * gives a simple depth illusion for top-down and isometric games. Actors with the
+     * same y are then ordered by {@link Actor#setZ(double) z}, then by insertion order.
+     *
+     * <p>Class paint order set with {@link #setPaintOrder(Class...)} still takes
+     * precedence unless {@link #setGlobalZOrder(boolean)} is enabled.
+     *
+     * @param sortByY true to enable y-sorting, false to disable it.
+     * @since SuperGreenfoot 1.0
+     */
+    public void setZSortByY(boolean sortByY)
+    {
+        this.zSortByY = sortByY;
+    }
+
+    /**
+     * @return true if actors are painted in order of their y position.
+     * @see #setZSortByY(boolean)
+     * @since SuperGreenfoot 1.0
+     */
+    public boolean isZSortByY()
+    {
+        return zSortByY;
+    }
+
+    /**
+     * Make z (and y-sorting, if enabled) apply across all actors regardless of class,
+     * instead of only within each group defined by {@link #setPaintOrder(Class...)}.
+     * With global z order, class paint order is ignored entirely.
+     *
+     * @param global true for a single global depth order, false (the default) to
+     *               keep class paint order as the primary key.
+     * @since SuperGreenfoot 1.0
+     */
+    public void setGlobalZOrder(boolean global)
+    {
+        this.globalZOrder = global;
+    }
+
+    /**
+     * @return true if z ordering ignores class paint order.
+     * @see #setGlobalZOrder(boolean)
+     * @since SuperGreenfoot 1.0
+     */
+    public boolean isGlobalZOrder()
+    {
+        return globalZOrder;
+    }
+
+    /**
+     * Enable or disable smooth rendering. When enabled, actors are drawn at their
+     * precise (fractional) positions and rotations with bilinear interpolation, so
+     * slow movement and gradual turning look smooth instead of stepping one pixel or
+     * one degree at a time. When disabled (the default), actors are drawn exactly as
+     * in Greenfoot: at whole cell positions and whole-degree rotations.
+     *
+     * <p>Collision detection always uses the whole-cell position and whole-degree
+     * image rotation, whichever mode is active.
+     *
+     * @param smooth true to enable smooth rendering.
+     * @since SuperGreenfoot 1.0
+     */
+    public void setSmoothRendering(boolean smooth)
+    {
+        this.smoothRendering = smooth;
+    }
+
+    /**
+     * @return true if smooth rendering is enabled.
+     * @see #setSmoothRendering(boolean)
+     * @since SuperGreenfoot 1.0
+     */
+    public boolean isSmoothRendering()
+    {
+        return smoothRendering;
+    }
+
+    /** Called by actors when a non-zero z is set or an actor with non-zero z is added. */
+    void noteZUsed()
+    {
+        zUsed = true;
+    }
+
+    /**
+     * Whether the paint order needs sorting beyond the class-group iteration order.
+     */
+    boolean isPaintSortNeeded()
+    {
+        return zUsed || zSortByY || globalZOrder;
+    }
+
+    /**
+     * Get the actors in their final paint order: class paint order first (unless
+     * global z order is on), then y if y-sorting is on, then z, then insertion order.
+     * When no depth ordering is in use this returns the live class-ordered set
+     * without copying; otherwise it returns a freshly sorted snapshot.
+     * The world lock must be held while iterating.
+     */
+    @OnThread(value = Tag.Simulation, ignoreParent = true)
+    Iterable<Actor> getObjectsInFinalPaintOrder()
+    {
+        TreeActorSet set = getObjectsListInPaintOrder();
+        if (!isPaintSortNeeded()) {
+            return set;
+        }
+        Comparator<Actor> cmp = zSortByY ? BY_Y_THEN_Z : BY_Z;
+        ArrayList<Actor> list = new ArrayList<Actor>(set.size());
+        if (globalZOrder) {
+            list.addAll(set);
+            list.sort(cmp);
+        }
+        else {
+            for (ActorSet sub : set.getSubSets()) {
+                int start = list.size();
+                list.addAll(sub);
+                if (list.size() - start > 1) {
+                    list.subList(start, list.size()).sort(cmp);
+                }
+            }
+        }
+        return list;
     }
 
     /**

@@ -41,3 +41,14 @@ Tracked here so upstream merges stay reviewable.
 | File | Change | Phase |
 |---|---|---|
 | `.github/workflows/build-installers.yml` | Trigger changed to `workflow_dispatch` only, so pushes to the fork do not launch three-OS installer builds. | 0 |
+| `bluej/src/main/java/bluej/Config.java` | Preferences directory name `greenfoot` -> `supergreenfoot` (`getBlueJPrefDirName`). | 1 |
+| `greenfoot/src/main/java/greenfoot/Actor.java` | Precise `preciseX/Y/Rotation`, image-rotation lock, `z`; int API unchanged and routed through the shared `setLocationImpl`/`setRotationImpl`. Bounds and collision fast paths use `imageRotationInt`. | 1 |
+| `greenfoot/src/main/java/greenfoot/ActorVisitor.java` | Accessors for precise fields, image rotation and z. | 1 |
+| `greenfoot/src/main/java/greenfoot/World.java` | z/y-sort/global-z/smooth-rendering flags and `getObjectsInFinalPaintOrder()`. | 1 |
+| `greenfoot/src/main/java/greenfoot/WorldVisitor.java` | `getObjectsInFinalPaintOrder`, `isSmoothRendering`. | 1 |
+| `greenfoot/src/main/java/greenfoot/TreeActorSet.java` | Package accessor `getSubSets()`. | 1 |
+| `greenfoot/src/main/java/greenfoot/gui/WorldRenderer.java` | Iterates final paint order; smooth path draws at precise position/rotation. | 1 |
+| `greenfoot/src/main/java/greenfoot/GreenfootImage.java` | `drawCenteredString`; padded-image cache and `drawImageSmooth` for sub-pixel drawing; `modCount` invalidation. | 1 |
+| `greenfoot/src/main/java/greenfoot/ImageVisitor.java` | `drawImageSmooth`. | 1 |
+| `greenfoot/src/main/java/greenfoot/Font.java` | `getStringWidth/Height`, `getAscent/Descent/LineHeight`, package helpers for centring. | 1 |
+| `greenfoot/src/test/java/greenfoot/{PrecisionTest,ZOrderTest,SmoothRenderTest,FontMetricsTest}.java` | New tests (28). | 1 |

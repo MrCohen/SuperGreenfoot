@@ -1,0 +1,10 @@
+#Greenfoot project file
+class.DemoWorld.superclass=greenfoot.World
+class.Label.superclass=greenfoot.Actor
+class.Orbiter.superclass=greenfoot.Actor
+class.Shadow.superclass=greenfoot.Actor
+class.Walker.superclass=greenfoot.Actor
+project.charset=UTF-8
+publish.hasSource=true
+version=3.1.0
+world.lastInstantiated=DemoWorld

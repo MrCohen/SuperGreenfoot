@@ -112,7 +112,23 @@ public class WorldVisitor
      */
     public static TreeActorSet getObjectsListInPaintOrder(World world)
     {
-        return world.getObjectsListInPaintOrder(); 
+        return world.getObjectsListInPaintOrder();
+    }
+
+    /**
+     * SuperGreenfoot: the actors in their final paint order, including z and
+     * y-sorting. The world lock should be held while iterating.
+     */
+    @OnThread(value = Tag.Simulation, ignoreParent = true)
+    public static Iterable<Actor> getObjectsInFinalPaintOrder(World world)
+    {
+        return world.getObjectsInFinalPaintOrder();
+    }
+
+    /** SuperGreenfoot: whether the world asked for smooth (sub-pixel) rendering. */
+    public static boolean isSmoothRendering(World world)
+    {
+        return world.isSmoothRendering();
     }
     
     /**

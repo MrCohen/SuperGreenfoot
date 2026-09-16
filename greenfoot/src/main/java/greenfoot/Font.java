@@ -157,6 +157,148 @@ public class Font
         return new Font(font.deriveFont(size));
     }
 
+    // ==================================
+    //
+    // SuperGreenfoot: text measurement
+    //
+    // ==================================
+
+    /**
+     * Shared graphics context used only for measuring text. Its rendering hints match
+     * those used by GreenfootImage.drawString so that measurements agree with drawing.
+     */
+    private static java.awt.Graphics2D measureGraphics;
+
+    private static synchronized java.awt.Graphics2D getMeasureGraphics()
+    {
+        if (measureGraphics == null) {
+            java.awt.image.BufferedImage scratch =
+                    new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            measureGraphics = scratch.createGraphics();
+            measureGraphics.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        }
+        return measureGraphics;
+    }
+
+    /**
+     * Visual (ink) bounds of one line of text, relative to the baseline origin.
+     */
+    private java.awt.geom.Rectangle2D inkBounds(String line)
+    {
+        if (line.isEmpty()) {
+            return new java.awt.geom.Rectangle2D.Double();
+        }
+        java.awt.Graphics2D g = getMeasureGraphics();
+        synchronized (Font.class) {
+            return font.createGlyphVector(g.getFontRenderContext(), line).getVisualBounds();
+        }
+    }
+
+    /**
+     * Return the width in pixels of the ink of the given text when drawn in this font:
+     * the distance from the leftmost drawn pixel to the rightmost. For text containing
+     * newlines, the widest line is returned. Use this to centre or right-align text
+     * before calling {@link GreenfootImage#drawString(String, int, int)}.
+     *
+     * @param text The text to measure.
+     * @return The width of the drawn text in pixels (0 for empty text).
+     * @since SuperGreenfoot 1.0
+     */
+    public int getStringWidth(String text)
+    {
+        double max = 0;
+        for (String line : text.split("\n", -1)) {
+            max = Math.max(max, inkBounds(line).getWidth());
+        }
+        return (int) Math.ceil(max);
+    }
+
+    /**
+     * Return the height in pixels of the ink of the given text when drawn in this font:
+     * the distance from the topmost drawn pixel to the bottommost, including descenders
+     * such as the tail of a "g". Text containing newlines is measured as drawn by
+     * {@link GreenfootImage#drawString(String, int, int)}, one line height apart.
+     *
+     * @param text The text to measure.
+     * @return The height of the drawn text in pixels (0 for empty text).
+     * @since SuperGreenfoot 1.0
+     */
+    public int getStringHeight(String text)
+    {
+        String[] lines = text.split("\n", -1);
+        int lineHeight = getLineHeight();
+        double top = Double.POSITIVE_INFINITY;
+        double bottom = Double.NEGATIVE_INFINITY;
+        for (int i = 0; i < lines.length; i++) {
+            java.awt.geom.Rectangle2D r = inkBounds(lines[i]);
+            if (r.getWidth() == 0 && r.getHeight() == 0) {
+                continue;
+            }
+            top = Math.min(top, r.getMinY() + i * lineHeight);
+            bottom = Math.max(bottom, r.getMaxY() + i * lineHeight);
+        }
+        if (top > bottom) {
+            return 0;
+        }
+        return (int) Math.ceil(bottom - top);
+    }
+
+    /**
+     * Return the ascent of this font: the distance in pixels from the baseline up to
+     * the top of the tallest characters (such as capital letters and "l").
+     *
+     * @return The ascent in pixels.
+     * @since SuperGreenfoot 1.0
+     */
+    public int getAscent()
+    {
+        return getMeasureGraphics().getFontMetrics(font).getAscent();
+    }
+
+    /**
+     * Return the descent of this font: the distance in pixels from the baseline down
+     * to the bottom of characters with descenders (such as "g", "p" and "y").
+     *
+     * @return The descent in pixels.
+     * @since SuperGreenfoot 1.0
+     */
+    public int getDescent()
+    {
+        return getMeasureGraphics().getFontMetrics(font).getDescent();
+    }
+
+    /**
+     * Return the line height of this font: the vertical distance in pixels between the
+     * baselines of two consecutive lines drawn with
+     * {@link GreenfootImage#drawString(String, int, int)}.
+     *
+     * @return The line height in pixels.
+     * @since SuperGreenfoot 1.0
+     */
+    public int getLineHeight()
+    {
+        return getMeasureGraphics().getFontMetrics(font).getHeight();
+    }
+
+    /**
+     * Height in pixels of capital letters and ascenders above the baseline, measured
+     * from ink. Used for visually centring text.
+     */
+    int getCapAscent()
+    {
+        return (int) Math.ceil(-inkBounds("ABCTXbdfhkl").getMinY());
+    }
+
+    /**
+     * Left offset of the ink of the given line relative to the drawing origin (can be
+     * non-zero for italic or overhanging glyphs). Package-private, used for centring.
+     */
+    int getInkLeft(String line)
+    {
+        return (int) Math.floor(inkBounds(line).getMinX());
+    }
+
     /**
      * * Determines whether another object is equal to this font.
      *

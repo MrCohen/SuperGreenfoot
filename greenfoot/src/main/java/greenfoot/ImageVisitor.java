@@ -40,6 +40,15 @@ public class ImageVisitor
     {
         image.drawImage(g, x, y, observer, useTranparency);
     }
+
+    /**
+     * SuperGreenfoot: draw the image with its top-left corner at a fractional
+     * position, with edge blending (see GreenfootImage.drawImageSmooth).
+     */
+    public static void drawImageSmooth(GreenfootImage image, Graphics2D g, double x, double y, boolean useTransparency)
+    {
+        image.drawImageSmooth(g, x, y, useTransparency);
+    }
     
     public static boolean equal(GreenfootImage image1, GreenfootImage image2)
     {

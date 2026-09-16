@@ -64,6 +64,36 @@ public class ActorVisitor
     {
         return actor.rotation;
     }
+
+    /** SuperGreenfoot: precise x in cell units (no in-world check). */
+    public static double getPreciseX(Actor actor)
+    {
+        return actor.preciseX;
+    }
+
+    /** SuperGreenfoot: precise y in cell units (no in-world check). */
+    public static double getPreciseY(Actor actor)
+    {
+        return actor.preciseY;
+    }
+
+    /** SuperGreenfoot: rounded rotation at which the image is drawn. */
+    public static int getImageRotation(Actor actor)
+    {
+        return actor.imageRotationInt;
+    }
+
+    /** SuperGreenfoot: precise rotation at which the image is drawn. */
+    public static double getPreciseImageRotation(Actor actor)
+    {
+        return actor.imageRotation;
+    }
+
+    /** SuperGreenfoot: paint depth. */
+    public static double getZ(Actor actor)
+    {
+        return actor.z;
+    }
     
     /**
      * Get the world that an actor resides in (null if none).

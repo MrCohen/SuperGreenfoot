@@ -99,11 +99,19 @@ public class WorldRenderer
         if (drawWorld == null)
             return;
 
-        Set<Actor> objects = WorldVisitor.getObjectsListInPaintOrder(drawWorld);
+        // SuperGreenfoot: final paint order includes z / y-sorting; smooth mode
+        // draws at precise positions and rotations.
+        Iterable<Actor> objects = WorldVisitor.getObjectsInFinalPaintOrder(drawWorld);
+        boolean smooth = WorldVisitor.isSmoothRendering(drawWorld);
+        int cellSize = WorldVisitor.getCellSize(drawWorld);
+        Object oldInterpolation = null;
+        if (smooth) {
+            oldInterpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        }
         int paintSeq = 0;
         for (Iterator<Actor> iter = objects.iterator(); iter.hasNext();) {
             Actor thing = iter.next();
-            int cellSize = WorldVisitor.getCellSize(drawWorld);
 
             GreenfootImage image = ActorVisitor.getDisplayImage(thing);
             if (image != null) {
@@ -114,22 +122,42 @@ public class WorldRenderer
 
                 AffineTransform oldTx = null;
                 try {
-                    int ax = ActorVisitor.getX(thing);
-                    int ay = ActorVisitor.getY(thing);
-                    double xCenter = ax * cellSize + cellSize / 2.;
-                    int paintX = (int) Math.floor(xCenter - halfWidth);
-                    double yCenter = ay * cellSize + cellSize / 2.;
-                    int paintY = (int) Math.floor(yCenter - halfHeight);
-
-                    int rotation = ActorVisitor.getRotation(thing);
-                    if (rotation != 0) {
-                        // don't bother transforming if it is not rotated at
-                        // all.
-                        oldTx = g.getTransform();
-                        g.rotate(Math.toRadians(rotation), xCenter, yCenter);
+                    if (smooth) {
+                        double px = ActorVisitor.getPreciseX(thing);
+                        double py = ActorVisitor.getPreciseY(thing);
+                        double xCenter = px * cellSize + cellSize / 2.;
+                        double yCenter = py * cellSize + cellSize / 2.;
+                        // Same placement convention as the non-smooth path (which floors
+                        // cellCentre - halfSize for whole-cell positions), shifted
+                        // continuously by the fractional part of the position. At whole
+                        // cell positions this is pixel-identical to the non-smooth path.
+                        double paintX = px * cellSize + Math.floor(cellSize / 2. - halfWidth);
+                        double paintY = py * cellSize + Math.floor(cellSize / 2. - halfHeight);
+                        double rotation = ActorVisitor.getPreciseImageRotation(thing);
+                        if (rotation != 0) {
+                            oldTx = g.getTransform();
+                            g.rotate(Math.toRadians(rotation), xCenter, yCenter);
+                        }
+                        ImageVisitor.drawImageSmooth(image, g, paintX, paintY, true);
                     }
+                    else {
+                        int ax = ActorVisitor.getX(thing);
+                        int ay = ActorVisitor.getY(thing);
+                        double xCenter = ax * cellSize + cellSize / 2.;
+                        int paintX = (int) Math.floor(xCenter - halfWidth);
+                        double yCenter = ay * cellSize + cellSize / 2.;
+                        int paintY = (int) Math.floor(yCenter - halfHeight);
 
-                    ImageVisitor.drawImage(image, g, paintX, paintY, null, true);
+                        int rotation = ActorVisitor.getImageRotation(thing);
+                        if (rotation != 0) {
+                            // don't bother transforming if it is not rotated at
+                            // all.
+                            oldTx = g.getTransform();
+                            g.rotate(Math.toRadians(rotation), xCenter, yCenter);
+                        }
+
+                        ImageVisitor.drawImage(image, g, paintX, paintY, null, true);
+                    }
                 }
                 catch (IllegalStateException e) {
                     // We get this if the object has been removed from the
@@ -143,6 +171,10 @@ public class WorldRenderer
                     g.setTransform(oldTx);
                 }
             }
+        }
+        if (smooth) {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                    oldInterpolation != null ? oldInterpolation : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         }
     }
 
