@@ -76,6 +76,16 @@ public class NativePackagerTest extends TestCase
         }
     }
 
+    public void testRuntimeImageReplacesModuleLinking()
+    {
+        NativePackager.Options o = options();
+        o.runtimeImage = new File(System.getProperty("java.home"));   // exists
+        List<String> cmd = NativePackager.buildJpackageCommand(new File("/jdk/bin/jpackage"), o, new File("/tmp/in"));
+        assertTrue(cmd.contains("--runtime-image"));
+        assertFalse(cmd.contains("--add-modules"));
+        assertFalse(cmd.contains("--module-path"));
+    }
+
     public void testMissingJarIsReportedNotThrown()
     {
         NativePackager.Options o = options();

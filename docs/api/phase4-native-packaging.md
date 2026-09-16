@@ -43,10 +43,12 @@ java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
    the API docs, `greenfoot/common`, licenses and README, exactly like upstream's
    `Contents/Java`.
 2. `jlink`s a runtime with **all** JDK modules (so javac, JDI and everything the
-   IDE touches is present) and copies the JDK's `jmods` into the app folder,
-   because jpackage strips `jmods` from runtime images. The installed IDE passes
-   `Contents/app/jmods` as `--module-path` when it exports a native game
-   (`NativePackager.findModulePath`).
+   IDE touches is present). No `jmods` are shipped: the native libraries inside
+   `.jmod` archives are unsigned and Apple's notary rejected the first attempt
+   with 175 findings, all inside jmods. Instead the installed IDE exports native
+   games with `jpackage --runtime-image <its own runtime>`
+   (`NativePackager.findRuntimeImage`), which needs no jlink and yields a game of
+   about 90 MB (versus 79 MB from a fresh jlink when running from a full JDK).
 3. `jpackage --type app-image` with `bluej.Boot` as main class, `-greenfoot=true`,
    file associations for `.greenfoot` and `.gfar`, Greenfoot's icon, and, when
    signing, the hardened-runtime entitlements Java needs (JIT, unsigned memory,
@@ -55,9 +57,10 @@ java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
 4. `hdiutil` builds the DMG with an Applications link; the DMG is signed,
    notarized (`notarytool --wait`) and stapled.
 
-Sizes: 237 MB app, 216 MB DMG (about 145 MB without jmods). Build time about
-20 s unsigned. Verified: the packaged IDE launches and opens scenarios, and its
-own runtime builds a native game from the shipped jmods.
+Sizes: about 160 MB app, 145 MB DMG. Build time about 20 s unsigned; a few
+minutes signed (each library gets a timestamped signature) plus notarization.
+Verified: the packaged IDE launches and opens scenarios, and its own runtime
+builds a native game via `--runtime-image`.
 
 ## Requirement for the fork's own installer (background)
 

@@ -381,6 +381,7 @@ public class Exporter implements PublishListener
                 o.kind = NativePackager.Kind.APP_IMAGE;
             }
             o.modulePath = NativePackager.findModulePath(Config.getBlueJLibDir());
+            o.runtimeImage = NativePackager.findRuntimeImage();
             o.macSigningName = scenarioInfo.getMacSigningName();
             o.notarizeProfile = scenarioInfo.getNotarizeProfile();
             NativePackager.Result r = NativePackager.run(o, new NativePackager.Listener() {

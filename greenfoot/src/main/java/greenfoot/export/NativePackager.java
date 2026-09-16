@@ -82,6 +82,8 @@ public final class NativePackager
         public String notarizeProfile;
         /** Directory of jmods to link the game runtime from; null uses the JDK's own. */
         public File modulePath;
+        /** An existing runtime image to copy into the game instead of linking one (installed IDE). */
+        public File runtimeImage;
         /** Extra JVM options for the packaged app. */
         public List<String> javaOptions = new ArrayList<String>(Arrays.asList("-Xmx1g"));
     }
@@ -135,6 +137,24 @@ public final class NativePackager
             }
         }
         return null;
+    }
+
+    /**
+     * The runtime image to copy into exported games when this JVM cannot link
+     * one (no jmods, as in the installed SuperGreenfoot IDE): its own java.home.
+     * Null when jmods are available, so jlink builds a smaller runtime instead.
+     */
+    public static File findRuntimeImage()
+    {
+        String home = System.getProperty("java.home");
+        if (home == null) {
+            return null;
+        }
+        File jmods = new File(home, "jmods");
+        if (jmods.isDirectory()) {
+            return null;
+        }
+        return new File(home);
     }
 
     /** Path of the jpackage tool in the running JDK, or null if this JDK does not have it. */
@@ -236,11 +256,18 @@ public final class NativePackager
         }
         cmd.add("--dest");
         cmd.add(o.destDir.getAbsolutePath());
-        cmd.add("--add-modules");
-        cmd.add(MODULES);
-        if (o.modulePath != null && o.modulePath.isDirectory()) {
-            cmd.add("--module-path");
-            cmd.add(o.modulePath.getAbsolutePath());
+        if (o.runtimeImage != null && o.runtimeImage.isDirectory()) {
+            // Reuse a ready-made (signed) runtime: no jlink, no jmods needed.
+            cmd.add("--runtime-image");
+            cmd.add(o.runtimeImage.getAbsolutePath());
+        }
+        else {
+            cmd.add("--add-modules");
+            cmd.add(MODULES);
+            if (o.modulePath != null && o.modulePath.isDirectory()) {
+                cmd.add("--module-path");
+                cmd.add(o.modulePath.getAbsolutePath());
+            }
         }
         for (String opt : o.javaOptions) {
             cmd.add("--java-options");

@@ -73,10 +73,9 @@ else
   "$JAVA_HOME/bin/jlink" --module-path "$JAVA_HOME/jmods" --add-modules ALL-MODULE-PATH --output "$RUNTIME" \
       --strip-debug --no-header-files --no-man-pages --compress zip-6
 fi
-# jpackage inside the installed IDE needs jmods to build game runtimes. jpackage
-# strips jmods from runtime images, so they travel in the app folder instead
-# (Contents/app/jmods); the IDE passes that path as --module-path when exporting.
-cp -R "$JAVA_HOME/jmods" "$OUT/input/jmods"
+# No jmods are shipped: the native libraries inside .jmod archives are unsigned
+# and Apple's notary rejects them. The installed IDE builds game runtimes by
+# copying its own (signed) runtime image instead (NativePackager.findRuntimeImage).
 du -sh "$RUNTIME" | sed 's/^/  runtime size: /'
 
 # ---- 3. jpackage ----
