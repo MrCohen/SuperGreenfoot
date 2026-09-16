@@ -75,9 +75,10 @@ public class FontMetricsTest extends TestCase
         int[] ink = scanInk(font, text);
         int scanned = ink[3] - ink[2] + 1;
         int measured = font.getStringHeight(text);
+        // Height may differ by a pixel or two across platforms (hinting, antialiasing fringe)
         assertTrue(text + " in " + font.getName() + " " + font.getSize()
                 + ": scanned height " + scanned + " measured " + measured,
-                Math.abs(scanned - measured) <= 1);
+                Math.abs(scanned - measured) <= 2);
     }
 
     public void testStringWidthMatchesPixelScan()

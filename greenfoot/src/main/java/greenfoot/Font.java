@@ -191,7 +191,11 @@ public class Font
         }
         java.awt.Graphics2D g = getMeasureGraphics();
         synchronized (Font.class) {
-            return font.createGlyphVector(g.getFontRenderContext(), line).getVisualBounds();
+            // Pixel bounds follow the rasteriser (hinting included), so they match a
+            // scan of the drawn text far better than the outline-based visual bounds.
+            java.awt.Rectangle r = font.createGlyphVector(g.getFontRenderContext(), line)
+                    .getPixelBounds(g.getFontRenderContext(), 0, 0);
+            return new java.awt.geom.Rectangle2D.Double(r.x, r.y, r.width, r.height);
         }
     }
 
