@@ -58,6 +58,9 @@ public class GreenfootUtil
     public static final int Y_AXIS = 1;
     
     private static GreenfootUtilDelegate delegate;
+
+    /** SuperGreenfoot: presentation hooks (full screen, controls); NONE inside the IDE. */
+    private static greenfoot.platforms.DisplayDelegate displayDelegate = greenfoot.platforms.DisplayDelegate.NONE;
     private static ImageCache imageCache;
 
     private static boolean haveCheckedForMp3 = false;
@@ -68,6 +71,26 @@ public class GreenfootUtil
     {
         delegate = newDelegate;
         imageCache = ImageCache.getInstance();
+    }
+
+    /** SuperGreenfoot: install the presentation hooks (standalone player). */
+    @OnThread(Tag.Any)
+    public static void setDisplayDelegate(greenfoot.platforms.DisplayDelegate d)
+    {
+        displayDelegate = d == null ? greenfoot.platforms.DisplayDelegate.NONE : d;
+    }
+
+    @OnThread(Tag.Any)
+    public static greenfoot.platforms.DisplayDelegate getDisplayDelegate()
+    {
+        return displayDelegate;
+    }
+
+    /** SuperGreenfoot: where Save keeps its files, or null if unavailable. */
+    @OnThread(Tag.Any)
+    public static File getSaveDirectory()
+    {
+        return delegate == null ? null : delegate.getSaveDirectory();
     }
     
     /**

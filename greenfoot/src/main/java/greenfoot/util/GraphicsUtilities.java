@@ -89,6 +89,15 @@ public class GraphicsUtilities {
     }
 
     /**
+     * SuperGreenfoot: true when there is no screen (java.awt.headless, CI, the
+     * player's --headless mode). Compatible images then fall back to plain
+     * BufferedImages, which behave identically for rendering to memory.
+     */
+    private static boolean isHeadless() {
+        return GraphicsEnvironment.isHeadless();
+    }
+
+    /**
      * <p>Returns a new <code>BufferedImage</code> using the same color model
      * as the image passed as a parameter. The returned image is only compatible
      * with the image passed as a parameter. This does not mean the returned
@@ -164,6 +173,9 @@ public class GraphicsUtilities {
      *   specified width and height
      */
     public static BufferedImage createCompatibleImage(int width, int height) {
+        if (isHeadless()) {
+            return new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        }
         return getGraphicsConfiguration().createCompatibleImage(width, height);
     }
 
@@ -183,6 +195,9 @@ public class GraphicsUtilities {
      */
     public static BufferedImage createCompatibleTranslucentImage(int width,
                                                                  int height) {
+        if (isHeadless()) {
+            return new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        }
         return getGraphicsConfiguration().createCompatibleImage(width, height,
                                                    Transparency.TRANSLUCENT);
     }
@@ -296,6 +311,16 @@ public class GraphicsUtilities {
      */
     public static BufferedImage toCompatibleTranslucentImage(BufferedImage image)
     {
+        if (isHeadless()) {
+            if (image.getType() == BufferedImage.TYPE_INT_ARGB) {
+                return image;
+            }
+            BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+            Graphics g = copy.getGraphics();
+            g.drawImage(image, 0, 0, null);
+            g.dispose();
+            return copy;
+        }
         if (image.getColorModel().equals(getGraphicsConfiguration().getColorModel())
                 && image.getColorModel().hasAlpha()) {
             return image;

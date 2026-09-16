@@ -375,3 +375,5 @@ fullscreen.lockControls=Lock Controls
 fullscreen.pixelPerfect=Pixel-perfect
 fullscreen.hint=Esc shows or hides these controls. Drag this bar to move it.
 fullscreen.lockedHint=Hold Esc for 2 seconds to show controls
+export.app.runHint=Double-click the jar, or run "java -jar <name>.jar". Needs Java 21 or later; no Greenfoot or JavaFX installation required. Saves and high scores are kept in the player's application data folder.
+export.app.title=Application

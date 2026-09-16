@@ -23,6 +23,7 @@ package greenfoot.export;
 
 import bluej.Boot;
 import bluej.Config;
+import bluej.utility.Debug;
 import bluej.pkgmgr.Project;
 
 import greenfoot.event.PublishEvent;
@@ -63,7 +64,7 @@ public class Exporter implements PublishListener
      */
     public enum ExportFunction
     {
-        PUBLISH, PROJECT;
+        PUBLISH, PROJECT, APP;
 
         /**
          * Returns the export function which corresponds to the passed name.
@@ -158,6 +159,13 @@ public class Exporter implements PublishListener
         if (function.equals(ExportFunction.PROJECT))
         {
             makeProject();
+        }
+        else if (function.equals(ExportFunction.APP))
+
+        {
+
+            makeApplication();
+
         }
     }
     
@@ -316,6 +324,49 @@ public class Exporter implements PublishListener
     /**
      * Create an standalone project (gfar-file)
      */
+    @OnThread(Tag.Worker)
+    /**
+     * SuperGreenfoot: create a standalone application jar. The jar contains the
+     * scenario's classes and resources, the SuperGreenfoot runtime (engine +
+     * Swing player + BlueJ support classes + MP3 decoder) and standalone.properties;
+     * it runs with "java -jar" on any JDK 21 or later and needs no JavaFX.
+     */
+    private void makeApplication()
+    {
+        dialog.setProgress(true, Config.getString("export.progress.writingJar"));
+        File exportFile = new File(scenarioInfo.getExportFileName());
+        File exportDir = exportFile.getParentFile();
+        String jarName = exportFile.getName();
+
+        JarCreator jarCreator = new JarCreator(project, exportDir, jarName, worldName, scenarioInfo.isLocked());
+        jarCreator.includeSource(false);
+        jarCreator.putManifestEntry("SuperGreenfoot-Export", "application");
+        if (scenarioInfo.isHideControls())
+        {
+            jarCreator.setProperty("scenario.hideControls", "true");
+        }
+
+        // The runtime jar lives next to greenfoot.jar in the lib directory
+        File runtime = new File(Config.getGreenfootLibDir(), "supergreenfoot-runtime.jar");
+        if (runtime.exists())
+        {
+            jarCreator.addJarToJar(runtime);
+        }
+        else
+        {
+            Debug.reportError("supergreenfoot-runtime.jar not found in " + Config.getGreenfootLibDir());
+        }
+
+        File[] jarFiles = getJarsInPlusLib(project);
+        if (jarFiles != null) {
+            for (File file : jarFiles) {
+                jarCreator.addJarToJar(file);
+            }
+        }
+        jarCreator.create();
+        dialog.setProgress(false, Config.getString("export.progress.complete"));
+    }
+
     @OnThread(Tag.Worker)
     private void makeProject()
     {

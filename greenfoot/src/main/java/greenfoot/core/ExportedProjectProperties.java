@@ -53,6 +53,16 @@ public class ExportedProjectProperties implements ReadOnlyProjectProperties
     }
 
     /**
+     * SuperGreenfoot: create from already-loaded properties (the standalone
+     * player reads project.greenfoot from the scenario's own class loader).
+     */
+    public ExportedProjectProperties(Properties props)
+    {
+        properties = new Properties();
+        properties.putAll(props);
+    }
+
+    /**
      * Tries to load the project-file with the default class loader.
      */
     private void load()

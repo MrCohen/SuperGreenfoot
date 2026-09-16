@@ -55,6 +55,18 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class VMCommsSimulation
 {
+    /** Convert a JavaFX MouseButton ordinal (NONE, PRIMARY, MIDDLE, SECONDARY, ...) to 1/2/3, 0 for none. */
+    private static int fxButtonToGreenfoot(int ordinal)
+    {
+        switch (MouseButton.values()[ordinal])
+        {
+            case PRIMARY: return 1;
+            case MIDDLE: return 2;
+            case SECONDARY: return 3;
+            default: return 0;
+        }
+    }
+
     private final WorldRenderer worldRenderer;    
 
     /** Available old world images for painting onto: */
@@ -472,16 +484,17 @@ public class VMCommsSimulation
                 KeyboardManager keyboardManager = WorldHandler.getInstance().getKeyboardManager();
                 KeyCode keyCode = KeyCode.values()[data[1]];
                 String keyText = new String(data, 2, data.length - 2);
+                String keyName = FXKeyNames.toGreenfootName(keyCode, keyText);
                 switch(data[0])
                 {
                     case Command.KEY_DOWN:
-                        keyboardManager.keyPressed(keyCode, keyText);
+                        keyboardManager.keyPressed(keyName);
                         break;
                     case Command.KEY_UP:
-                        keyboardManager.keyReleased(keyCode, keyText);
+                        keyboardManager.keyReleased(keyName);
                         break;
                     case Command.KEY_TYPED:
-                        keyboardManager.keyTyped(keyCode, keyText);
+                        keyboardManager.keyTyped(keyName);
                         break;
                 }
             }
@@ -489,22 +502,23 @@ public class VMCommsSimulation
             {
                 int x = data[1];
                 int y = data[2];
-                int button = data[3];
+                // The IDE sends the JavaFX MouseButton ordinal; convert to Greenfoot's 1/2/3.
+                int button = fxButtonToGreenfoot(data[3]);
                 int clickCount = data[4];
                 MousePollingManager mouseManager = WorldHandler.getInstance().getMouseManager();
                 switch (data[0])
                 {
                     case Command.MOUSE_CLICKED:
-                        mouseManager.mouseClicked(x, y, MouseButton.values()[button], clickCount);
+                        mouseManager.mouseClicked(x, y, button, clickCount);
                         break;
                     case Command.MOUSE_PRESSED:
-                        mouseManager.mousePressed(x, y, MouseButton.values()[button]);
+                        mouseManager.mousePressed(x, y, button);
                         break;
                     case Command.MOUSE_RELEASED:
-                        mouseManager.mouseReleased(x, y, MouseButton.values()[button]);
+                        mouseManager.mouseReleased(x, y, button);
                         break;
                     case Command.MOUSE_DRAGGED:
-                        mouseManager.mouseDragged(x, y, MouseButton.values()[button]);
+                        mouseManager.mouseDragged(x, y, button);
                         break;
                     case Command.MOUSE_MOVED:
                         mouseManager.mouseMoved(x, y);

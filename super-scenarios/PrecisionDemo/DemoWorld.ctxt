@@ -1,6 +1,0 @@
-#BlueJ class context
-comment0.target=DemoWorld
-comment0.text=\n\ SuperGreenfoot\ Phase\ 1\ demo\:\ smooth\ rendering,\ fractional\ movement\ and\n\ rotation,\ per-actor\ z,\ y-sorting,\ and\ centred\ text.\n\n\ Press\ Run.\ The\ left\ orbiter\ uses\ whole-pixel\ Greenfoot\ movement\ (it\ steps);\n\ the\ right\ orbiter\ uses\ move(double)/turn(double)\ with\ smooth\ rendering\ (it\ glides).\n\ The\ walkers\ at\ the\ bottom\ are\ y-sorted\:\ whichever\ is\ lower\ on\ screen\ is\ in\ front.\n\ The\ shadow\ under\ each\ walker\ uses\ z\ \=\ -1\ so\ it\ always\ draws\ beneath\ its\ walker.\n
-comment1.params=
-comment1.target=DemoWorld()
-numComments=2

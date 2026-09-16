@@ -102,4 +102,14 @@ public interface GreenfootUtilDelegate
      * Returns data near the current player when sorted by integer index 0
      */
     public List<UserInfo> getNearbyUserInfo(int maxAmount);
+
+    /**
+     * SuperGreenfoot: the directory in which {@link greenfoot.Save} keeps its
+     * files for the current scenario, or null if saving is unavailable.
+     */
+    @threadchecker.OnThread(threadchecker.Tag.Any)
+    public default java.io.File getSaveDirectory()
+    {
+        return null;
+    }
 }

@@ -28,6 +28,7 @@ import greenfoot.core.WorldHandler;
 import greenfoot.sound.MicLevelGrabber;
 import greenfoot.sound.Sound;
 import greenfoot.sound.SoundFactory;
+import greenfoot.util.GreenfootUtil;
 
 
 /**
@@ -306,5 +307,68 @@ public class Greenfoot
     public static String ask(String prompt)
     {
         return WorldHandler.getInstance().ask(prompt);
+    }
+
+    // ==================================
+    //
+    // SuperGreenfoot: presentation
+    //
+    // ==================================
+
+    /**
+     * Show the scenario full screen, or return to a window. In the standalone
+     * player (an exported game) this switches immediately. Inside the IDE this
+     * call does nothing; use the Controls menu's Full Screen command instead.
+     *
+     * @param fullScreen true for full screen, false for a window.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setFullScreen(boolean fullScreen)
+    {
+        GreenfootUtil.getDisplayDelegate().setFullScreen(fullScreen);
+    }
+
+    /**
+     * @return true if the scenario is currently shown full screen by the standalone player.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isFullScreen()
+    {
+        return GreenfootUtil.getDisplayDelegate().isFullScreen();
+    }
+
+    /**
+     * Show or hide the run controls (act, run/pause, reset, speed) in the
+     * standalone player. A finished game usually hides them. Players can bring
+     * hidden controls back with Escape unless they are locked. No effect in the IDE.
+     *
+     * @param visible true to show the controls.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setControlsVisible(boolean visible)
+    {
+        GreenfootUtil.getDisplayDelegate().setControlsVisible(visible);
+    }
+
+    /**
+     * Lock the run controls hidden in the standalone player so that Escape does
+     * not reveal them (a teacher can still hold Escape for two seconds). No
+     * effect in the IDE.
+     *
+     * @param locked true to lock the controls hidden.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setControlsLocked(boolean locked)
+    {
+        GreenfootUtil.getDisplayDelegate().setControlsLocked(locked);
+    }
+
+    /**
+     * @return true when running as an exported standalone game rather than in the IDE.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isStandalone()
+    {
+        return GreenfootUtil.getDisplayDelegate().isStandalone();
     }
 }

@@ -26,7 +26,6 @@ import greenfoot.gui.input.mouse.MouseEventData;
 
 import java.awt.event.MouseEvent;
 
-import javafx.scene.input.MouseButton;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -341,7 +340,7 @@ public class MousePollingManager
      * @param clickCount The click count recorded by the original event.
      */
     @OnThread(Tag.Any)
-    public void mouseClicked(int x, int y, MouseButton button, int clickCount)
+    public void mouseClicked(int x, int y, int button, int clickCount)
     {
         if (locator == null)
         {
@@ -373,19 +372,13 @@ public class MousePollingManager
     /**
      * Translates a JavaFX button to 1/2/3 as used by the Greenfoot API for left/middle/right.
      */
-    private int getButton(MouseButton button)
+    /**
+     * Buttons are passed in as Greenfoot button numbers already: 1 left/primary,
+     * 2 middle, 3 right/secondary, 0 none.
+     */
+    private int getButton(int button)
     {
-        switch (button)
-        {
-            case PRIMARY:
-                return 1;
-            case MIDDLE:
-                return 2;
-            case SECONDARY:
-                return 3;
-            default:
-                return 0;
-        }
+        return button;
     }
 
     /**
@@ -405,7 +398,7 @@ public class MousePollingManager
      * @param button The button reported by the original event.
      */
     @OnThread(Tag.Any)
-    public void mousePressed(int x, int y, MouseButton button)
+    public void mousePressed(int x, int y, int button)
     {
         if (locator == null)
         {
@@ -447,7 +440,7 @@ public class MousePollingManager
      * @param button The button reported by the original event.
      */
     @OnThread(Tag.Any)
-    public void mouseReleased(int x, int y, MouseButton button)
+    public void mouseReleased(int x, int y, int button)
     {
         if (locator == null)
         {
@@ -490,7 +483,7 @@ public class MousePollingManager
      * @param button The button reported by the original event.
      */
     @OnThread(Tag.Any)
-    public void mouseDragged(int x, int y, MouseButton button)
+    public void mouseDragged(int x, int y, int button)
     {
         if (locator == null)
         {

@@ -1,8 +1,0 @@
-#BlueJ class context
-comment0.target=Orbiter
-comment0.text=\n\ Moves\ in\ a\ circle.\ With\ precise\=false\ it\ uses\ Greenfoot's\ integer\ API\ and\n\ visibly\ steps;\ with\ precise\=true\ it\ uses\ the\ SuperGreenfoot\ double\ API\ and\ glides.\n
-comment1.params=precise
-comment1.target=Orbiter(boolean)
-comment2.params=
-comment2.target=void\ act()
-numComments=3

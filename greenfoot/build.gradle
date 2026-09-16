@@ -116,6 +116,41 @@ task greenfootJar(type: Jar) {
     destinationDirectory = new File(sourceSets.main.output.resourcesDir, 'lib')
 }
 greenfootJar.dependsOn compileJava
+
+// SuperGreenfoot: the standalone runtime bundled into exported application jars.
+// Engine + Swing player + BlueJ support classes + MP3 decoder; no JavaFX. IDE-only
+// packages are excluded so the jar stays small and cannot drag JavaFX in.
+task superGreenfootRuntimeJar(type: Jar) {
+    archiveFileName = "supergreenfoot-runtime.jar"
+    destinationDirectory = new File(sourceSets.main.output.resourcesDir, 'lib')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from("build/classes/java/main") {
+        exclude "greenfoot/guifx/**", "greenfoot/vmcomm/**", "greenfoot/export/mygame/**",
+                "greenfoot/importer/**", "greenfoot/record/**", "greenfoot/localdebugger/**",
+                "greenfoot/core/ProjectManager*", "greenfoot/core/GreenfootMain*",
+                "greenfoot/core/GreenfootLauncherDebugVM*", "greenfoot/platforms/ide/**",
+                "greenfoot/sound/SoundPreferencePanel*", "greenfoot/sound/SoundRecorder*",
+                "greenfoot/sound/MicLevelGrabber*"
+    }
+    from('resources/images') {
+        include "greenfoot-icon-32.png"
+        rename { 'greenfoot.png' }
+    }
+    from(zipTree('../bluej/build/libs/bluej.jar')) {
+        exclude "META-INF/**"
+    }
+    from(configurations.runtimeClasspath.filter { it.name.startsWith('jlayer') }.collect { zipTree(it) }) {
+        exclude "META-INF/**"
+    }
+    manifest {
+        attributes 'Main-Class': 'greenfoot.player.PlayerMain',
+                   'SuperGreenfoot-Runtime': greenfootVersion
+    }
+}
+superGreenfootRuntimeJar.dependsOn compileJava
+superGreenfootRuntimeJar.dependsOn ':bluej:jar'
+jar.dependsOn superGreenfootRuntimeJar
+assemble.dependsOn superGreenfootRuntimeJar
 assemble.dependsOn greenfootJar
 assemble.dependsOn copyToLib
 jar.dependsOn greenfootJar

@@ -63,6 +63,14 @@ public final class SoundMixer
     private final boolean[] categoryMuted = new boolean[SoundCategory.values().length];
 
     private final boolean useOutput;
+    /** Whether to consult the IDE's sound-device preference (false in the standalone player). */
+    private static volatile boolean useDevicePreference = true;
+
+    /** Standalone player: do not touch IDE preferences when opening the output line. */
+    public static void setUseDevicePreference(boolean use)
+    {
+        useDevicePreference = use;
+    }
     private Thread thread;
     private volatile boolean running = false;
     private SourceDataLine line;
@@ -282,7 +290,16 @@ public final class SoundMixer
     {
         try {
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, AudioDecoder.MIX_FORMAT);
-            javax.sound.sampled.Mixer preferred = SoundUtils.loadMixer(false);
+            javax.sound.sampled.Mixer preferred = null;
+            if (useDevicePreference) {
+                try {
+                    preferred = SoundUtils.loadMixer(false);
+                }
+                catch (Throwable t) {
+                    // Preferences (BlueJ Config) unavailable outside the IDE: use the default device.
+                    preferred = null;
+                }
+            }
             SourceDataLine l;
             if (preferred != null && preferred.isLineSupported(info)) {
                 l = (SourceDataLine) preferred.getLine(info);

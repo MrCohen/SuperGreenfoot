@@ -173,8 +173,8 @@ public class JarCreator
         addSkipDir(Project.projectLibDirName);
         
         // Set the main class
-        String mainClass = GreenfootScenarioViewer.class.getCanonicalName();
-        setMainClass(mainClass);
+        // SuperGreenfoot: the standalone player is the jar's entry point
+        setMainClass("greenfoot.player.PlayerMain");
         
         // Add the properties read by the GreenfootScenarioViewer
         properties.put("project.name", scenarioName);
@@ -365,6 +365,12 @@ public class JarCreator
      * @param key The key 
      * @param value The value
      */
+    /** SuperGreenfoot: add an entry to standalone.properties. */
+    public void setProperty(String key, String value)
+    {
+        properties.put(key, value);
+    }
+
     public void putManifestEntry(String key, String value)
     {
         Attributes attr = manifest.getMainAttributes();

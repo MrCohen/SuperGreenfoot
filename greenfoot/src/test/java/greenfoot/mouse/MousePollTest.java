@@ -35,7 +35,6 @@ import greenfoot.util.GreenfootUtil;
 
 import java.awt.event.MouseEvent;
 import java.util.Collection;
-import javafx.scene.input.MouseButton;
 import javax.swing.JPanel;
 
 import junit.framework.TestCase;
@@ -103,7 +102,7 @@ public class MousePollTest extends TestCase
     {
         int x = e.getX();
         int y = e.getY();
-        MouseButton button = MouseButton.values()[e.getButton()];
+        int button = e.getButton();   // AWT: 1 left, 2 middle, 3 right, 0 none, same as Greenfoot
         int clickCount = e.getClickCount();
 
         switch (e.getID())

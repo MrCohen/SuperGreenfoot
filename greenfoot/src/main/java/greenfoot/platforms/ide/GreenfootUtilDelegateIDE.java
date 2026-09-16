@@ -385,4 +385,16 @@ public class GreenfootUtilDelegateIDE implements GreenfootUtilDelegate
             return all.subList(index - desiredBefore, index + desiredAfter + 1);
         }
     }    
+
+    /**
+     * SuperGreenfoot: Save files live in the scenario's "saves" folder. The
+     * debug VM's working directory is the scenario directory (that is how
+     * storage.csv is found above).
+     */
+    @Override
+    @OnThread(Tag.Any)
+    public File getSaveDirectory()
+    {
+        return new File("saves").getAbsoluteFile();
+    }
 }

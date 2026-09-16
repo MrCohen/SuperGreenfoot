@@ -60,3 +60,15 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/src/main/java/greenfoot/guifx/FullScreenView.java` | New full-screen play window with floating controls. | 2 |
 | `greenfoot/labels/english/greenfoot/greenfoot-labels` | `controls.fullscreen`, `fullscreen.*` labels. | 2 |
 | `greenfoot/src/test/java/greenfoot/{SoundsTest,sound/SoundMixerTest}.java` | New tests (26). | 2 |
+| `greenfoot/src/main/java/greenfoot/gui/input/KeyboardManager.java` | JavaFX-free: `keyPressed/keyReleased/keyTyped(String name)`; key-code mapping moved to `vmcomm/FXKeyNames.java` (new). | 3 |
+| `greenfoot/src/main/java/greenfoot/gui/input/mouse/MousePollingManager.java` | Mouse buttons are ints (1/2/3) instead of JavaFX MouseButton. | 3 |
+| `greenfoot/src/main/java/greenfoot/vmcomm/VMCommsSimulation.java` | Uses FXKeyNames and converts MouseButton ordinals to ints. | 3 |
+| `greenfoot/src/main/java/greenfoot/export/GreenfootScenarioViewer.java`, `platforms/standalone/WorldHandlerDelegateStandAlone.java` | Deleted (JavaFX standalone viewer; replaced by `greenfoot.player`). | 3 |
+| `greenfoot/src/main/java/greenfoot/export/{Exporter,JarCreator}.java`, `guifx/export/{ExportDialog,ExportAppTab}.java` | APP export restored: Application tab, `makeApplication()` merges `supergreenfoot-runtime.jar`; jar Main-Class is `greenfoot.player.PlayerMain`. | 3 |
+| `greenfoot/src/main/java/greenfoot/Greenfoot.java`, `util/GreenfootUtil.java`, `platforms/DisplayDelegate.java` (new), `platforms/GreenfootUtilDelegate.java`, `platforms/ide/GreenfootUtilDelegateIDE.java`, `core/ExportedProjectProperties.java` | Presentation API (`setFullScreen`, `setControlsVisible/Locked`, `isStandalone`), `getSaveDirectory()` hook (IDE: `saves/`), properties constructor. | 3 |
+| `greenfoot/src/main/java/greenfoot/Save.java` (new), `greenfoot/player/*` (new) | Save API; standalone Swing player. | 3 |
+| `greenfoot/src/main/java/greenfoot/util/GraphicsUtilities.java` | Headless fallbacks for compatible-image creation. | 3 |
+| `greenfoot/src/main/java/greenfoot/sound/SoundMixer.java` | `setUseDevicePreference(false)` for the player (avoids bluej.Config). | 3 |
+| `greenfoot/build.gradle` | `superGreenfootRuntimeJar` task (runtime jar into lib/). | 3 |
+| `greenfoot/labels/english/greenfoot/greenfoot-labels` | `export.app.runHint`, `export.app.title`. | 3 |
+| `greenfoot/src/test/java/greenfoot/mouse/MousePollTest.java` | Int buttons. New tests: `SaveTest`, `player/PlayerSessionTest`, `player/AwtKeyNamesTest`. | 3 |
