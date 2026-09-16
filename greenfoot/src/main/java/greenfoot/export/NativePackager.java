@@ -290,6 +290,16 @@ public final class NativePackager
                 return new Result(false, null, "jpackage finished but the output was not found in " + o.destDir);
             }
 
+            if (isMac() && o.macSigningName != null && !o.macSigningName.isEmpty() && artifact.getName().endsWith(".dmg")) {
+                // jpackage signs the app inside the image but not the image itself;
+                // Gatekeeper assesses the .dmg as a whole, so sign that too.
+                listener.progress("Signing the disk image...");
+                int sc = exec(Arrays.asList("/usr/bin/codesign", "-s", "Developer ID Application: " + o.macSigningName,
+                        "--timestamp", "-f", artifact.getAbsolutePath()), listener);
+                if (sc != 0) {
+                    return new Result(false, artifact, "Signing the disk image failed (exit " + sc + ").");
+                }
+            }
             if (isMac() && o.notarizeProfile != null && !o.notarizeProfile.isEmpty()
                     && o.macSigningName != null && !o.macSigningName.isEmpty()) {
                 Result n = notarize(artifact, o.notarizeProfile, listener);
