@@ -1,0 +1,8 @@
+#BlueJ class context
+comment0.target=Shadow
+comment0.text=\n\ A\ translucent\ ellipse\ that\ follows\ a\ walker\ and\ sits\ just\ below\ it,\ but\ is\n\ always\ painted\ underneath\ it\ thanks\ to\ z\ \=\ -1\ (same\ y-sort\ key\ otherwise).\n
+comment1.params=owner
+comment1.target=Shadow(Walker)
+comment2.params=
+comment2.target=void\ act()
+numComments=3

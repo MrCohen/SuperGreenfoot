@@ -83,7 +83,8 @@ public class FullScreenView extends Stage
     {
         this.owner = owner;
         setTitle(owner.getTitle());
-        initOwner(owner);
+        // Deliberately no initOwner(): on macOS an owned window is a child window
+        // and cannot enter native full-screen mode (it only maximises).
 
         imageView.setPreserveRatio(true);
         imageView.setSmooth(true);
@@ -140,7 +141,6 @@ public class FullScreenView extends Stage
         setScene(scene);
         setFullScreenExitHint("");
         setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
-        setFullScreen(true);
 
         JavaFXUtil.addChangeListenerPlatform(scene.widthProperty(), n -> relayout());
         JavaFXUtil.addChangeListenerPlatform(scene.heightProperty(), n -> relayout());
@@ -191,6 +191,8 @@ public class FullScreenView extends Stage
             owner.exitFullScreenView();
         });
         setOnShown(e -> {
+            // Enter native full screen once the window exists (macOS needs this order).
+            setFullScreen(true);
             relayout();
             imageView.requestFocus();
             owner.notifyWorldFocus(true);

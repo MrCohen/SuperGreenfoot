@@ -85,3 +85,21 @@ in full screen, clicks while paused are just delivered to the scenario.
 Not yet: scenario-side API (`Greenfoot.setFullScreen`, `setControlsLocked`)
 needs a debug-VM-to-IDE command and comes with the standalone player in
 Phase 3, where it is in-process.
+
+## Choosing a world size that scales well
+
+Fit-to-screen scaling is smooth (bilinear), so a world whose size is not a
+whole-number fraction of the screen looks slightly soft. For crisp full screen
+pick a world size that divides the target screen exactly and matches its
+aspect ratio, then use **Pixel-perfect** in the full-screen bar:
+
+| Screen (logical pixels) | Aspect | Crisp world sizes |
+|---|---|---|
+| 1920x1080 (most Windows laptops, TVs, projectors) | 16:9 | 640x360 (3x), 960x540 (2x), 1920x1080 (1x) |
+| 2560x1440 | 16:9 | 640x360 (4x), 1280x720 (2x) |
+| 1440x900 / 1512x982 / 1728x1117 (MacBook logical sizes) | 16:10 | 720x450 (2x of 1440x900), 1440x900 (1x); for the Pro sizes 756x491 or 864x558 (2x) |
+| 1280x800 (older MacBook Air, Chromebooks) | 16:10 | 640x400 (2x), 1280x800 (1x) |
+
+A 16:9 world on a 16:10 Mac screen is letterboxed top and bottom, which is
+fine; a 4:3 world (the classic 600x400 Greenfoot default) leaves wide black
+bars on every modern screen.
