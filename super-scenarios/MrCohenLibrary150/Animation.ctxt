@@ -1,0 +1,27 @@
+#BlueJ class context
+comment0.target=Animation
+comment0.text=\n\ The\ Animation\ Class\ is\ controlled\ by\ AnimationController.\n\ \n\ In\ some\ of\ my\ examples,\ you\ may\ find\ both\ baked\ together\ into\ a\ single\ class.\n\ \n\ The\ Animation\ Class\ is\ mostly\ a\ container\ for\ images,\ can\ be\ based\ on\ 1D\ or\ 2D\n\ array\ of\ images\ (for\ one-direction\ or\ multi-direction\ Animations)\ and\ also\ includes\n\ an\ enumerator\ for\ Direction\ to\ keep\ direction\ variables\ clean\ and\ manageable.\n\ \n\ @author\ Jordan\ Cohen\n\ @since\ 2017\n\ @version\ (unsure)\n
+comment1.params=images
+comment1.target=Animation(greenfoot.GreenfootImage[][])
+comment1.text=\n\ Constructor\ for\ directional\ animations\ -\ should\ be\ a\ 2d\ array\ of\ GreenfootImage\ with\n\ 4\ directions\ (dimension\ 1)\ and\ at\ least\ one\ image\ per\ direction\ (dimension\ 2)\n\n\ @param\ images\ \ \ \ 2d\ array\ of\ images\ as\ described\ above\n\ @param\ terminal\ \ true\ if\ this\ animation\ is\ not\ intended\ to\ repeat\n
+comment10.params=spriteSheet\ xPos\ yPos\ frameWidth\ frameHeight
+comment10.target=greenfoot.GreenfootImage\ getSlice(greenfoot.GreenfootImage,\ int,\ int,\ int,\ int)
+comment10.text=\n\ Grabs\ a\ part\ of\ a\ sprite\ sheet\ (or\ any\ other\ GreenfootImage)\ and\ returns\ it\ as\ a\ new\n\ GreenfootImage.\ The\ sprite\ sheet\ must\ be\ larger\ than\ the\ resulting\ image.\n\n\ @param\ spriteSheet\ \ \ the\ larger\ spritesheet\ to\ pull\ images\ from\n\ @param\ xPos\ \ the\ x\ position\ (of\ the\ left)\ of\ the\ desired\ spot\ to\ draw\ from\n\ @param\ yPos\ \ the\ y\ position\ (of\ the\ top)\ of\ the\ desired\ spot\ to\ draw\ from\n\ @param\ frameWidth\ \ \ \ \ the\ horizontal\ tile\ size\n\ @param\ frameHeight\ \ \ \ the\ vertical\ tile\ size\n\ @return\ GreenfootImage\ \ \ the\ resulting\ image\n
+comment2.params=images
+comment2.target=Animation(greenfoot.GreenfootImage[])
+comment3.params=images
+comment3.target=void\ setImages(greenfoot.GreenfootImage[][])
+comment4.params=images
+comment4.target=void\ setImages(greenfoot.GreenfootImage[])
+comment5.params=
+comment5.target=boolean\ isDirectional()
+comment6.params=d\ frame
+comment6.target=greenfoot.GreenfootImage\ getOneImage(Direction,\ int)
+comment7.params=
+comment7.target=greenfoot.GreenfootImage[][]\ getDirectionalImages()
+comment8.params=
+comment8.target=greenfoot.GreenfootImage[]\ getNonDirectionalImages()
+comment9.params=spriteSheet\ startRow\ numRows\ numFrames\ width\ height
+comment9.target=Animation\ createAnimation(greenfoot.GreenfootImage,\ int,\ int,\ int,\ int,\ int)
+comment9.text=\ \ This\ will\ allow\ for\ importing\ armor\ etc\ to\ make\ the\ character\ dynamic\!\ Without\ spritefoot\ work\!\n\ \ Rows\ must\ be\ 4\ (directional)\ or\ 1\ (non-directional).\ This\ is\ designed\ to\ work\ with\ spritesheets\ from\n\ \ LPC\ but\ could\ be\ tailored\ to\ work\ with\ other\ source\ material.\n\n\ \ @param\ spriteSheet\ \ the\ Spritesheet\ to\ pull\ frames\ from\n\ \ @param\ startRow\ \ \ \ \ the\ row\ on\ which\ the\ desired\ sprites\ are\ located\ (not\ x,y\ coordinate)\n\ \ @param\ numFrames\ \ \ \ the\ number\ of\ frames\ in\ the\ animation\n\ \ @param\ terminal\ \ \ \ \ is\ this\ a\ terminal\ animation?\ (One\ that\ ends\ after\ it\ plays\ a\ set\ number\ of\ times).\n\ \ @return\ Animation\ \ \ an\ appropriate\ Animation\ object\ that\ is\ either\ 1\ direction\ or\ 4\ direction.\n\n
+numComments=11

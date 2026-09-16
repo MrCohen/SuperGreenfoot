@@ -1,14 +1,5 @@
 name: Build Installers
 on:
-  push:
-    paths:
-      - '.github/workflows/build-installers.yml'
-      - 'version.properties'
-      - 'bluej/build.gradle'
-      - 'greenfoot/build.gradle'
-      - 'bluej/package/build.xml'
-      - 'bluej/package/greenfoot-build.xml'
-      - '.env'
   workflow_dispatch:
 jobs:
   Build-Windows-Installers:

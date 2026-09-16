@@ -1,0 +1,11 @@
+#BlueJ class context
+comment0.target=Line
+comment0.text=\n\ Write\ a\ description\ of\ class\ Line\ here.\n\ \n\ @author\ (your\ name)\ \n\ @version\ (a\ version\ number\ or\ a\ date)\n
+comment1.params=vertical\ length\ thickness
+comment1.target=Line(boolean,\ int,\ int)
+comment2.params=vertical\ length\ thickness\ color
+comment2.target=Line(boolean,\ int,\ int,\ greenfoot.Color)
+comment3.params=
+comment3.target=void\ act()
+comment3.text=\n\ Act\ -\ do\ whatever\ the\ Line\ wants\ to\ do.\ This\ method\ is\ called\ whenever\n\ the\ 'Act'\ or\ 'Run'\ button\ gets\ pressed\ in\ the\ environment.\n
+numComments=4

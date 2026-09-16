@@ -1,0 +1,10 @@
+#BlueJ class context
+comment0.target=Patroller
+comment0.text=\n\ An\ example\ follower\ for\ the\ {@link\ Path}\ class.\n\n\ A\ Patroller\ is\ handed\ a\ Path\ and\ a\ speed,\ and\ every\ act\ it\ simply\ follows\ that\n\ path.\ Several\ Patrollers\ can\ share\ the\ same\ Path\ object\ at\ different\ speeds\ -\n\ each\ one\ keeps\ its\ own\ progress.\n\n\ This\ version\ turns\ to\ face\ the\ way\ it\ is\ travelling.\ For\ a\ version\ that\ does\n\ NOT\ rotate\ at\ all,\ swap\ the\ line\ in\ act()\ for\:\ \ path.follow(this,\ speed);\n\n\ @author\ Jordan\ Cohen\n\ @version\ June\ 2026\n
+comment1.params=path\ speed
+comment1.target=Patroller(SuperPath,\ double)
+comment1.text=\n\ Create\ a\ Patroller\ that\ will\ follow\ the\ given\ path\ at\ the\ given\ speed.\n\n\ @param\ path\ \ \ the\ Path\ to\ follow\n\ @param\ speed\ \ how\ many\ pixels\ to\ travel\ along\ the\ path\ each\ act\n
+comment2.params=
+comment2.target=void\ act()
+comment2.text=\n\ Each\ act,\ follow\ the\ path.\ followAndTurn\ moves\ the\ Patroller\ along\ the\n\ path\ and\ turns\ it\ to\ face\ the\ direction\ of\ travel.\n
+numComments=3

@@ -1,0 +1,12 @@
+#BlueJ class context
+comment0.target=SepRotTester
+comment0.text=\n\ A\ Test\ Class\ to\ help\ improve\ SuperSmoothMover\ to\ implement\n\ image\ rotation.\n\ \n\ @author\ (your\ name)\ \n\ @version\ (a\ version\ number\ or\ a\ date)\n
+comment1.params=a
+comment1.target=void\ setTarget(greenfoot.Actor)
+comment2.params=w
+comment2.target=void\ addedToWorld(greenfoot.World)
+comment3.params=
+comment3.target=void\ testClickMe()
+comment4.params=
+comment4.target=void\ act()
+numComments=5

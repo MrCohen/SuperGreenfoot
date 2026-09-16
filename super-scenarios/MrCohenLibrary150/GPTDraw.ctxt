@@ -1,0 +1,8 @@
+#BlueJ class context
+comment0.target=GPTDraw
+comment0.text=\n\ This\ was\ my\ first\ attempt\ at\ getting\ an\ AI\ (ChatGPT)\ to\ write\n\ code.\ It\ was\ NOT\ successful\ on\ it's\ first,\ second\ or\ third\ try\!\n\ It\ was\ willing\ to\ accept\ feedback\ and\ improve\ it's\ code\ through\n\ multiple\ iterations.\ It\ got\ most\ of\ the\ math\ right\ but\ I\ had\n\ to\ fix\ the\ code\ in\ multiple\ places\ to\ make\ it\ work.\n\ \n\ @author\ Jordan\ Cohen\ and\ ChatGPT(\!)\n\ @version\ Jan\ 2023\n
+comment1.params=img\ x\ y\ startAngle\ arcAngle
+comment1.target=void\ drawArc(greenfoot.GreenfootImage,\ int,\ int,\ int,\ int)
+comment2.params=x\ y\ width\ height\ startAngle\ arcAngle
+comment2.target=greenfoot.GreenfootImage\ fillArc(int,\ int,\ int,\ int,\ int,\ int)
+numComments=3
