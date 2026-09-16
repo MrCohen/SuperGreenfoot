@@ -7,9 +7,12 @@ the setup guide. Prices and vendor policies change; verify before buying.
 
 State found on the dev Mac on 2026-09-16: Xcode is installed, `notarytool`
 works, and the keychain holds three **"Apple Development"** identities for
-team `T9PN8DQTUL` (two of them revoked). There is **no "Developer ID
+team `QTS5DK2S8Q` (two of them revoked). There is **no "Developer ID
 Application"** identity yet. Apple Development certificates only sign builds
 for your own devices; distributing outside the App Store needs Developer ID.
+Note: the Team ID is the certificate's **OU** field (`QTS5DK2S8Q`). The ID in
+parentheses in the certificate name (`T9PN8DQTUL`) is the personal developer
+ID and is *not* accepted by `notarytool --team-id`.
 
 ### One-time setup (about 20 minutes)
 
@@ -30,7 +33,7 @@ for your own devices; distributing outside the App Store needs Developer ID.
    "SuperGreenfoot notarytool". Then store it once in the keychain:
    ```sh
    xcrun notarytool store-credentials "SuperGreenfoot" \
-     --apple-id jord81@gmail.com --team-id T9PN8DQTUL
+     --apple-id jord81@gmail.com --team-id QTS5DK2S8Q
    ```
    (paste the app-specific password when prompted). CI will instead use
    `--apple-id/--team-id/--password` from GitHub secrets.
@@ -40,7 +43,7 @@ for your own devices; distributing outside the App Store needs Developer ID.
 ### How builds will use it
 
 - IDE installer: `jpackage --type dmg --mac-sign --mac-signing-key-user-name
-  "Developer ID Application: <name> (T9PN8DQTUL)"` with a hardened-runtime
+  "Developer ID Application: <name> (QTS5DK2S8Q)"` with a hardened-runtime
   entitlements file (JIT + unsigned memory for the JVM), then
   `xcrun notarytool submit <dmg> --keychain-profile SuperGreenfoot --wait`
   and `xcrun stapler staple <dmg>`.
