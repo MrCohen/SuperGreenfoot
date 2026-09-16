@@ -56,11 +56,13 @@ public class ExportAppTab extends ExportLocalTab
     private static final String PREF_NOTARIZE = "supergreenfoot.export.notarizeProfile";
     private static final String PREF_NATIVE = "supergreenfoot.export.nativeApp";
 
-    private final CheckBox nativeApp = new CheckBox(Config.getString("export.app.native"));
-    private final ComboBox<String> nativeKind = new ComboBox<>();
-    private final ComboBox<String> signingIdentity = new ComboBox<>();
-    private final TextField notarizeProfile = new TextField();
-    private final Label nativeStatus = new Label();
+    // Created in buildContentPane, which the superclass constructor calls before
+    // field initialisers would run.
+    private CheckBox nativeApp;
+    private ComboBox<String> nativeKind;
+    private ComboBox<String> signingIdentity;
+    private TextField notarizeProfile;
+    private Label nativeStatus;
 
     public ExportAppTab(Window parent, ScenarioInfo scenarioInfo, String scenarioName, File defaultExportDir)
     {
@@ -79,6 +81,12 @@ public class ExportAppTab extends ExportLocalTab
         super.buildContentPane(targetFile);
         Label runHint = new Label(Config.getString("export.app.runHint"));
         runHint.setWrapText(true);
+
+        nativeApp = new CheckBox(Config.getString("export.app.native"));
+        nativeKind = new ComboBox<>();
+        signingIdentity = new ComboBox<>();
+        notarizeProfile = new TextField();
+        nativeStatus = new Label();
 
         boolean haveJpackage = NativePackager.findJpackage() != null;
         nativeApp.setSelected(haveJpackage && "true".equals(Config.getPropString(PREF_NATIVE, "false")));
@@ -132,6 +140,9 @@ public class ExportAppTab extends ExportLocalTab
         super.updateInfoFromFields();
         scenarioInfo.setLocked(isLockScenario());
         scenarioInfo.setHideControls(isHideControls());
+        if (nativeApp == null) {
+            return;
+        }
         Config.putPropString(PREF_NATIVE, Boolean.toString(nativeApp.isSelected()));
         if (NativePackager.isMac()) {
             String id = signingIdentity.getValue() == null ? "" : signingIdentity.getValue();
@@ -146,9 +157,9 @@ public class ExportAppTab extends ExportLocalTab
         ExportInfo info = super.getExportInfo();
         info.setLocked(isLockScenario());
         info.setHideControls(isHideControls());
-        info.setNativeApp(nativeApp.isSelected());
-        info.setNativeKind(nativeKind.getValue());
-        if (NativePackager.isMac()) {
+        info.setNativeApp(nativeApp != null && nativeApp.isSelected());
+        info.setNativeKind(nativeKind == null ? "APP_IMAGE" : nativeKind.getValue());
+        if (NativePackager.isMac() && signingIdentity != null) {
             String id = signingIdentity.getValue();
             info.setMacSigningName(id == null || id.isEmpty() ? null : id);
             String prof = notarizeProfile.getText().trim();
