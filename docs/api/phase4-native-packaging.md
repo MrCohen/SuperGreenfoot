@@ -10,9 +10,12 @@
      (falls back to the folder automatically if the `.msi` build fails).
    - Linux: app folder.
 3. On macOS, if a **Developer ID Application** certificate is in the keychain,
+   (the packager first signs a scratch file so the keychain prompt appears once;
+   answer it with Always Allow)
    the tab offers to sign with it (`jpackage --mac-sign`, hardened runtime with
    the JIT entitlements Java needs) and to **notarize** with a `notarytool`
-   keychain profile, then staples the ticket. Notarization takes a few
+   keychain profile, then staples the ticket. The DMG file itself is signed too, so Gatekeeper
+   reports "Notarized Developer ID" for the image, not just the app inside. Notarization takes a few
    minutes; progress shows in the dialog and the tool output goes to the
    BlueJ debug log.
 
