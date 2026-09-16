@@ -52,3 +52,11 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/src/main/java/greenfoot/ImageVisitor.java` | `drawImageSmooth`. | 1 |
 | `greenfoot/src/main/java/greenfoot/Font.java` | `getStringWidth/Height`, `getAscent/Descent/LineHeight`, package helpers for centring. | 1 |
 | `greenfoot/src/test/java/greenfoot/{PrecisionTest,ZOrderTest,SmoothRenderTest,FontMetricsTest}.java` | New tests (28). | 1 |
+| `greenfoot/src/main/java/greenfoot/GreenfootSound.java` | Rewritten over the mixer (same API); MIDI via legacy player. | 2 |
+| `greenfoot/src/main/java/greenfoot/Greenfoot.java` | `playSound` routes through `Sounds`. | 2 |
+| `greenfoot/src/main/java/greenfoot/core/GreenfootMain.java` | Registers the mixer's simulation listener. | 2 |
+| `greenfoot/src/main/java/greenfoot/{Sounds,SoundCategory}.java`, `greenfoot/sound/{AudioDecoder,PcmClip,SampleSource,StreamSource,Voice,SoundMixer,SoundLibrary}.java` | New sound engine. | 2 |
+| `greenfoot/src/main/java/greenfoot/guifx/GreenfootStage.java` | Key/mouse forwarding extracted into `forwardWorldKeyEvent`/`forwardWorldMouseEvent`; full-screen view wiring (menu item, image mirroring, state/speed sync, exit on ask/close/VM restart). | 2 |
+| `greenfoot/src/main/java/greenfoot/guifx/FullScreenView.java` | New full-screen play window with floating controls. | 2 |
+| `greenfoot/labels/english/greenfoot/greenfoot-labels` | `controls.fullscreen`, `fullscreen.*` labels. | 2 |
+| `greenfoot/src/test/java/greenfoot/{SoundsTest,sound/SoundMixerTest}.java` | New tests (26). | 2 |

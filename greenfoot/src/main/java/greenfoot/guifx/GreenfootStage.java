@@ -176,6 +176,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     // Details of the new actor while it is being placed (null otherwise):
     private final ObjectProperty<NewActor> newActorProperty = new SimpleObjectProperty<>(null);
     private final WorldDisplay worldDisplay;
+    /** SuperGreenfoot: the full-screen play window, or null when not in full screen. */
+    private FullScreenView fullScreenView;
+    /** The most recently received world image (shared with the full-screen view). */
+    private Image lastWorldImage;
     // The scroll pane to host the world display
     private final UnfocusableScrollPane worldViewScroll;
     private final GClassDiagram classDiagram;
@@ -752,6 +756,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             // Just leave it as the default 50 if there is a problem
         }
         controlPanel.setSpeed(lastUserSetSpeed);
+        if (fullScreenView != null)
+        {
+            fullScreenView.setSpeed(lastUserSetSpeed);
+        }
         debugHandler.getVmComms().setSimulationSpeed(lastUserSetSpeed);
     }
 
@@ -869,6 +877,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     private void doClose(boolean keepLast)
     {
+        exitFullScreenView();
         PrefMgr.getPlayerName().removeListener(playerNameListener);
         
         if (numberOfOpenProjects <= 1 && ! keepLast)
@@ -1114,6 +1123,20 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     /**
      * Make the menu bar for the whole window.
      */
+    /**
+     * The Controls menu: act/run/pause/reset from the control panel, plus the
+     * SuperGreenfoot full-screen toggle.
+     */
+    private Menu makeControlsMenu()
+    {
+        Menu menu = new Menu(Config.getString("menu.controls"), null, controlPanel.makeMenuItems().toArray(new MenuItem[0]));
+        menu.getItems().add(new SeparatorMenuItem());
+        menu.getItems().add(JavaFXUtil.makeMenuItem("controls.fullscreen",
+                new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+                this::toggleFullScreenView, hasNoProject));
+        return menu;
+    }
+
     private MenuBar makeMenu()
     {
         recentProjectsMenu.setOnShowing(e -> updateRecentProjects());
@@ -1244,8 +1267,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                         new KeyCodeCombination(KeyCode.I, KeyCombination.SHORTCUT_DOWN), () -> doImportClass(),
                         hasNoProject)
             ),
-            new Menu(Config.getString("menu.controls"), null, controlPanel.makeMenuItems().toArray(new MenuItem[0])
-            ),
+            makeControlsMenu(),
             toolsMenu,
             helpMenu
         );
@@ -1316,6 +1338,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     private void updateGUIState(State newState)
     {
         controlPanel.updateState(newState, atBreakpoint);
+        if (fullScreenView != null)
+        {
+            fullScreenView.updateState(newState, atBreakpoint);
+        }
         updateBackgroundMessage();
     }
 
@@ -1535,7 +1561,34 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             }
         });
         
-        worldDisplay.addEventFilter(KeyEvent.ANY, e -> {
+        worldDisplay.addEventFilter(KeyEvent.ANY, this::forwardWorldKeyEvent);
+
+        worldDisplay.setOnContextMenuRequested(e -> {
+            if (project == null)
+            {
+                return;
+            }
+            
+            boolean paused = stateProperty.get() == State.PAUSED;
+            if (paused)
+            { 
+                Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+                pickRequest(worldPos, PickType.CONTEXT_MENU);
+            }
+        });
+        worldDisplay.getImageView().addEventFilter(MouseEvent.ANY, e -> {
+            Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+            forwardWorldMouseEvent(e, worldPos, true);
+        });
+    }
+
+    /**
+     * Forward a key event from a world view (the main one or the full-screen one)
+     * to the scenario in the debug VM.
+     */
+    void forwardWorldKeyEvent(KeyEvent e)
+    {
+        {
             if (project == null)
             {
                 return;
@@ -1574,29 +1627,26 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             {
                 e.consume();
             }
-        });
+        }
+    }
 
-        worldDisplay.setOnContextMenuRequested(e -> {
+    /**
+     * Forward a mouse event from a world view to the scenario in the debug VM,
+     * and (optionally) handle actor picking and dragging while paused.
+     *
+     * @param e         The event
+     * @param worldPos  The event position in world pixel coordinates
+     * @param allowPick Whether clicks while paused may pick/drag actors (main view only)
+     */
+    void forwardWorldMouseEvent(MouseEvent e, Point2D worldPos, boolean allowPick)
+    {
+        {
             if (project == null)
             {
                 return;
             }
             
-            boolean paused = stateProperty.get() == State.PAUSED;
-            if (paused)
-            { 
-                Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
-                pickRequest(worldPos, PickType.CONTEXT_MENU);
-            }
-        });
-        worldDisplay.getImageView().addEventFilter(MouseEvent.ANY, e -> {
-            if (project == null)
-            {
-                return;
-            }
-            
-            boolean paused = stateProperty.get() == State.PAUSED;
-            Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+            boolean paused = stateProperty.get() == State.PAUSED && allowPick;
             int eventType;
             if (e.getEventType() == MouseEvent.MOUSE_CLICKED)
             {
@@ -1667,7 +1717,53 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                         eventType, (int) worldPos.getX(), (int) worldPos.getY(),
                         button.ordinal(), e.getClickCount());
             }
-        });
+        }
+    }
+
+    /** Tell the debug VM whether a world view has keyboard focus (used by the full-screen view). */
+    void notifyWorldFocus(boolean focused)
+    {
+        if (project != null)
+        {
+            debugHandler.getVmComms().worldFocusChanged(focused);
+        }
+    }
+
+    /**
+     * SuperGreenfoot: enter or leave full-screen play mode.
+     */
+    public void toggleFullScreenView()
+    {
+        if (fullScreenView != null)
+        {
+            exitFullScreenView();
+        }
+        else if (project != null)
+        {
+            fullScreenView = new FullScreenView(this);
+            fullScreenView.setImage(lastWorldImage);
+            fullScreenView.updateState(stateProperty.get(), atBreakpoint);
+            fullScreenView.setSpeed(lastUserSetSpeed);
+            fullScreenView.show();
+        }
+    }
+
+    /** Leave full-screen play mode if it is active. */
+    public void exitFullScreenView()
+    {
+        if (fullScreenView != null)
+        {
+            FullScreenView v = fullScreenView;
+            fullScreenView = null;
+            v.close();
+            worldDisplay.requestFocus();
+        }
+    }
+
+    /** @return true while the full-screen play window is showing. */
+    public boolean isFullScreenView()
+    {
+        return fullScreenView != null;
     }
 
     /**
@@ -1703,6 +1799,11 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             worldImg[nextWorldImgToWrite].getPixelWriter().setPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(),
                     buffer, width);
             worldDisplay.setImage(worldImg[nextWorldImgToWrite]);
+            lastWorldImage = worldImg[nextWorldImgToWrite];
+            if (fullScreenView != null)
+            {
+                fullScreenView.setImage(lastWorldImage);
+            }
             nextWorldImgToWrite = (nextWorldImgToWrite + 1) % worldImg.length;
             worldInstantiationError = false;
             worldVisible.set(true);
@@ -1750,6 +1851,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     public void receivedAsk(int askId, int[] promptCodepoints)
     {
+        // The ask pane lives in the main window, so leave full screen first:
+        exitFullScreenView();
         // Tell worldDisplay to ask:
         worldDisplay.ensureAsking(new String(promptCodepoints, 0, promptCodepoints.length), (String s) -> {
             debugHandler.getVmComms().sendAnswer(askId, s);
@@ -2096,6 +2199,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     {
         Platform.runLater(() -> {
             // We must reset the debug VM related state ready for the new debug VM:
+            exitFullScreenView();
+            lastWorldImage = null;
             worldDisplay.setImage(null);
             worldDisplay.cancelAsk();
             worldInstantiationError = false;
@@ -2953,6 +3058,12 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         {
             lastUserSetSpeed = newSpeed;
             debugHandler.getVmComms().setSimulationSpeed(newSpeed);
+            // Keep both speed sliders (main window and full-screen bar) in step:
+            controlPanel.setSpeed(newSpeed);
+            if (fullScreenView != null)
+            {
+                fullScreenView.setSpeed(newSpeed);
+            }
         }
     }
 
