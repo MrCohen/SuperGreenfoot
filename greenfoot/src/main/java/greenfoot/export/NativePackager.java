@@ -259,6 +259,19 @@ public final class NativePackager
                 return new Result(false, null, "Cannot create " + o.destDir);
             }
 
+            if (isMac() && o.macSigningName != null && !o.macSigningName.isEmpty()) {
+                // Sign one scratch file first: this raises the keychain permission
+                // prompt once (jpackage would otherwise hit it for every file, and a
+                // long wait makes codesign's timestamp check fail) and surfaces
+                // codesign's own error text if the identity cannot be used.
+                listener.progress("Checking the signing identity (answer the keychain prompt with Always Allow)...");
+                String problem = probeSigning(o.macSigningName, listener);
+                if (problem != null) {
+                    deleteQuietly(inputDir);
+                    return new Result(false, null, "Cannot sign with \"Developer ID Application: " + o.macSigningName + "\": " + problem);
+                }
+            }
+
             listener.progress("Building native app with jpackage...");
             List<String> cmd = buildJpackageCommand(jpackage, o, inputDir);
             int rc = exec(cmd, listener);
@@ -288,6 +301,46 @@ public final class NativePackager
         }
         catch (IOException e) {
             return new Result(false, null, "Packaging failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * macOS: try to sign a scratch file with the identity. Returns null on
+     * success, otherwise codesign's message.
+     */
+    public static String probeSigning(String signingName, Listener listener)
+    {
+        try {
+            File probe = File.createTempFile("sgf-sign-probe", ".dylib");
+            // Any file works for a detached-style signature probe; use the JDK's own tiny library if present
+            File lib = new File(System.getProperty("java.home"), "lib/libjsig.dylib");
+            if (lib.isFile()) {
+                Files.copy(lib.toPath(), probe.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            StringBuilder out = new StringBuilder();
+            Listener capture = new Listener() {
+                public void progress(String m) { }
+                public void output(String l) { out.append(l).append('\n'); if (listener != null) listener.output(l); }
+            };
+            int rc = exec(Arrays.asList("/usr/bin/codesign", "-s", "Developer ID Application: " + signingName,
+                    "-f", "--timestamp", "--options", "runtime", probe.getAbsolutePath()), capture);
+            probe.delete();
+            if (rc == 0) {
+                return null;
+            }
+            String text = out.toString().trim();
+            if (text.contains("timestamps differ")) {
+                return "codesign reported a clock/timestamp mismatch. This happens when the keychain prompt was left "
+                        + "waiting for minutes; click Always Allow and export again.";
+            }
+            if (text.contains("errSecInternalComponent") || text.contains("user interaction is not allowed")) {
+                return "the keychain refused access to the private key. In Keychain Access, allow /usr/bin/codesign "
+                        + "(or all applications) to use the \"" + signingName + "\" private key.";
+            }
+            return text.isEmpty() ? "codesign exited with " + rc : text;
+        }
+        catch (IOException e) {
+            return e.getMessage();
         }
     }
 
