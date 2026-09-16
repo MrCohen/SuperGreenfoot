@@ -168,6 +168,9 @@ public class GreenfootMain
                     });
 
                     sim.addSimulationListener(SoundFactory.getInstance().getSoundCollection());
+                    // SuperGreenfoot: the mixer holds all sound while the scenario is paused
+                    // and stops everything when the VM is discarded.
+                    sim.addSimulationListener(greenfoot.sound.SoundMixer.getInstance().getSimulationListener());
                     
                     Simulation.getInstance().setPaused(true);
                     // Important to initialise the simulation before attaching world handler

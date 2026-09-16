@@ -160,11 +160,9 @@ public class Greenfoot
      */
     public static void playSound(final String soundFile)
     {
-        Sound sound = SoundFactory.getInstance().createSound(soundFile, false);
-
-        if( sound != null) {
-            sound.play();
-        }
+        // SuperGreenfoot: play through the mixer so repeated calls overlap
+        // and the clip is decoded only once.
+        Sounds.play(soundFile);
     }
 
 

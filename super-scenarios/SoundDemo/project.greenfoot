@@ -1,0 +1,6 @@
+#Greenfoot project file
+class.SoundWorld.superclass=greenfoot.World
+project.charset=UTF-8
+publish.hasSource=true
+version=3.1.0
+world.lastInstantiated=SoundWorld
