@@ -85,3 +85,19 @@ downloads accumulate.
   credentials, start the Windows application.
 - Phase 3: first `jpackage` bundles, signed on macOS locally.
 - Phase 4: CI signing for both platforms; exported-game signing from the IDE.
+
+## How the export uses it (implemented in Phase 4)
+
+Share > Application > "Also build a native app": choose DMG, pick the
+Developer ID identity from the list (auto-detected from the keychain) and enter
+the notarytool profile name ("SuperGreenfoot" if you followed the steps above).
+The IDE runs, in order: `jpackage --type dmg --mac-sign --mac-signing-key-user-name
+"<name (TEAM)>" ...`, `xcrun notarytool submit <dmg> --keychain-profile <profile> --wait`,
+`xcrun stapler staple <dmg>`. Tool output is in the BlueJ debug log.
+
+Verify a result by hand:
+
+```sh
+codesign --verify --deep --strict --verbose=2 "My Game.app"
+spctl --assess --type execute --verbose "My Game.app"      # accepted only when notarized
+```

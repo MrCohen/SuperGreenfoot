@@ -42,6 +42,12 @@ public class ExportInfo extends ScenarioInfo
     private String password;
     private boolean keepSavedScreenshot;
 
+    // SuperGreenfoot: native application packaging (Application tab)
+    private boolean nativeApp;
+    private String nativeKind = "APP_IMAGE";
+    private String macSigningName;
+    private String notarizeProfile;
+
     /**
      * Construct an ExportInfo with information based on the ScenarioInfo provided.
      */
@@ -166,5 +172,48 @@ public class ExportInfo extends ScenarioInfo
     public void setKeepSavedScreenshot(boolean keepSavedScreenshot)
     {
         this.keepSavedScreenshot = keepSavedScreenshot;
+    }
+
+    // ---- SuperGreenfoot native packaging ----
+
+    public boolean isNativeApp()
+    {
+        return nativeApp;
+    }
+
+    public void setNativeApp(boolean nativeApp)
+    {
+        this.nativeApp = nativeApp;
+    }
+
+    /** "APP_IMAGE", "DMG" or "MSI". */
+    public String getNativeKind()
+    {
+        return nativeKind;
+    }
+
+    public void setNativeKind(String nativeKind)
+    {
+        this.nativeKind = nativeKind;
+    }
+
+    public String getMacSigningName()
+    {
+        return macSigningName;
+    }
+
+    public void setMacSigningName(String macSigningName)
+    {
+        this.macSigningName = macSigningName;
+    }
+
+    public String getNotarizeProfile()
+    {
+        return notarizeProfile;
+    }
+
+    public void setNotarizeProfile(String notarizeProfile)
+    {
+        this.notarizeProfile = notarizeProfile;
     }
 }

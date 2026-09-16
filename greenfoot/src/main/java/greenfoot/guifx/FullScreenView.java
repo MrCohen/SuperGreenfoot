@@ -73,6 +73,7 @@ public class FullScreenView extends Stage
     private final ToggleButton pixelPerfectButton;
     private final ToggleButton lockButton;
     private final Label lockedHint = new Label();
+    private final Label scaleLabel = new Label();
 
     private boolean controlsVisible = true;
     private boolean locked = false;
@@ -128,6 +129,12 @@ public class FullScreenView extends Stage
         StackPane.setMargin(controlsBox, new Insets(0, 0, 24, 0));
         makeDraggable(controlsBox);
         root.getChildren().add(controlsBox);
+
+        scaleLabel.setStyle("-fx-text-fill: rgba(255,255,255,0.6); -fx-font-size: 11px;");
+        StackPane.setAlignment(scaleLabel, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(scaleLabel, new Insets(0, 0, 4, 8));
+        root.getChildren().add(scaleLabel);
+        scaleLabel.visibleProperty().bind(controlsBox.visibleProperty());
 
         lockedHint.setText(Config.getString("fullscreen.lockedHint"));
         lockedHint.setStyle("-fx-text-fill: rgba(255,255,255,0.5); -fx-font-size: 11px;");
@@ -285,12 +292,16 @@ public class FullScreenView extends Stage
             imageView.setSmooth(false);
             imageView.setFitWidth(iw * scale);
             imageView.setFitHeight(ih * scale);
+            scaleLabel.setText(String.format("%dx%d at %dx (pixel-perfect)", (int) iw, (int) ih, scale));
         }
         else {
             double scale = Math.min(sw / iw, sh / ih);
             imageView.setSmooth(true);
             imageView.setFitWidth(iw * scale);
             imageView.setFitHeight(ih * scale);
+            boolean whole = Math.abs(scale - Math.rint(scale)) < 0.001;
+            scaleLabel.setText(String.format("%dx%d at %.2fx%s", (int) iw, (int) ih, scale,
+                    whole ? "" : " (not a whole number: try Pixel-perfect or a world size from the World template tip)"));
         }
     }
 

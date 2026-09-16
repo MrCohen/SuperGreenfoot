@@ -72,3 +72,8 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/build.gradle` | `superGreenfootRuntimeJar` task (runtime jar into lib/). | 3 |
 | `greenfoot/labels/english/greenfoot/greenfoot-labels` | `export.app.runHint`, `export.app.title`. | 3 |
 | `greenfoot/src/test/java/greenfoot/mouse/MousePollTest.java` | Int buttons. New tests: `SaveTest`, `player/PlayerSessionTest`, `player/AwtKeyNamesTest`. | 3 |
+| `greenfoot/src/main/java/greenfoot/export/NativePackager.java` (new), `export/Exporter.java`, `export/mygame/ExportInfo.java`, `guifx/export/ExportAppTab.java` | jpackage native packaging with macOS signing/notarization from the Application tab. | 4 |
+| `greenfoot/src/main/java/greenfoot/guifx/FullScreenView.java` | Scale readout label. | 2c |
+| `greenfoot/labels/english/greenfoot/templates/worldJava.tmpl` | World-size tip comment. | 2c |
+| `greenfoot/labels/english/greenfoot/greenfoot-labels` | `export.app.native*`, `export.app.sign*`, `export.app.notarize`. | 4 |
+| `greenfoot/src/test/java/greenfoot/export/NativePackagerTest.java` | New tests (4). | 4 |

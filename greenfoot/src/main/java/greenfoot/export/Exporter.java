@@ -364,6 +364,45 @@ public class Exporter implements PublishListener
             }
         }
         jarCreator.create();
+
+        if (scenarioInfo.isNativeApp())
+        {
+            NativePackager.Options o = new NativePackager.Options();
+            o.jar = exportFile;
+            o.destDir = exportDir;
+            o.appName = jarName.toLowerCase().endsWith(".jar") ? jarName.substring(0, jarName.length() - 4) : jarName;
+            o.description = project.getProjectName();
+            try
+            {
+                o.kind = NativePackager.Kind.valueOf(scenarioInfo.getNativeKind());
+            }
+            catch (IllegalArgumentException | NullPointerException e)
+            {
+                o.kind = NativePackager.Kind.APP_IMAGE;
+            }
+            o.macSigningName = scenarioInfo.getMacSigningName();
+            o.notarizeProfile = scenarioInfo.getNotarizeProfile();
+            NativePackager.Result r = NativePackager.run(o, new NativePackager.Listener() {
+                @Override
+                public void progress(String message)
+                {
+                    dialog.setProgress(true, message);
+                }
+
+                @Override
+                public void output(String line)
+                {
+                    Debug.message("[jpackage] " + line);
+                }
+            });
+            if (!r.success)
+            {
+                dialog.setProgress(false, Config.getString("export.app.nativeFailed") + " " + r.message);
+                return;
+            }
+            dialog.setProgress(false, Config.getString("export.progress.complete") + " " + r.message);
+            return;
+        }
         dialog.setProgress(false, Config.getString("export.progress.complete"));
     }
 

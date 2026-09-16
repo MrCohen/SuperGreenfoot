@@ -25,13 +25,20 @@ package greenfoot.guifx.export;
 import static greenfoot.export.Exporter.ExportFunction;
 
 import bluej.Config;
+import greenfoot.export.NativePackager;
 import greenfoot.export.mygame.ExportInfo;
 import greenfoot.export.mygame.ScenarioInfo;
 
 import java.io.File;
+import java.util.List;
 
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Window;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -39,12 +46,22 @@ import threadchecker.Tag;
 /**
  * Export tab for a standalone application: a single executable jar containing
  * the scenario and the SuperGreenfoot runtime, runnable with "java -jar" on
- * any JDK 21 or later (no JavaFX needed). Restored from Greenfoot 3.8.1 and
- * simplified: the old JavaFX command-line instructions are gone.
+ * any JDK 21 or later (no JavaFX needed), and optionally a native app built
+ * with jpackage (no Java needed), signed and notarized on macOS.
  */
 @OnThread(Tag.FXPlatform)
 public class ExportAppTab extends ExportLocalTab
 {
+    private static final String PREF_SIGN = "supergreenfoot.export.macSigningName";
+    private static final String PREF_NOTARIZE = "supergreenfoot.export.notarizeProfile";
+    private static final String PREF_NATIVE = "supergreenfoot.export.nativeApp";
+
+    private final CheckBox nativeApp = new CheckBox(Config.getString("export.app.native"));
+    private final ComboBox<String> nativeKind = new ComboBox<>();
+    private final ComboBox<String> signingIdentity = new ComboBox<>();
+    private final TextField notarizeProfile = new TextField();
+    private final Label nativeStatus = new Label();
+
     public ExportAppTab(Window parent, ScenarioInfo scenarioInfo, String scenarioName, File defaultExportDir)
     {
         super(parent, scenarioInfo, scenarioName, defaultExportDir, "app", ".jar");
@@ -62,7 +79,51 @@ public class ExportAppTab extends ExportLocalTab
         super.buildContentPane(targetFile);
         Label runHint = new Label(Config.getString("export.app.runHint"));
         runHint.setWrapText(true);
-        ((Pane) getContent()).getChildren().addAll(runHint, lockScenario, hideControls);
+
+        boolean haveJpackage = NativePackager.findJpackage() != null;
+        nativeApp.setSelected(haveJpackage && "true".equals(Config.getPropString(PREF_NATIVE, "false")));
+        nativeApp.setDisable(!haveJpackage);
+        nativeStatus.setWrapText(true);
+        nativeStatus.setText(haveJpackage ? Config.getString("export.app.nativeHint")
+                                          : Config.getString("export.app.noJpackage"));
+
+        if (NativePackager.isMac()) {
+            nativeKind.getItems().addAll("APP_IMAGE", "DMG");
+        }
+        else if (NativePackager.isWindows()) {
+            nativeKind.getItems().addAll("APP_IMAGE", "MSI");
+        }
+        else {
+            nativeKind.getItems().addAll("APP_IMAGE");
+        }
+        nativeKind.getSelectionModel().selectFirst();
+
+        VBox nativeBox = new VBox(4, nativeApp, nativeStatus);
+        HBox kindRow = new HBox(8, new Label(Config.getString("export.app.nativeKind")), nativeKind);
+        nativeBox.getChildren().add(kindRow);
+
+        if (NativePackager.isMac()) {
+            List<String> ids = NativePackager.findMacSigningIdentities();
+            signingIdentity.getItems().add("");
+            signingIdentity.getItems().addAll(ids);
+            String remembered = Config.getPropString(PREF_SIGN, "");
+            signingIdentity.getSelectionModel().select(ids.contains(remembered) ? remembered : (ids.isEmpty() ? "" : ids.get(0)));
+            notarizeProfile.setText(Config.getPropString(PREF_NOTARIZE, ""));
+            notarizeProfile.setPromptText("SuperGreenfoot");
+            notarizeProfile.setPrefColumnCount(14);
+            Label signLabel = new Label(Config.getString("export.app.sign"));
+            Label notarizeLabel = new Label(Config.getString("export.app.notarize"));
+            HBox signRow = new HBox(8, signLabel, signingIdentity, notarizeLabel, notarizeProfile);
+            nativeBox.getChildren().add(signRow);
+            Label signHint = new Label(ids.isEmpty() ? Config.getString("export.app.noIdentity")
+                                                     : Config.getString("export.app.signHint"));
+            signHint.setWrapText(true);
+            nativeBox.getChildren().add(signHint);
+            signRow.disableProperty().bind(nativeApp.selectedProperty().not());
+        }
+        kindRow.disableProperty().bind(nativeApp.selectedProperty().not());
+
+        ((Pane) getContent()).getChildren().addAll(runHint, lockScenario, hideControls, nativeBox);
     }
 
     @Override
@@ -71,6 +132,12 @@ public class ExportAppTab extends ExportLocalTab
         super.updateInfoFromFields();
         scenarioInfo.setLocked(isLockScenario());
         scenarioInfo.setHideControls(isHideControls());
+        Config.putPropString(PREF_NATIVE, Boolean.toString(nativeApp.isSelected()));
+        if (NativePackager.isMac()) {
+            String id = signingIdentity.getValue() == null ? "" : signingIdentity.getValue();
+            Config.putPropString(PREF_SIGN, id);
+            Config.putPropString(PREF_NOTARIZE, notarizeProfile.getText().trim());
+        }
     }
 
     @Override
@@ -79,6 +146,14 @@ public class ExportAppTab extends ExportLocalTab
         ExportInfo info = super.getExportInfo();
         info.setLocked(isLockScenario());
         info.setHideControls(isHideControls());
+        info.setNativeApp(nativeApp.isSelected());
+        info.setNativeKind(nativeKind.getValue());
+        if (NativePackager.isMac()) {
+            String id = signingIdentity.getValue();
+            info.setMacSigningName(id == null || id.isEmpty() ? null : id);
+            String prof = notarizeProfile.getText().trim();
+            info.setNotarizeProfile(prof.isEmpty() ? null : prof);
+        }
         return info;
     }
 }
