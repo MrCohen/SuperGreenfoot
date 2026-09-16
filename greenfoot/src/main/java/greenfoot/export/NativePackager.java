@@ -80,6 +80,8 @@ public final class NativePackager
         public String macSigningName;
         /** macOS: notarytool keychain profile to notarize with, or null. */
         public String notarizeProfile;
+        /** Directory of jmods to link the game runtime from; null uses the JDK's own. */
+        public File modulePath;
         /** Extra JVM options for the packaged app. */
         public List<String> javaOptions = new ArrayList<String>(Arrays.asList("-Xmx1g"));
     }
@@ -110,6 +112,29 @@ public final class NativePackager
 
     private NativePackager()
     {
+    }
+
+    /**
+     * Directory of jmods usable for linking game runtimes: the running JDK's own
+     * jmods, or a "jmods" folder next to the given application directory (the
+     * installed SuperGreenfoot IDE ships them there). Null if neither exists.
+     */
+    public static File findModulePath(File appDir)
+    {
+        String home = System.getProperty("java.home");
+        if (home != null) {
+            File own = new File(home, "jmods");
+            if (own.isDirectory()) {
+                return own;
+            }
+        }
+        if (appDir != null) {
+            File shipped = new File(appDir, "jmods");
+            if (shipped.isDirectory()) {
+                return shipped;
+            }
+        }
+        return null;
     }
 
     /** Path of the jpackage tool in the running JDK, or null if this JDK does not have it. */
@@ -213,6 +238,10 @@ public final class NativePackager
         cmd.add(o.destDir.getAbsolutePath());
         cmd.add("--add-modules");
         cmd.add(MODULES);
+        if (o.modulePath != null && o.modulePath.isDirectory()) {
+            cmd.add("--module-path");
+            cmd.add(o.modulePath.getAbsolutePath());
+        }
         for (String opt : o.javaOptions) {
             cmd.add("--java-options");
             cmd.add(opt);

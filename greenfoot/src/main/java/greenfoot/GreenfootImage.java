@@ -783,7 +783,7 @@ public class GreenfootImage
      * descenders (the tails of "g", "p", "y") hang below, which is how text looks
      * visually centred in a box.
      *
-     * <p>Use {@link Font#getStringWidth(String)} and {@link Font#getStringHeight(String)}
+     * <p>Use {@link greenfoot.Font#getStringWidth(String)} and {@link greenfoot.Font#getStringHeight(String)}
      * if you need the measurements themselves, for example to size a box.
      *
      * @param string the text to draw; may contain newlines.

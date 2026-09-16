@@ -35,3 +35,6 @@ boot/build
 lang-stride/build
 threadchecker/build
 greenfoot/build
+
+# SuperGreenfoot: installer build output at the repo root
+/build/

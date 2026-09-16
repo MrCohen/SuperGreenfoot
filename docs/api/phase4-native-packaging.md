@@ -34,7 +34,32 @@ runtime: `java.base, java.desktop, java.logging, java.prefs, java.xml,
 java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
 `jdeps` on the runtime jar; the BlueJ classes reference the last few).
 
-## Requirement for the fork's own installer
+## The fork's own macOS installer
+
+`installer/mac/build-dmg.sh [--sign "<name (TEAM)>"] [--notarize <profile>]` (needs
+`JAVA_HOME` = full JDK 21+ and `./gradlew :greenfoot:assemble :greenfoot:userJavadoc`):
+
+1. Stages the flattened `lib` directory (all jars, labels, defs, images, fonts),
+   the API docs, `greenfoot/common`, licenses and README, exactly like upstream's
+   `Contents/Java`.
+2. `jlink`s a runtime with **all** JDK modules (so javac, JDI and everything the
+   IDE touches is present) and copies the JDK's `jmods` into the app folder,
+   because jpackage strips `jmods` from runtime images. The installed IDE passes
+   `Contents/app/jmods` as `--module-path` when it exports a native game
+   (`NativePackager.findModulePath`).
+3. `jpackage --type app-image` with `bluej.Boot` as main class, `-greenfoot=true`,
+   file associations for `.greenfoot` and `.gfar`, Greenfoot's icon, and, when
+   signing, the hardened-runtime entitlements Java needs (JIT, unsigned memory,
+   library validation off, audio input for the sound recorder). The JNA jar's
+   native library is signed inside the jar first (notarization checks it).
+4. `hdiutil` builds the DMG with an Applications link; the DMG is signed,
+   notarized (`notarytool --wait`) and stapled.
+
+Sizes: 237 MB app, 216 MB DMG (about 145 MB without jmods). Build time about
+20 s unsigned. Verified: the packaged IDE launches and opens scenarios, and its
+own runtime builds a native game from the shipped jmods.
+
+## Requirement for the fork's own installer (background)
 
 `jpackage` lives in a full JDK. Upstream's installer bundles a jlinked runtime
 without it (the installed Greenfoot 3.9 has only `java` in its bundled JDK),

@@ -215,6 +215,19 @@ task packageGreenfootMacAarch(type: Exec) {
             "-Dmac_bundler_arch_dir=aarch64"
 }
 packageGreenfootMacIntel.dependsOn assemble, userJavadoc
+
+// SuperGreenfoot macOS installer: ./gradlew :greenfoot:packageSuperGreenfootMac [-PsignName="Name (TEAM)" -PnotarizeProfile=SuperGreenfoot]
+task packageSuperGreenfootMac(type: Exec) {
+    group = 'distribution'
+    description = 'Build SuperGreenfoot.app and a DMG with jpackage (signed/notarized when -PsignName/-PnotarizeProfile are given).'
+    workingDir rootDir
+    environment JAVA_HOME: System.getProperty('java.home')
+    def args = ['installer/mac/build-dmg.sh']
+    if (project.hasProperty('signName')) { args += ['--sign', project.property('signName')] }
+    if (project.hasProperty('notarizeProfile')) { args += ['--notarize', project.property('notarizeProfile')] }
+    commandLine args
+}
+packageSuperGreenfootMac.dependsOn assemble, userJavadoc
 packageGreenfootMacAarch.dependsOn assemble, userJavadoc
 
 task packageGreenfootWindows(type: Exec) {

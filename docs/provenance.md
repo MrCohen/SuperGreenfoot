@@ -77,3 +77,5 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/labels/english/greenfoot/templates/worldJava.tmpl` | World-size tip comment. | 2c |
 | `greenfoot/labels/english/greenfoot/greenfoot-labels` | `export.app.native*`, `export.app.sign*`, `export.app.notarize`. | 4 |
 | `greenfoot/src/test/java/greenfoot/export/NativePackagerTest.java` | New tests (4). | 4 |
+| `installer/mac/{build-dmg.sh,entitlements.plist,assoc-*.properties}` (new), `greenfoot/build.gradle` (`packageSuperGreenfootMac`) | macOS IDE installer via jpackage; signing and notarization. | 4 |
+| `greenfoot/src/main/java/greenfoot/GreenfootImage.java` | Javadoc link fix (`greenfoot.Font`), so `userJavadoc` builds. | 4 |

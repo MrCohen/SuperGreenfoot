@@ -1,0 +1,8 @@
+#BlueJ class context
+comment0.target=Walker
+comment0.text=\n\ Walks\ up\ and\ down\ at\ a\ fractional\ speed.\ Because\ the\ world\ is\ y-sorted,\n\ whichever\ walker\ is\ lower\ on\ the\ screen\ is\ drawn\ in\ front.\n
+comment1.params=speed
+comment1.target=Walker(double)
+comment2.params=
+comment2.target=void\ act()
+numComments=3
