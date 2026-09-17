@@ -1,0 +1,14 @@
+name: Idea or request
+description: Suggest a feature or an improvement, for the classroom or for your own games.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like Super Greenfoot to do?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would you or your students use it?

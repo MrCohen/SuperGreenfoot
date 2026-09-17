@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions about the original Greenfoot
+    url: https://www.greenfoot.org/
+    about: Super Greenfoot is a separate project. For the original Greenfoot, please use greenfoot.org.

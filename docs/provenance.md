@@ -87,3 +87,5 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/src/main/java/greenfoot/guifx/{GreenfootStage,FullScreenView}.java` | Apply display requests, remember full-screen preferences, report state; pixel-perfect and display-scale accessors. | 2d |
 | `greenfoot/src/main/java/greenfoot/player/PlayerFrame.java` | New delegate methods; window scale; cached screen bounds. | 2d |
 | `greenfoot/src/test/java/greenfoot/DisplayApiTest.java`, `greenfoot/build.gradle` (`userJavadoc` includes `ScaleMode`) | New tests (4). | 2d |
+| `README.md` | Super Greenfoot front page (download, features, run from source, credits); the upstream README is kept in full inside a collapsed section. `.github/ISSUE_TEMPLATE/` and `docs/images/` are new. | release 0.1.0 |
+| `boot/src/main/java/bluej/Boot.java`, `boot/build.gradle`, `version.properties` | `SUPER_VERSION` constant stamped from the new `supergreenfoot_version` property; shown in the About box. | release 0.1.0 |
