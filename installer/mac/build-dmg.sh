@@ -98,12 +98,17 @@ du -sh "$RUNTIME" | sed 's/^/  runtime size: /'
 
 # ---- 3. jpackage ----
 echo "Running jpackage..."
+# jpackage on macOS refuses a version whose first number is 0, so 0.x releases
+# are built with a placeholder, the real version is written into Info.plist,
+# and the bundle is signed afterwards (signing must follow the plist edit).
+JP_VERSION="$VERSION"
+[[ "$VERSION" == 0.* ]] && JP_VERSION="1.0.0"
 JP=("$JAVA_HOME/bin/jpackage"
   --type app-image
   --input "$OUT/input"
   --dest "$OUT/work"
   --name SuperGreenfoot
-  --app-version "$VERSION"
+  --app-version "$JP_VERSION"
   --vendor "SuperGreenfoot"
   --description "SuperGreenfoot: Greenfoot with precise actors, real sound, full screen and game export"
   --main-jar boot.jar
@@ -119,12 +124,17 @@ JP=("$JAVA_HOME/bin/jpackage"
   --file-associations "$ROOT/installer/mac/assoc-greenfoot.properties"
   --file-associations "$ROOT/installer/mac/assoc-gfar.properties"
 )
-if [[ -n "$SIGN" ]]; then
-  JP+=(--mac-sign --mac-signing-key-user-name "$SIGN" --mac-entitlements "$ROOT/installer/mac/entitlements.plist")
-fi
 "${JP[@]}"
 APP="$OUT/work/SuperGreenfoot.app"
 [[ -d "$APP" ]] || { echo "jpackage produced no app"; exit 1; }
+if [[ "$JP_VERSION" != "$VERSION" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" -c "Set :CFBundleVersion $VERSION" "$APP/Contents/Info.plist"
+fi
+if [[ -n "$SIGN" ]]; then
+  echo "Signing the app..."
+  "$JAVA_HOME/bin/jpackage" --type app-image --app-image "$APP" --mac-sign \
+      --mac-signing-key-user-name "$SIGN" --mac-entitlements "$ROOT/installer/mac/entitlements.plist"
+fi
 if [[ -n "$SIGN" ]]; then
   echo "Verifying app signature..."
   codesign --verify --deep --strict --verbose=2 "$APP"
