@@ -134,6 +134,12 @@ public class VMCommsMain implements Closeable
 
     private boolean delayLoop;
     private boolean vmReadyForInvocations = false;
+    /** SuperGreenfoot: the stage is told once when a new VM becomes ready (to send the display state). */
+    private boolean vmReadyNotified = false;
+    /** SuperGreenfoot: latest display request read from the debug VM, and the last one handed to the stage. */
+    private int displayRequestSeq = 0;
+    private int displayRequestFlags = 0;
+    private int lastDisplayRequestSeen = 0;
     private int askId = -1;
     private boolean workerWaiting = false;
 
@@ -330,6 +336,18 @@ public class VMCommsMain implements Closeable
         }
 
         stage.setLastUserExecutionStartTime(lastExecStartTime, delayLoop);
+
+        // SuperGreenfoot: display requests from scenario code, and the initial state for a new VM
+        if (vmReadyForInvocations && !vmReadyNotified)
+        {
+            vmReadyNotified = true;
+            stage.sendDisplayState();
+        }
+        if (displayRequestSeq > lastDisplayRequestSeen)
+        {
+            lastDisplayRequestSeen = displayRequestSeq;
+            stage.receivedDisplayRequest(displayRequestSeq, displayRequestFlags);
+        }
             
         checkingIO = false;
         
@@ -444,6 +462,9 @@ public class VMCommsMain implements Closeable
                     delayLoop = delayLoopStatus == 1;
                     int vmReadyStatus = sharedMemory.get();
                     vmReadyForInvocations = vmReadyStatus == 1;
+                    // SuperGreenfoot: display request (seq, flags)
+                    displayRequestSeq = sharedMemory.get();
+                    displayRequestFlags = sharedMemory.get();
                 }
             }
         }
@@ -650,11 +671,23 @@ public class VMCommsMain implements Closeable
         lastAnswer = -1;
         previousStoppedWithErrorCount = 0;
         prevWorldCounter = 0;
+        vmReadyNotified = false;
+        displayRequestSeq = 0;
+        lastDisplayRequestSeen = 0;
         
         // Zero the buffer:
         sharedMemoryByte.position(0);
         sharedMemoryByte.put(new byte[fileSize], 0, fileSize);
         vmReadyForInvocations = false;
+    }
+
+    /**
+     * SuperGreenfoot: tell the debug VM the current display state (full screen,
+     * controls, scale mode, screen size); see DisplayState.
+     */
+    public synchronized void sendDisplayState(int[] state)
+    {
+        pendingCommands.add(new Command(COMMAND_DISPLAY_STATE, state));
     }
 
     /**

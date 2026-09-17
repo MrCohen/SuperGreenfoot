@@ -129,6 +129,8 @@ public class GreenfootMain
 
                     WorldHandlerDelegateIDE worldHandlerDelegate = new WorldHandlerDelegateIDE(vmComms);
                     WorldHandler.initialise(worldHandlerDelegate);
+                    // SuperGreenfoot: full screen, controls and scaling requests go to the IDE window
+                    greenfoot.util.GreenfootUtil.setDisplayDelegate(new greenfoot.platforms.ide.DisplayDelegateIDE(vmComms));
                     WorldHandler worldHandler = WorldHandler.getInstance();
                     Simulation.initialize();
                     Simulation sim = Simulation.getInstance();

@@ -181,6 +181,7 @@ task userJavadoc(type: Javadoc) {
                 'greenfoot/GreenfootImage.java',
                 'greenfoot/GreenfootSound.java',
                 'greenfoot/MouseInfo.java',
+                'greenfoot/ScaleMode.java',
                 'greenfoot/UserInfo.java',
                 'greenfoot/World.java']
     destinationDir = file("../bluej/doc/API")

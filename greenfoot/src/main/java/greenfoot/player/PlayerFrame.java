@@ -26,6 +26,7 @@ import greenfoot.core.WorldHandler;
 import greenfoot.event.SimulationListener;
 import greenfoot.gui.input.KeyboardManager;
 import greenfoot.gui.input.mouse.MousePollingManager;
+import greenfoot.ScaleMode;
 import greenfoot.platforms.DisplayDelegate;
 import greenfoot.util.GreenfootUtil;
 import threadchecker.OnThread;
@@ -85,6 +86,9 @@ public class PlayerFrame implements DisplayDelegate
     private volatile boolean controlsVisible = true;
     private volatile boolean controlsLocked = false;
     private volatile boolean pixelPerfect = false;
+    /** Enlargement of the windowed world view (Greenfoot.setWindowScale). */
+    private volatile double windowScale = 1.0;
+    private volatile java.awt.Rectangle screenBoundsCache = new java.awt.Rectangle();
     private long escDownSince = -1;
     private BufferedImage currentFrame;
 
@@ -100,6 +104,15 @@ public class PlayerFrame implements DisplayDelegate
                 session.shutdown();
                 frame.dispose();
                 System.exit(0);
+            }
+        });
+
+        updateScreenBounds();
+        frame.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentMoved(java.awt.event.ComponentEvent e)
+            {
+                updateScreenBounds();
             }
         });
 
@@ -229,6 +242,92 @@ public class PlayerFrame implements DisplayDelegate
         return true;
     }
 
+    @Override
+    @OnThread(Tag.Any)
+    public boolean isFullScreenSupported()
+    {
+        return true;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public void setScaleMode(ScaleMode mode)
+    {
+        boolean pp = mode == ScaleMode.PIXEL_PERFECT;
+        pixelPerfect = pp;
+        SwingUtilities.invokeLater(() -> {
+            controlBar.setPixelPerfect(pp);
+            worldPanel.repaint();
+        });
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public ScaleMode getScaleMode()
+    {
+        return pixelPerfect ? ScaleMode.PIXEL_PERFECT : ScaleMode.SMOOTH;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public double getDisplayScale()
+    {
+        return worldPanel.getShownScale();
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public int getScreenWidth()
+    {
+        return screenBounds().width;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public int getScreenHeight()
+    {
+        return screenBounds().height;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public void setWindowScale(double scale)
+    {
+        double s = Math.max(0.25, Math.min(8.0, scale));
+        windowScale = s;
+        SwingUtilities.invokeLater(() -> {
+            worldPanel.updatePreferredSize();
+            if (!fullScreen) {
+                frame.pack();
+            }
+            worldPanel.repaint();
+        });
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public double getWindowScale()
+    {
+        return windowScale;
+    }
+
+    /** Logical bounds of the screen the window is on, cached on the Swing thread for any-thread readers. */
+    @OnThread(Tag.Any)
+    private java.awt.Rectangle screenBounds()
+    {
+        return screenBoundsCache;
+    }
+
+    /** Refresh the cached screen bounds (AWT reports scaled pixels on HiDPI screens). */
+    private void updateScreenBounds()
+    {
+        java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
+        if (gc == null) {
+            gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+        }
+        screenBoundsCache = gc.getBounds();
+    }
+
     // ---- full screen ----
 
     private void setFullScreenOnEdt(boolean on)
@@ -284,6 +383,7 @@ public class PlayerFrame implements DisplayDelegate
         controlBar.setFullScreenMode(on);
         controlBar.setVisible(controlsVisible);
         worldPanel.requestFocusInWindow();
+        updateScreenBounds();
     }
 
     private void layoutFullScreen()
@@ -487,7 +587,7 @@ public class PlayerFrame implements DisplayDelegate
     {
         private int worldW = 1, worldH = 1;
         private boolean fillParent = false;
-        private double scale = 1;
+        private volatile double scale = 1;
         private int offX, offY;
 
         WorldPanel()
@@ -502,10 +602,21 @@ public class PlayerFrame implements DisplayDelegate
             if (w != worldW || h != worldH) {
                 worldW = w;
                 worldH = h;
-                setPreferredSize(new Dimension(w, h));
+                updatePreferredSize();
                 return true;
             }
             return false;
+        }
+
+        void updatePreferredSize()
+        {
+            setPreferredSize(new Dimension((int) Math.round(worldW * windowScale), (int) Math.round(worldH * windowScale)));
+        }
+
+        @OnThread(Tag.Any)
+        double getShownScale()
+        {
+            return scale;
         }
 
         void setFillParent(boolean fill)
@@ -538,6 +649,17 @@ public class PlayerFrame implements DisplayDelegate
                 scale = s;
                 int dw = (int) Math.round(img.getWidth() * s);
                 int dh = (int) Math.round(img.getHeight() * s);
+                offX = (getWidth() - dw) / 2;
+                offY = (getHeight() - dh) / 2;
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                        pixelPerfect ? RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR
+                                     : RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2.drawImage(img, offX, offY, dw, dh, null);
+            }
+            else if (windowScale != 1.0) {
+                scale = windowScale;
+                int dw = (int) Math.round(img.getWidth() * windowScale);
+                int dh = (int) Math.round(img.getHeight() * windowScale);
                 offX = (getWidth() - dw) / 2;
                 offY = (getHeight() - dh) / 2;
                 g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
@@ -649,6 +771,11 @@ public class PlayerFrame implements DisplayDelegate
             }
             revalidate();
             setSize(getPreferredSize());
+        }
+
+        void setPixelPerfect(boolean on)
+        {
+            pixelBox.setSelected(on);
         }
 
         void setRunning(boolean running)

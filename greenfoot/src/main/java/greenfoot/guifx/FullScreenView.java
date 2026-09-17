@@ -77,6 +77,8 @@ public class FullScreenView extends Stage
 
     private boolean controlsVisible = true;
     private boolean locked = false;
+    /** The factor the world image is currently shown at (for Greenfoot.getDisplayScale). */
+    private double displayScale = 1.0;
     private long escDownSince = -1;
     private double dragOffsetX, dragOffsetY;
 
@@ -97,10 +99,16 @@ public class FullScreenView extends Stage
         controlPanel = new ControlPanel(owner, new Region());
         pixelPerfectButton = new ToggleButton(Config.getString("fullscreen.pixelPerfect"));
         pixelPerfectButton.setFocusTraversable(false);
-        pixelPerfectButton.setOnAction(e -> relayout());
+        pixelPerfectButton.setOnAction(e -> {
+            relayout();
+            owner.displayStateChanged();
+        });
         Button hideButton = new Button(Config.getString("fullscreen.hideControls"));
         hideButton.setFocusTraversable(false);
-        hideButton.setOnAction(e -> setControlsVisible(false));
+        hideButton.setOnAction(e -> {
+            setControlsVisible(false);
+            owner.displayStateChanged();
+        });
         lockButton = new ToggleButton(Config.getString("fullscreen.lockControls"));
         lockButton.setFocusTraversable(false);
         lockButton.setOnAction(e -> {
@@ -108,6 +116,7 @@ public class FullScreenView extends Stage
             if (locked) {
                 setControlsVisible(false);
             }
+            owner.displayStateChanged();
         });
         Button exitButton = new Button(Config.getString("fullscreen.exit"));
         exitButton.setFocusTraversable(false);
@@ -168,6 +177,7 @@ public class FullScreenView extends Stage
                         escDownSince = now;
                         if (!locked) {
                             setControlsVisible(!controlsVisible);
+                            owner.displayStateChanged();
                         }
                     }
                     else if (now - escDownSince >= ESC_HOLD_MS) {
@@ -176,6 +186,7 @@ public class FullScreenView extends Stage
                         lockButton.setSelected(false);
                         setControlsVisible(true);
                         escDownSince = Long.MAX_VALUE / 2; // don't re-trigger until released
+                        owner.displayStateChanged();
                     }
                 }
             }
@@ -257,6 +268,26 @@ public class FullScreenView extends Stage
         return locked;
     }
 
+    /** Whole-number, unsmoothed scaling (true) or smooth fit (false); used by the scenario API. */
+    public void setPixelPerfect(boolean pixelPerfect)
+    {
+        if (pixelPerfectButton.isSelected() != pixelPerfect) {
+            pixelPerfectButton.setSelected(pixelPerfect);
+            relayout();
+        }
+    }
+
+    public boolean isPixelPerfect()
+    {
+        return pixelPerfectButton.isSelected();
+    }
+
+    /** The factor the world image is currently shown at. */
+    public double getDisplayScale()
+    {
+        return displayScale;
+    }
+
     /** Convert scene coordinates on this window to world pixel coordinates. */
     public Point2D toWorld(double sceneX, double sceneY)
     {
@@ -289,6 +320,7 @@ public class FullScreenView extends Stage
         double ih = img.getHeight();
         if (pixelPerfectButton.isSelected()) {
             int scale = (int) Math.max(1, Math.floor(Math.min(sw / iw, sh / ih)));
+            displayScale = scale;
             imageView.setSmooth(false);
             imageView.setFitWidth(iw * scale);
             imageView.setFitHeight(ih * scale);
@@ -296,6 +328,7 @@ public class FullScreenView extends Stage
         }
         else {
             double scale = Math.min(sw / iw, sh / ih);
+            displayScale = scale;
             imageView.setSmooth(true);
             imageView.setFitWidth(iw * scale);
             imageView.setFitHeight(ih * scale);

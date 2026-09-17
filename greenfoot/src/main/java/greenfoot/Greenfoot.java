@@ -316,9 +316,13 @@ public class Greenfoot
     // ==================================
 
     /**
-     * Show the scenario full screen, or return to a window. In the standalone
-     * player (an exported game) this switches immediately. Inside the IDE this
-     * call does nothing; use the Controls menu's Full Screen command instead.
+     * Show the scenario full screen, or return to a window. Works in the
+     * exported game and inside the IDE (where it opens or closes the
+     * full-screen view). Combine with {@link #setScaleMode(ScaleMode)} to choose
+     * crisp whole-number scaling or smooth fill, and with
+     * {@link #getScreenWidth()} / {@link #getScreenHeight()} to pick a world size
+     * that fills the screen exactly. Players can always leave full screen with
+     * Shortcut+Shift+F.
      *
      * @param fullScreen true for full screen, false for a window.
      * @since SuperGreenfoot 1.0
@@ -329,7 +333,7 @@ public class Greenfoot
     }
 
     /**
-     * @return true if the scenario is currently shown full screen by the standalone player.
+     * @return true if the scenario is currently shown full screen.
      * @since SuperGreenfoot 1.0
      */
     public static boolean isFullScreen()
@@ -338,9 +342,88 @@ public class Greenfoot
     }
 
     /**
-     * Show or hide the run controls (act, run/pause, reset, speed) in the
-     * standalone player. A finished game usually hides them. Players can bring
-     * hidden controls back with Escape unless they are locked. No effect in the IDE.
+     * @return true if this environment can show the scenario full screen
+     *         (the exported game and the IDE can; a web page may not).
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isFullScreenSupported()
+    {
+        return GreenfootUtil.getDisplayDelegate().isFullScreenSupported();
+    }
+
+    /**
+     * Choose how the world is scaled up when it is shown larger than its own
+     * size (full screen, or an enlarged window). {@link ScaleMode#PIXEL_PERFECT}
+     * uses whole-number factors and crisp pixels; {@link ScaleMode#SMOOTH}
+     * fills the screen with interpolation. The setting is remembered until
+     * changed, also across entering and leaving full screen.
+     *
+     * @param mode the scaling mode.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setScaleMode(ScaleMode mode)
+    {
+        if (mode != null)
+        {
+            GreenfootUtil.getDisplayDelegate().setScaleMode(mode);
+        }
+    }
+
+    /**
+     * @return the current scaling mode.
+     * @since SuperGreenfoot 1.0
+     */
+    public static ScaleMode getScaleMode()
+    {
+        return GreenfootUtil.getDisplayDelegate().getScaleMode();
+    }
+
+    /**
+     * The factor by which the world is currently enlarged on screen: 1.0 in a
+     * normal window, 3.0 for a 640x360 world shown pixel-perfect on a 1080p
+     * screen, a fraction such as 2.25 when scaled smoothly.
+     *
+     * @return the current world-to-screen scale factor.
+     * @since SuperGreenfoot 1.0
+     */
+    public static double getDisplayScale()
+    {
+        return GreenfootUtil.getDisplayDelegate().getDisplayScale();
+    }
+
+    /**
+     * The width of the screen the scenario is shown on, in the same logical
+     * pixels a world is measured in (so on a "Retina" display this is the
+     * scaled size, e.g. 1512, not the physical 3024). Use it before creating
+     * a world to pick a size that fills the screen at a whole-number scale:
+     * for a 1920x1080 screen, 640x360 fills it at 3x and 960x540 at 2x.
+     *
+     * @return the screen width in pixels, or 0 if it is not known.
+     * @since SuperGreenfoot 1.0
+     */
+    public static int getScreenWidth()
+    {
+        return GreenfootUtil.getDisplayDelegate().getScreenWidth();
+    }
+
+    /**
+     * The height of the screen the scenario is shown on, in logical pixels.
+     *
+     * @return the screen height in pixels, or 0 if it is not known.
+     * @see #getScreenWidth()
+     * @since SuperGreenfoot 1.0
+     */
+    public static int getScreenHeight()
+    {
+        return GreenfootUtil.getDisplayDelegate().getScreenHeight();
+    }
+
+    /**
+     * Show or hide the run controls (act, run/pause, reset, speed). A finished
+     * game usually hides them. In the exported game this affects the control
+     * bar; in the IDE it affects the floating bar of the full-screen view (the
+     * main IDE window keeps its controls). Players can bring hidden controls
+     * back with Escape unless they are locked.
      *
      * @param visible true to show the controls.
      * @since SuperGreenfoot 1.0
@@ -351,9 +434,18 @@ public class Greenfoot
     }
 
     /**
-     * Lock the run controls hidden in the standalone player so that Escape does
-     * not reveal them (a teacher can still hold Escape for two seconds). No
-     * effect in the IDE.
+     * @return true if the run controls are currently shown.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isControlsVisible()
+    {
+        return GreenfootUtil.getDisplayDelegate().isControlsVisible();
+    }
+
+    /**
+     * Lock the run controls hidden so that Escape does not reveal them (a
+     * teacher can still hold Escape for two seconds). Applies to the exported
+     * game and to the IDE full-screen view.
      *
      * @param locked true to lock the controls hidden.
      * @since SuperGreenfoot 1.0
@@ -361,6 +453,38 @@ public class Greenfoot
     public static void setControlsLocked(boolean locked)
     {
         GreenfootUtil.getDisplayDelegate().setControlsLocked(locked);
+    }
+
+    /**
+     * @return true if the run controls are locked hidden.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isControlsLocked()
+    {
+        return GreenfootUtil.getDisplayDelegate().isControlsLocked();
+    }
+
+    /**
+     * In the exported game, make the window show the world enlarged (or
+     * reduced) by the given factor without going full screen, e.g. 2.0 to
+     * show a 640x360 world in a 1280x720 window. Whole-number factors look
+     * crisp with {@link ScaleMode#PIXEL_PERFECT}. No effect in the IDE.
+     *
+     * @param scale the factor, between 0.25 and 8.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setWindowScale(double scale)
+    {
+        GreenfootUtil.getDisplayDelegate().setWindowScale(scale);
+    }
+
+    /**
+     * @return the window scale factor set with {@link #setWindowScale(double)} (1.0 by default).
+     * @since SuperGreenfoot 1.0
+     */
+    public static double getWindowScale()
+    {
+        return GreenfootUtil.getDisplayDelegate().getWindowScale();
     }
 
     /**

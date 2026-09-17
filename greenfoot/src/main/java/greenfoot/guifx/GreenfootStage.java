@@ -89,6 +89,7 @@ import greenfoot.sound.SoundPreferencePanel;
 import greenfoot.util.GreenfootUtil;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import greenfoot.vmcomm.GreenfootDebugHandler.SimulationStateListener;
+import greenfoot.vmcomm.DisplayState;
 import greenfoot.vmcomm.VMCommsMain;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
@@ -132,6 +133,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -178,6 +180,12 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     private final WorldDisplay worldDisplay;
     /** SuperGreenfoot: the full-screen play window, or null when not in full screen. */
     private FullScreenView fullScreenView;
+    // SuperGreenfoot: full-screen bar preferences, kept while no view is open, so that
+    // scenario code (Greenfoot.setScaleMode etc.) and the user's choices survive re-entry.
+    private boolean fsPixelPerfect = false;
+    private boolean fsControlsVisible = true;
+    private boolean fsControlsLocked = false;
+    private int lastAppliedDisplayRequest = 0;
     /** The most recently received world image (shared with the full-screen view). */
     private Image lastWorldImage;
     // The scroll pane to host the world display
@@ -527,12 +535,16 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             // We send a reset to make a new world after the project properties have been sent across:
             constructingWorld = true;
             project.getTerminal().activate(true);
+            sendDisplayState();   // so the world constructor can already ask about the screen
             debugHandler.getVmComms().instantiateWorld(lastInstantiatedWorldName);
             saveTheWorldRecorder.recordingValid();
             updateBackgroundMessage();
         }
 
         JavaFXUtil.addChangeListenerPlatform(worldVisible, b -> updateBackgroundMessage());
+        // SuperGreenfoot: when the window moves to another screen, Greenfoot.getScreenWidth() must follow
+        JavaFXUtil.addChangeListenerPlatform(xProperty(), x -> screenMayHaveChanged());
+        JavaFXUtil.addChangeListenerPlatform(yProperty(), y -> screenMayHaveChanged());
 
         PrefMgr.getPlayerName().addListener(playerNameListener);
 
@@ -677,6 +689,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 doWorldDiscard();
                 constructingWorld = true;
                 project.getTerminal().activate(true);
+                sendDisplayState();
                 debugHandler.getVmComms().instantiateWorld(curWorld.getQualifiedName());
                 // currentWorld will have been set to null when the VM terminated,
                 // so we must set it back again:
@@ -1744,7 +1757,11 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             fullScreenView.setImage(lastWorldImage);
             fullScreenView.updateState(stateProperty.get(), atBreakpoint);
             fullScreenView.setSpeed(lastUserSetSpeed);
+            fullScreenView.setPixelPerfect(fsPixelPerfect);
+            fullScreenView.setControlsLocked(fsControlsLocked);
+            fullScreenView.setControlsVisible(fsControlsVisible && !fsControlsLocked);
             fullScreenView.show();
+            sendDisplayState();
         }
     }
 
@@ -1755,9 +1772,122 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         {
             FullScreenView v = fullScreenView;
             fullScreenView = null;
+            fsPixelPerfect = v.isPixelPerfect();
+            fsControlsLocked = v.isControlsLocked();
+            fsControlsVisible = v.isControlsVisible() || !fsControlsLocked;
             v.close();
             worldDisplay.requestFocus();
+            sendDisplayState();
         }
+    }
+
+    /**
+     * SuperGreenfoot: scenario code asked (via Greenfoot.setFullScreen and friends)
+     * for a display change. Only the fields the scenario actually set are applied.
+     *
+     * @param seq    the request's sequence number (echoed back in the state)
+     * @param flags  values and mask, see DisplayState
+     */
+    public void receivedDisplayRequest(int seq, int flags)
+    {
+        lastAppliedDisplayRequest = seq;
+        if (DisplayState.isRequested(flags, DisplayState.PIXEL_PERFECT))
+        {
+            fsPixelPerfect = DisplayState.value(flags, DisplayState.PIXEL_PERFECT);
+        }
+        if (DisplayState.isRequested(flags, DisplayState.CONTROLS_VISIBLE))
+        {
+            fsControlsVisible = DisplayState.value(flags, DisplayState.CONTROLS_VISIBLE);
+        }
+        if (DisplayState.isRequested(flags, DisplayState.CONTROLS_LOCKED))
+        {
+            fsControlsLocked = DisplayState.value(flags, DisplayState.CONTROLS_LOCKED);
+            if (fsControlsLocked)
+            {
+                fsControlsVisible = false;
+            }
+        }
+        if (DisplayState.isRequested(flags, DisplayState.FULL_SCREEN))
+        {
+            boolean want = DisplayState.value(flags, DisplayState.FULL_SCREEN);
+            if (want && fullScreenView == null && project != null && !worldDisplay.isAsking())
+            {
+                toggleFullScreenView();   // applies the preferences and sends the state
+                return;
+            }
+            else if (!want && fullScreenView != null)
+            {
+                exitFullScreenView();     // sends the state
+                return;
+            }
+        }
+        if (fullScreenView != null)
+        {
+            fullScreenView.setPixelPerfect(fsPixelPerfect);
+            fullScreenView.setControlsLocked(fsControlsLocked);
+            fullScreenView.setControlsVisible(fsControlsVisible && !fsControlsLocked);
+        }
+        sendDisplayState();
+    }
+
+    /** SuperGreenfoot: the full-screen view's controls were changed by the user. */
+    public void displayStateChanged()
+    {
+        if (fullScreenView != null)
+        {
+            fsPixelPerfect = fullScreenView.isPixelPerfect();
+            fsControlsLocked = fullScreenView.isControlsLocked();
+            fsControlsVisible = fullScreenView.isControlsVisible();
+        }
+        sendDisplayState();
+    }
+
+    /**
+     * SuperGreenfoot: send the debug VM the current display state, so that
+     * Greenfoot.isFullScreen(), getScreenWidth() and the rest answer truthfully.
+     */
+    public void sendDisplayState()
+    {
+        if (debugHandler == null || debugHandler.getVmComms() == null)
+        {
+            return;
+        }
+        javafx.geometry.Rectangle2D screen = screenBounds();
+        boolean fs = fullScreenView != null;
+        boolean visible = fs ? fullScreenView.isControlsVisible() : fsControlsVisible;
+        boolean locked = fs ? fullScreenView.isControlsLocked() : fsControlsLocked;
+        boolean pixel = fs ? fullScreenView.isPixelPerfect() : fsPixelPerfect;
+        double scale = fs ? fullScreenView.getDisplayScale() : 1.0;
+        lastReportedScreen = screen;
+        debugHandler.getVmComms().sendDisplayState(DisplayState.encode(fs, visible, locked, pixel, true,
+                (int) Math.round(screen.getWidth()), (int) Math.round(screen.getHeight()), scale,
+                lastAppliedDisplayRequest));
+    }
+
+    private javafx.geometry.Rectangle2D lastReportedScreen = null;
+
+    /** Resend the display state if the window is now on a different screen. */
+    private void screenMayHaveChanged()
+    {
+        if (debugHandler == null || fullScreenView != null)
+        {
+            return;
+        }
+        javafx.geometry.Rectangle2D now = screenBounds();
+        if (!now.equals(lastReportedScreen))
+        {
+            sendDisplayState();
+        }
+    }
+
+    /** The bounds of the screen this window (or the full-screen view) is on. */
+    private javafx.geometry.Rectangle2D screenBounds()
+    {
+        javafx.stage.Window w = fullScreenView != null ? fullScreenView : this;
+        java.util.List<Screen> screens = Screen.getScreensForRectangle(w.getX(), w.getY(),
+                Math.max(1, w.getWidth()), Math.max(1, w.getHeight()));
+        Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
+        return screen.getBounds();
     }
 
     /** @return true while the full-screen play window is showing. */
@@ -2626,8 +2756,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     public static void aboutGreenfoot(Window parentWindow)
     {
-        // Finds the image file that is supposed to be exist in the "resources" directory
-        URL resource = Boot.class.getResource("gen-greenfoot-splash.png");
+        // Use the dedicated Super Greenfoot About artwork, separate from the startup splash.
+        URL resource = Boot.class.getResource("supergreenfoot-about.png");
         Image image = new javafx.scene.image.Image(resource.toString());
 
         String[] translatorNames = {

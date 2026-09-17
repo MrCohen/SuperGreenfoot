@@ -21,24 +21,33 @@
  */
 package greenfoot.platforms;
 
+import greenfoot.ScaleMode;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
 /**
- * Hooks through which scenario code can control how the world is presented:
- * full screen and the visibility of the run controls. The standalone player
- * implements these; inside the IDE they are no-ops (the IDE has its own
- * Full Screen menu command) so the same scenario runs in both.
+ * Hooks through which scenario code controls how the world is presented: full
+ * screen, the scaling mode, the run controls, the window size, and what it can
+ * find out about the screen. The standalone player implements these directly
+ * on its window; inside the IDE they are relayed to the IDE window through the
+ * inter-VM channel. {@link #NONE} (tests, or before a host installs a delegate)
+ * ignores every request and reports no screen.
  */
 @OnThread(Tag.Any)
 public interface DisplayDelegate
 {
-    /** A delegate that ignores every request (IDE, tests). */
+    /** A delegate that ignores every request (tests). */
     DisplayDelegate NONE = new DisplayDelegate() {};
 
     default void setFullScreen(boolean fullScreen) {}
 
     default boolean isFullScreen()
+    {
+        return false;
+    }
+
+    /** Whether this host can show the scenario full screen at all. */
+    default boolean isFullScreenSupported()
     {
         return false;
     }
@@ -55,6 +64,39 @@ public interface DisplayDelegate
     default boolean isControlsLocked()
     {
         return false;
+    }
+
+    default void setScaleMode(ScaleMode mode) {}
+
+    default ScaleMode getScaleMode()
+    {
+        return ScaleMode.SMOOTH;
+    }
+
+    /** The factor the world image is currently shown at (1.0 when unscaled). */
+    default double getDisplayScale()
+    {
+        return 1.0;
+    }
+
+    /** Logical width in pixels of the screen the scenario is shown on, or 0 if unknown. */
+    default int getScreenWidth()
+    {
+        return 0;
+    }
+
+    /** Logical height in pixels of the screen the scenario is shown on, or 0 if unknown. */
+    default int getScreenHeight()
+    {
+        return 0;
+    }
+
+    /** Enlarge or shrink the window that shows the world (player only). */
+    default void setWindowScale(double scale) {}
+
+    default double getWindowScale()
+    {
+        return 1.0;
     }
 
     /** Whether the scenario is running in the standalone player rather than the IDE. */

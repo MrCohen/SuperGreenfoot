@@ -51,8 +51,9 @@ folder the IDE uses.
 | `Greenfoot.setControlsLocked(boolean)` | locks it hidden (hold Esc 2 s to recover) | no-op |
 | `Greenfoot.isStandalone()` | true | false |
 
-Implemented through `greenfoot.platforms.DisplayDelegate`; the IDE keeps the
-no-op `DisplayDelegate.NONE`.
+Implemented through `greenfoot.platforms.DisplayDelegate`. Superseded by
+Phase 2d (`docs/api/phase2d-display-api.md`): the calls now work in the IDE
+too, and screen size, scale mode and window scale were added.
 
 ## Save API (`greenfoot.Save`)
 

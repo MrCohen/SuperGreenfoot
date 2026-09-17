@@ -88,6 +88,15 @@ public class VMCommsSimulation
     @OnThread(value = Tag.Any, requireSynchronized = true)
     private boolean delayLoopEntered;
 
+    /** SuperGreenfoot: sequence number of the latest display request from scenario code (0 = none yet) */
+    @OnThread(value = Tag.Any, requireSynchronized = true)
+    private int displayRequestSeq = 0;
+    /** SuperGreenfoot: requested display values and mask, see DisplayState */
+    @OnThread(value = Tag.Any, requireSynchronized = true)
+    private int displayRequestFlags = 0;
+    /** SuperGreenfoot: the display state the IDE last sent us (null until the first arrives) */
+    private volatile int[] displayState = null;
+
     private final ShadowProjectProperties projectProperties;
     
     /**
@@ -140,6 +149,10 @@ public class VMCommsSimulation
      *              If awaiting, it is count (P) of following codepoints which make up prompt.
      * Pos 11+(W*H) to 11+(W*H)+P excl: codepoints making up ask prompt.
      * Pos 11+(W*H)+P: 1 if the the delay loop is currently running, or 0 otherwise.
+     * Pos 12+(W*H)+P: 1 if the debug VM is ready for invocations, or 0 otherwise.
+     * Pos 13+(W*H)+P: SuperGreenfoot: sequence number of the latest display request
+     *                 (full screen etc.) from scenario code, 0 if none.
+     * Pos 14+(W*H)+P: SuperGreenfoot: the request's value and mask bits (see DisplayState).
      */
     private final IntBuffer sharedMemory;
     private int seq = 1;
@@ -402,6 +415,9 @@ public class VMCommsSimulation
                 // Write the status of the delay loop
                 sharedMemory.put(delayLoopEntered ? 1 : 0);
                 sharedMemory.put(userVMReadyForInvocations.get() ? 1 : 0);
+                // SuperGreenfoot: pending display request (seq, flags)
+                sharedMemory.put(displayRequestSeq);
+                sharedMemory.put(displayRequestFlags);
             }
 
             putLock.release();
@@ -577,10 +593,47 @@ public class VMCommsSimulation
                     case Command.COMMAND_WORLD_FOCUS_LOST:
                         WorldHandler.getInstance().worldFocusChanged(false);
                         break;
+                    case Command.COMMAND_DISPLAY_STATE:
+                        displayStateReceived(DisplayState.fromCommand(data));
+                        break;
                 }
             }
         }
         return lastSeqID;
+    }
+
+    /**
+     * SuperGreenfoot: scenario code asked for a display change (full screen,
+     * controls, scale mode). Requests made before the IDE has applied the
+     * previous one are merged into it.
+     */
+    @OnThread(Tag.Any)
+    public synchronized void requestDisplayChange(int field, boolean value)
+    {
+        displayRequestFlags = DisplayState.withRequest(displayRequestFlags, field, value);
+        displayRequestSeq++;
+    }
+
+    /**
+     * SuperGreenfoot: the IDE reported its display state. Once it has applied
+     * our latest request, the request's mask is cleared so that a later request
+     * for one field does not re-apply the others.
+     */
+    @OnThread(Tag.Any)
+    private synchronized void displayStateReceived(int[] state)
+    {
+        displayState = state;
+        if (state[DisplayState.I_APPLIED_REQUEST] >= displayRequestSeq)
+        {
+            displayRequestFlags = DisplayState.valuesOf(state);
+        }
+    }
+
+    /** SuperGreenfoot: the display state the IDE last sent, or null if none yet. */
+    @OnThread(Tag.Any)
+    public int[] getDisplayState()
+    {
+        return displayState;
     }
 
     /**

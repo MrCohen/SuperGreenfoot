@@ -75,6 +75,8 @@ public class Command
 
     public static final int COMMAND_WORLD_FOCUS_GAINED = 40;
     public static final int COMMAND_WORLD_FOCUS_LOST = 41;
+    // SuperGreenfoot: followed by DisplayState.LENGTH integers (see DisplayState)
+    public static final int COMMAND_DISPLAY_STATE = 42;
     
     
     // Commands are assigned a stricly increasing ID:

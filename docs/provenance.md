@@ -82,3 +82,8 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/src/main/java/greenfoot/export/Exporter.java` | Runtime jar looked up in the BlueJ lib dir (`Contents/app` when installed) and a missing jar stops the export visibly; thread-tag annotations untangled (`findRuntimeJar` is `Tag.Any`, `makeApplication` `Tag.Worker`). | 4 |
 | `greenfoot/src/main/java/greenfoot/export/NativePackager.java` | An earlier app image of the same name at the export destination is replaced (jpackage refuses to overwrite). | 4 |
 | `installer/mac/build-dmg.sh`, `greenfoot/build.gradle` | Installer script runs the Gradle build itself (`--no-build` from the Gradle task), refuses stale jars, stamps the git revision in `supergreenfoot-build.txt`. | 4 |
+| `greenfoot/src/main/java/greenfoot/ScaleMode.java` (new), `greenfoot/Greenfoot.java`, `platforms/DisplayDelegate.java` | Display API: screen size, full screen everywhere, scale mode, display scale, controls getters, window scale. | 2d |
+| `greenfoot/src/main/java/greenfoot/vmcomm/{DisplayState (new),Command,VMCommsSimulation,VMCommsMain}.java`, `platforms/ide/DisplayDelegateIDE.java` (new), `core/GreenfootMain.java` | Display requests (debug VM to IDE, two status ints) and `COMMAND_DISPLAY_STATE` (IDE to debug VM). | 2d |
+| `greenfoot/src/main/java/greenfoot/guifx/{GreenfootStage,FullScreenView}.java` | Apply display requests, remember full-screen preferences, report state; pixel-perfect and display-scale accessors. | 2d |
+| `greenfoot/src/main/java/greenfoot/player/PlayerFrame.java` | New delegate methods; window scale; cached screen bounds. | 2d |
+| `greenfoot/src/test/java/greenfoot/DisplayApiTest.java`, `greenfoot/build.gradle` (`userJavadoc` includes `ScaleMode`) | New tests (4). | 2d |
