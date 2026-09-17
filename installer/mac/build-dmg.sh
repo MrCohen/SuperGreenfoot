@@ -55,7 +55,7 @@ if [[ -n "$(cd "$ROOT" && git status --porcelain --untracked-files=no 2>/dev/nul
 VERSION=$(python3 - "$ROOT/version.properties" <<'EOF'
 import sys
 p=dict(l.strip().split('=',1) for l in open(sys.argv[1]) if '=' in l and not l.startswith('#'))
-print(p['greenfoot_major']+'.'+p['greenfoot_minor']+'.'+p['greenfoot_release']+p.get('greenfoot_suffix',''))
+print(p['supergreenfoot_version'])
 EOF
 )
 rm -rf "$OUT"; mkdir -p "$OUT/input" "$OUT/work"

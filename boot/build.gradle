@@ -149,6 +149,9 @@ task updateVersionNumber {
     ant.replaceregexp(match:'GREENFOOT_VERSION = .*', replace:"GREENFOOT_VERSION = \"${greenfootVersion}\";", byline:true) {
         fileset(dir: '../boot/src/main/java/bluej/', includes: 'Boot.java')
     }
+    ant.replaceregexp(match:'SUPER_VERSION = .*', replace:"SUPER_VERSION = \"${versionProps.supergreenfoot_version}\";", byline:true) {
+        fileset(dir: '../boot/src/main/java/bluej/', includes: 'Boot.java')
+    }
     ant.replaceregexp(match:'GREENFOOT_API_VERSION = .*', replace:"GREENFOOT_API_VERSION = \"${greenfootAPIVersion}\";", byline:true) {
         fileset(dir: '../boot/src/main/java/bluej/', includes: 'Boot.java')
     }

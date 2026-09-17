@@ -2793,7 +2793,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 "Marion Zalk",
         };
 
-        new AboutDialogTemplate(parentWindow, Boot.GREENFOOT_VERSION, "https://greenfoot.org/",
+        new AboutDialogTemplate(parentWindow,
+                Boot.SUPER_VERSION + " (based on Greenfoot " + Boot.GREENFOOT_VERSION + ")",
+                "https://github.com/MrCohen/SuperGreenfoot",
                 image, translatorNames, previousTeamMembers).showAndWait();
     }
 

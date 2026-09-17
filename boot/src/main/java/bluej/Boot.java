@@ -61,6 +61,8 @@ public class Boot
     // executed to change them here and elsewhere where needed.
     public static final String BLUEJ_VERSION = "5.4.1";
     public static final String GREENFOOT_VERSION = "3.9.0";
+    /** SuperGreenfoot release version; stamped from version.properties by the build. */
+    public static final String SUPER_VERSION = "0.1.0";
     public static final String GREENFOOT_API_VERSION = "3.1.0";
 
     public static final String BLUEJ_VERSION_TITLE = "BlueJ " + BLUEJ_VERSION;

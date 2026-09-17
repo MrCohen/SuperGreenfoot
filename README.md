@@ -12,6 +12,85 @@ the Classpath Exception. See [LICENSE.txt](LICENSE.txt) for the full terms and
 modification notices. The [macOS installer artwork](docs/branding/DMG_CREDITS.md)
 has its own editable DrawSimple source and provenance notes.
 
+## Download
+
+**[Super Greenfoot 0.1.0 for macOS](https://github.com/MrCohen/SuperGreenfoot/releases/tag/v0.1.0)**
+is the first public release. Download the `.dmg`, open it, and drag
+Super Greenfoot into Applications. The app is signed and notarized, so it opens
+without security warnings. Java is included; nothing else needs installing.
+
+It needs a Mac with Apple Silicon (M1 or later) and macOS 11 or later. It
+installs next to the original Greenfoot and does not replace it.
+
+| Platform | Status |
+|---|---|
+| macOS, Apple Silicon | Installer available |
+| macOS, Intel | Run from source (below); installer planned |
+| Windows | Run from source (below); installer forthcoming |
+| Linux | Run from source (below); installer forthcoming |
+
+Development currently happens on a Mac, which is why the Mac installer came
+first. Windows and Linux installers are on the [plan](MASTER_PLAN.md).
+
+## What it adds to Greenfoot 3.9.0
+
+Every existing Greenfoot scenario keeps working unchanged. New in this release:
+
+- **Precise movement**: `double` positions and rotation on `Actor`, with optional smooth sub-pixel rendering.
+- **Per-actor depth**: `setZ`, sort-by-y for faux 3D, without touching act order.
+- **Text metrics**: measure strings and draw centred text.
+- **A real sound engine**: a software mixer, overlapping effects, volume, pan, categories and music, through the new `Sounds` class. `GreenfootSound` still works and shares the mixer.
+- **Full screen play** in the IDE and in exported games, with a display API that scenario code can drive.
+- **Export as a desktop application**: a runnable `.jar`, or on macOS a native `.app` that can be signed and notarized.
+- **A `Save` API** without slot limits for local game saves.
+
+API details are in [docs/api](docs/api). Example scenarios are in
+[super-scenarios](super-scenarios). Web export and an online gallery are
+planned and not part of this release.
+
+## Running on Windows, Linux or an Intel Mac
+
+There is no installer for these yet, but Super Greenfoot runs from source
+with one extra step. You need [git](https://git-scm.com/) and a Java 21 JDK,
+for example [Eclipse Temurin 21](https://adoptium.net/temurin/releases/?version=21).
+Gradle and JavaFX download themselves on the first run.
+
+macOS or Linux:
+
+```sh
+git clone --depth 1 --branch v0.1.0 https://github.com/MrCohen/SuperGreenfoot.git
+cd SuperGreenfoot
+./gradlew runGreenfoot -x test
+```
+
+Windows (Command Prompt or PowerShell):
+
+```bat
+git clone --depth 1 --branch v0.1.0 https://github.com/MrCohen/SuperGreenfoot.git
+cd SuperGreenfoot
+gradlew.bat runGreenfoot -x test
+```
+
+If `java -version` does not report 21, set `JAVA_HOME` to the JDK 21 folder
+first. The first start downloads dependencies and compiles, which takes a few
+minutes. Later starts take well under a minute.
+
+What to expect on these platforms:
+
+- The source build and the test suite run on Linux on every push (GitHub
+  Actions). Windows and Intel Macs use the same upstream Greenfoot build, which
+  supports them, but this fork has not been tested there yet. Please
+  [open an issue](https://github.com/MrCohen/SuperGreenfoot/issues) if something fails.
+- Exporting a game as a runnable `.jar` works everywhere, and the jar runs on
+  any computer with Java 21.
+- Exporting a native application package has only been verified from the
+  installed Mac app so far.
+
+Developers on a Mac can also use the `dev` helper script; see
+[DEV_SCRIPT_INSTRUCTIONS.md](DEV_SCRIPT_INSTRUCTIONS.md).
+
+The original upstream README follows.
+
 ---
 
 <img src="bluej/icons/bluej-icon-512-embossed.png" align="left" width="128">
