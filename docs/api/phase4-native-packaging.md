@@ -74,6 +74,16 @@ minutes signed (each library gets a timestamped signature) plus notarization.
 Verified: the packaged IDE launches and opens scenarios, and its own runtime
 builds a native game via `--runtime-image`.
 
+## macOS quirk: a double-clicked jar that "does nothing"
+
+Finder opens `.jar` files through Apple's resident `JavaLauncher` process. If
+an earlier launch of a jar at the same path failed (for example a broken
+export), that JavaLauncher instance can keep ignoring re-opens of that path
+while other jars still work, even after the file has been replaced with a
+good one. Symptom: the Dock bounce, then nothing, with no Java process
+started. Fix: quit `JavaLauncher` in Activity Monitor (or `pkill JavaLauncher`)
+and double-click again. Running `java -jar Game.jar` in Terminal bypasses it.
+
 ## Where the exporter finds the runtime jar
 
 `Exporter.findRuntimeJar` looks in `Config.getBlueJLibDir()` first
