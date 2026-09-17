@@ -1,0 +1,63 @@
+#!/bin/zsh
+# SuperGreenfoot developer helper: try changes without building an installer.
+#
+#   ./dev run                 start the IDE straight from the source tree (about 30 s; skips tests)
+#   ./dev test                run the engine test suite
+#   ./dev player <scenario>   run a scenario folder in the standalone player (add --fullscreen or --run)
+#   ./dev app                 build an unsigned SuperGreenfoot.app (about 1 min) and open it
+#   ./dev dmg                 signed + notarized installer onto the Desktop (about 8 min)
+#   ./dev install             same as dmg, then replace /Applications/SuperGreenfoot.app
+#
+# The IDE from "run" and "app" shares preferences with the installed SuperGreenfoot
+# (~/Library/Preferences/org.supergreenfoot); its log is greenfoot-debuglog.txt there.
+set -euo pipefail
+cd "$(dirname "$0")"
+export JAVA_HOME="${SGF_JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
+[[ -x "$JAVA_HOME/bin/java" ]] || { echo "JDK 21 not found at $JAVA_HOME (brew install openjdk@21, or set SGF_JAVA_HOME)"; exit 2; }
+SIGN_NAME="${SGF_SIGN_NAME:-Jordan Cohen (QTS5DK2S8Q)}"
+NOTARY_PROFILE="${SGF_NOTARY_PROFILE:-SuperGreenfoot}"
+RUNTIME=greenfoot/build/resources/main/lib/supergreenfoot-runtime.jar
+
+cmd="${1:-help}"; [[ $# -gt 0 ]] && shift
+case "$cmd" in
+  run)
+    echo "Starting the IDE from source (tests skipped; ./dev test runs them)..."
+    ./gradlew runGreenfoot -x test -q
+    ;;
+  test)
+    ./gradlew :greenfoot:test
+    ;;
+  player)
+    [[ $# -ge 1 && -d "$1" ]] || { echo "usage: ./dev player <scenario folder> [--fullscreen] [--run]"; exit 2; }
+    scenario="$(cd "$1" && pwd)"; shift
+    ./gradlew :greenfoot:assemble -x test -q
+    echo "Compiling $scenario..."
+    "$JAVA_HOME/bin/javac" -nowarn -cp "$RUNTIME" -d "$scenario" "$scenario"/*.java 2>&1 | grep -v "unknown enum constant\|reason: class file for threadchecker\|^[0-9]* warnings$" || true
+    "$JAVA_HOME/bin/java" -cp "$RUNTIME" greenfoot.player.PlayerMain "$scenario" "$@"
+    ;;
+  app)
+    installer/mac/build-dmg.sh --out build/installer-mac-dev
+    echo "Opening build/installer-mac-dev/work/SuperGreenfoot.app (unsigned, this Mac only)..."
+    open -n build/installer-mac-dev/work/SuperGreenfoot.app
+    ;;
+  dmg|install)
+    if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+      echo "Note: uncommitted changes are included; the build stamp will say -dirty."
+    fi
+    installer/mac/build-dmg.sh --sign "$SIGN_NAME" --notarize "$NOTARY_PROFILE" --out build/installer-mac-signed
+    cp build/installer-mac-signed/SuperGreenfoot-*.dmg ~/Desktop/
+    echo "Installer copied to the Desktop."
+    if [[ "$cmd" == install ]]; then
+      if pgrep -f "/Applications/SuperGreenfoot.app/Contents/MacOS" >/dev/null; then
+        echo "SuperGreenfoot is running; quit it and run ./dev install again (or drag it from the DMG)."; exit 1
+      fi
+      rm -rf /Applications/SuperGreenfoot.app
+      ditto build/installer-mac-signed/work/SuperGreenfoot.app /Applications/SuperGreenfoot.app
+      cat /Applications/SuperGreenfoot.app/Contents/app/supergreenfoot-build.txt
+      echo "Installed."
+    fi
+    ;;
+  *)
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

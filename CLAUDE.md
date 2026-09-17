@@ -30,6 +30,10 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew runGreenfoot                # launch the IDE
 ```
 
+The owner's shortcut for all of this is the `./dev` script in the repo root
+(`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`); keep it
+working when build steps change.
+
 Gradle 8.5 wrapper, JDK 21, JavaFX 21.0.3 via the openjfx plugin. The
 thread-checker annotation processor (`@OnThread`) runs during compile and
 fails the build on thread-tag violations.
