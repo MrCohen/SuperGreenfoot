@@ -105,7 +105,7 @@ To learn more:
 - Read the API notes in [docs/api](docs/api).
 
 Web export, an online gallery, and online high scores are planned and are not
-part of this release. The [master plan](MASTER_PLAN.md) shows what is coming.
+part of this release.
 
 ## Run from source
 
@@ -166,7 +166,6 @@ separate project. Its own way to share games on the web is planned.
 
 ## For developers
 
-- [MASTER_PLAN.md](MASTER_PLAN.md) has the roadmap and the decisions behind it.
 - [DEV_SCRIPT_INSTRUCTIONS.md](DEV_SCRIPT_INSTRUCTIONS.md) covers the `dev` helper script for building, testing and packaging on a Mac.
 - [docs/provenance.md](docs/provenance.md) lists every upstream file this fork changes.
 

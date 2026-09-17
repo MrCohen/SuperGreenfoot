@@ -1,11 +1,14 @@
 # SuperGreenfoot (fork repository)
 
 This is a git clone of upstream BlueJ/Greenfoot at tag `GREENFOOT-RELEASE-3.9.0`
-with SuperGreenfoot work on branch `super/main`. See `MASTER_PLAN.md` for
-the agreed plan and decisions log, `docs/ASSESSMENT.md` for the evidence,
-`docs/provenance.md` for the upstream base and every upstream file we change.
+with SuperGreenfoot work on branch `super/main`. See `docs/provenance.md`
+for the upstream base and every upstream file we change.
 
 ## Rules
+
+- This repository is public. Planning documents (the master plan, decisions
+  log, assessments, drafts) are private and live outside the repo. Never
+  create, copy or commit them here.
 
 - Keep diffs to upstream files small and isolated; log each one in
   `docs/provenance.md` so upstream merges stay reviewable.
