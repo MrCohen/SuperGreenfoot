@@ -1,3 +1,19 @@
+# Super Greenfoot
+
+Super Greenfoot is a modified Greenfoot remix by Jordan Cohen, based on the
+[Greenfoot 3.9.0 source release](https://github.com/k-pet-group/BlueJ-Greenfoot)
+(tag `GREENFOOT-RELEASE-3.9.0`). The original Greenfoot was created by Michael
+Kölling and Poul Henriksen. This fork is not an official Greenfoot release.
+
+The project is distributed under the GNU General Public License version 2 with
+the Classpath Exception. See [LICENSE.txt](LICENSE.txt) for the full terms and
+[splash artwork credits](docs/branding/SPLASH_CREDITS.md) and
+[About artwork credits](docs/branding/ABOUT_CREDITS.md) for image sources and
+modification notices. The [macOS installer artwork](docs/branding/DMG_CREDITS.md)
+has its own editable DrawSimple source and provenance notes.
+
+---
+
 <img src="bluej/icons/bluej-icon-512-embossed.png" align="left" width="128">
 <img src="greenfoot/resources/images/greenfoot-icon-big.jpg" align="right" width="100">
 
@@ -61,4 +77,3 @@ The installers are built automatically on Github.  If you want to build them man
 ```
 
 None of the installers can be cross-built, so you must build Windows on Windows, Mac on Mac and Linux on Debian/Ubuntu.  Windows requires an installation of WiX 3.10 and MinGW64 to build the installer.  On Mac, JAVA_HOME must point to an Intel JDK for the Intel build, and an Aarch/ARM JDK for the Aarch build, so you cannot run them in the same command.
-

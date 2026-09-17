@@ -45,7 +45,7 @@ project.version.newer.part2=). Opening the scenario with your current version of
 project.close=Close
 
 # Actions
-greenfoot.about=About Greenfoot...
+greenfoot.about=About Super Greenfoot...
 compile.all=Compile
 compile.class=Compile
 duplicate.class=Duplicate...
@@ -292,7 +292,7 @@ menu.soundRecorder=Show Sound Recorder
 menu.tools.recompileAll=Recompile Scenario
 
 menu.help=Help
-menu.help.about=About Greenfoot...
+menu.help.about=About Super Greenfoot...
 menu.help.classDoc=Greenfoot Class Documentation
 menu.help.javadoc=Java Library Documentation
 menu.help.tutorial=Greenfoot Tutorial

@@ -58,7 +58,9 @@ java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
    signing, the hardened-runtime entitlements Java needs (JIT, unsigned memory,
    library validation off, audio input for the sound recorder). The JNA jar's
    native library is signed inside the jar first (notarization checks it).
-4. `hdiutil` builds the DMG with an Applications link; the DMG is signed,
+4. `installer/mac/create-dmg.sh` builds the DMG with an Applications link,
+   the [DrawSimple background](../branding/DMG_CREDITS.md), and Finder icon
+   positions that show the drag-to-Applications step. The DMG is signed,
    notarized (`notarytool --wait`) and stapled.
 
 The script runs `./gradlew :greenfoot:assemble :greenfoot:userJavadoc` first

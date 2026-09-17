@@ -77,8 +77,8 @@ task drawGreenfootSplashVersion(type: JavaExec) {
             greenfootVersion, // text to draw
             "../bluej/lib/fonts/SourceSansPro-Bold.ttf", // font
             "16", // font size
-            "165", // X position
-            "145", // Y position
+            "44", // X position: Super Greenfoot version badge
+            "221", // Y position
             "build/resources/main/bluej/gen-greenfoot-splash.png" // destination
     doFirst {
         mkdir "build/resources/main/bluej"
@@ -95,8 +95,8 @@ task drawGreenfootSplashVersion2x(type: JavaExec) {
             greenfootVersion, // text to draw
             "../bluej/lib/fonts/SourceSansPro-Bold.ttf", // font
             "32", // font size
-            "330", // X position
-            "290", // Y position
+            "88", // X position: Super Greenfoot version badge
+            "442", // Y position
             "build/resources/main/bluej/gen-greenfoot-splash@2x.png" // destination
     doFirst {
         mkdir "build/resources/main/bluej"

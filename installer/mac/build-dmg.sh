@@ -130,13 +130,11 @@ if [[ -n "$SIGN" ]]; then
   codesign --verify --deep --strict --verbose=2 "$APP"
 fi
 
-# ---- 4. DMG ----
+# ---- 4. DMG with the DrawSimple background and Finder icon layout ----
 DMG="$OUT/SuperGreenfoot-$VERSION.dmg"
 echo "Creating $DMG..."
-rm -rf "$OUT/work/dmgroot" && mkdir -p "$OUT/work/dmgroot"
-cp -R "$APP" "$OUT/work/dmgroot/"
-ln -s /Applications "$OUT/work/dmgroot/Applications"
-hdiutil create -quiet -volname "SuperGreenfoot $VERSION" -srcfolder "$OUT/work/dmgroot" -ov -format UDZO "$DMG"
+"$ROOT/installer/mac/create-dmg.sh" "$APP" \
+  "$ROOT/installer/mac/assets/dmg-background.png" "$DMG" "SuperGreenfoot $VERSION"
 if [[ -n "$SIGN" ]]; then
   codesign --timestamp -f -s "Developer ID Application: $SIGN" "$DMG"
   if [[ -n "$NOTARIZE" ]]; then
