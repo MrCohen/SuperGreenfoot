@@ -108,6 +108,25 @@ public class NativePackagerTest extends TestCase
         assertEquals(jar, Exporter.findRuntimeJar(null, a, b));
     }
 
+    public void testClearPreviousAppImageRemovesEarlierExport() throws Exception
+    {
+        NativePackager.Options o = options();
+        o.destDir = java.nio.file.Files.createTempDirectory("sgf-dest").toFile();
+        NativePackager.Listener quiet = new NativePackager.Listener() {
+            public void progress(String m) { }
+            public void output(String l) { }
+        };
+        assertNull(NativePackager.clearPreviousAppImage(o, quiet));   // nothing there yet
+        File previous = NativePackager.appImageFor(o);
+        assertEquals(o.destDir, previous.getParentFile());
+        assertTrue(previous.getName().startsWith("My Game"));
+        File inside = new File(new File(previous, "Contents"), "old.txt");
+        assertTrue(inside.getParentFile().mkdirs());
+        assertTrue(inside.createNewFile());
+        assertNull(NativePackager.clearPreviousAppImage(o, quiet));
+        assertFalse(previous.exists());
+    }
+
     public void testFindJpackageReturnsFileOrNull()
     {
         File f = NativePackager.findJpackage();

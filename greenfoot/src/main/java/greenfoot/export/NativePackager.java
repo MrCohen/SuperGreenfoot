@@ -328,12 +328,22 @@ public final class NativePackager
                 }
             }
 
+            String blocked = o.kind == Kind.APP_IMAGE ? clearPreviousAppImage(o, listener) : null;
+            if (blocked != null) {
+                deleteQuietly(inputDir);
+                return new Result(false, null, blocked);
+            }
             listener.progress("Building native app with jpackage...");
             List<String> cmd = buildJpackageCommand(jpackage, o, inputDir);
             int rc = exec(cmd, listener);
             if (rc != 0 && o.kind == Kind.MSI) {
                 listener.progress("Installer build failed (WiX missing?); building an app folder instead...");
                 o.kind = Kind.APP_IMAGE;
+                blocked = clearPreviousAppImage(o, listener);
+                if (blocked != null) {
+                    deleteQuietly(inputDir);
+                    return new Result(false, null, blocked);
+                }
                 cmd = buildJpackageCommand(jpackage, o, inputDir);
                 rc = exec(cmd, listener);
             }
@@ -408,6 +418,35 @@ public final class NativePackager
         catch (IOException e) {
             return e.getMessage();
         }
+    }
+
+    /**
+     * The app-image folder jpackage writes for these options: "name.app" on macOS,
+     * "name" elsewhere.
+     */
+    static File appImageFor(Options o)
+    {
+        return new File(o.destDir, isMac() ? o.appName + ".app" : o.appName);
+    }
+
+    /**
+     * jpackage refuses to write an app image over an existing folder, so an
+     * earlier export of the same name at the same place is removed first (the
+     * jar next to it has already been overwritten). Returns null when the way
+     * is clear, otherwise a message for the user.
+     */
+    static String clearPreviousAppImage(Options o, Listener listener)
+    {
+        File previous = appImageFor(o);
+        if (!previous.exists()) {
+            return null;
+        }
+        listener.progress("Replacing the previous " + previous.getName() + "...");
+        deleteQuietly(previous);
+        if (previous.exists()) {
+            return "Cannot replace the existing " + previous + "; delete or rename it and export again.";
+        }
+        return null;
     }
 
     private static File locateArtifact(Options o)

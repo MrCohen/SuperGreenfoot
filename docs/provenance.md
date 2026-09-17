@@ -79,3 +79,6 @@ Tracked here so upstream merges stay reviewable.
 | `greenfoot/src/test/java/greenfoot/export/NativePackagerTest.java` | New tests (4). | 4 |
 | `installer/mac/{build-dmg.sh,entitlements.plist,assoc-*.properties}` (new), `greenfoot/build.gradle` (`packageSuperGreenfootMac`) | macOS IDE installer via jpackage; signing and notarization. | 4 |
 | `greenfoot/src/main/java/greenfoot/GreenfootImage.java` | Javadoc link fix (`greenfoot.Font`), so `userJavadoc` builds. | 4 |
+| `greenfoot/src/main/java/greenfoot/export/Exporter.java` | Runtime jar looked up in the BlueJ lib dir (`Contents/app` when installed) and a missing jar stops the export visibly; thread-tag annotations untangled (`findRuntimeJar` is `Tag.Any`, `makeApplication` `Tag.Worker`). | 4 |
+| `greenfoot/src/main/java/greenfoot/export/NativePackager.java` | An earlier app image of the same name at the export destination is replaced (jpackage refuses to overwrite). | 4 |
+| `installer/mac/build-dmg.sh`, `greenfoot/build.gradle` | Installer script runs the Gradle build itself (`--no-build` from the Gradle task), refuses stale jars, stamps the git revision in `supergreenfoot-build.txt`. | 4 |

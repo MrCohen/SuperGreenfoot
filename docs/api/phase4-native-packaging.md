@@ -19,6 +19,10 @@
    minutes; progress shows in the dialog and the tool output goes to the
    BlueJ debug log.
 
+An earlier export of the same name at the same place is replaced: the jar is
+overwritten and a previous `<name>.app` (or app folder) is deleted before
+jpackage runs, since jpackage refuses to write over an existing folder.
+
 Choices (native on/off, identity, profile) are remembered in the IDE
 preferences. Native apps only run on the kind of computer that built them:
 build on a Mac for Macs and on Windows for Windows.
@@ -57,10 +61,26 @@ java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
 4. `hdiutil` builds the DMG with an Applications link; the DMG is signed,
    notarized (`notarytool --wait`) and stapled.
 
+The script runs `./gradlew :greenfoot:assemble :greenfoot:userJavadoc` first
+(`--no-build` skips it; the Gradle task `packageSuperGreenfootMac` passes that
+because it already depends on both), refuses to package when any file under
+`greenfoot/src/main` or `bluej/src/main` is newer than the built
+`greenfoot.jar`, and writes the git revision into
+`Contents/app/supergreenfoot-build.txt`. Both guards exist because on
+2026-09-16 an installer shipped with a committed but never-compiled export fix.
+
 Sizes: about 160 MB app, 145 MB DMG. Build time about 20 s unsigned; a few
 minutes signed (each library gets a timestamped signature) plus notarization.
 Verified: the packaged IDE launches and opens scenarios, and its own runtime
 builds a native game via `--runtime-image`.
+
+## Where the exporter finds the runtime jar
+
+`Exporter.findRuntimeJar` looks in `Config.getBlueJLibDir()` first
+(`greenfoot/build/resources/main/lib` under Gradle, `Contents/app` in the
+installed IDE, next to `boot.jar`) and then in the `greenfoot` subfolder. If
+neither has `supergreenfoot-runtime.jar` the export stops with a visible
+message instead of writing a jar without the engine.
 
 ## Requirement for the fork's own installer (background)
 

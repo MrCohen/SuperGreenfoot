@@ -4,10 +4,12 @@
 #
 # Usage:
 #   installer/mac/build-dmg.sh [--sign "<Developer ID name (TEAM)>"] [--notarize <keychain-profile>]
-#                              [--out <dir>] [--full-jdk]
+#                              [--out <dir>] [--full-jdk] [--no-build]
 #
-# Requires: a full JDK 21+ at $JAVA_HOME (jlink, jpackage, jmods), and the
-# Gradle build done (./gradlew :greenfoot:assemble :greenfoot:userJavadoc).
+# Requires: a full JDK 21+ at $JAVA_HOME (jlink, jpackage, jmods). The script
+# runs ./gradlew :greenfoot:assemble :greenfoot:userJavadoc itself so the
+# staged jars always match the source tree; --no-build skips that (the Gradle
+# task packageSuperGreenfootMac passes it because it already depends on both).
 #
 # Result: <out>/SuperGreenfoot-<version>.dmg containing SuperGreenfoot.app with
 # a private runtime that also has jpackage + jmods, so the installed IDE can
@@ -20,19 +22,35 @@ OUT="$ROOT/build/installer-mac"
 SIGN=""
 NOTARIZE=""
 FULL_JDK=0
+BUILD=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --sign) SIGN="$2"; shift 2;;
     --notarize) NOTARIZE="$2"; shift 2;;
     --out) OUT="$2"; shift 2;;
     --full-jdk) FULL_JDK=1; shift;;
+    --no-build) BUILD=0; shift;;
     *) echo "unknown option $1"; exit 2;;
   esac
 done
 : "${JAVA_HOME:?set JAVA_HOME to a full JDK 21+}"
 for t in jlink jpackage; do [[ -x "$JAVA_HOME/bin/$t" ]] || { echo "$JAVA_HOME has no $t"; exit 2; }; done
 [[ -d "$JAVA_HOME/jmods" ]] || { echo "$JAVA_HOME has no jmods directory"; exit 2; }
+
+# ---- 0. make sure the jars match the source (a stale build once shipped an
+#         installer without a committed fix) ----
+if [[ $BUILD -eq 1 ]]; then
+  echo "Building (gradle :greenfoot:assemble :greenfoot:userJavadoc)..."
+  ( cd "$ROOT" && ./gradlew :greenfoot:assemble :greenfoot:userJavadoc -q ) \
+    || { echo "Gradle build failed; not packaging stale jars"; exit 1; }
+fi
 [[ -f "$LIB/boot.jar" ]] || { echo "run ./gradlew :greenfoot:assemble first ($LIB/boot.jar missing)"; exit 2; }
+NEWEST_SRC=$(find "$ROOT/greenfoot/src/main" "$ROOT/bluej/src/main" -type f -newer "$LIB/greenfoot.jar" | head -1)
+if [[ -n "$NEWEST_SRC" ]]; then
+  echo "Source newer than $LIB/greenfoot.jar (e.g. $NEWEST_SRC); rebuild first"; exit 1
+fi
+GIT_REV=$(cd "$ROOT" && git rev-parse --short HEAD 2>/dev/null || echo unknown)
+if [[ -n "$(cd "$ROOT" && git status --porcelain --untracked-files=no 2>/dev/null)" ]]; then GIT_REV="$GIT_REV-dirty"; fi
 
 VERSION=$(python3 - "$ROOT/version.properties" <<'EOF'
 import sys
@@ -51,7 +69,7 @@ if [[ -d "$ROOT/bluej/doc/API" ]]; then mkdir -p "$OUT/input/doc"; rsync -a "$RO
 mkdir -p "$OUT/input/greenfoot/common" && rsync -a "$ROOT/greenfoot/common/" "$OUT/input/greenfoot/common/"
 mkdir -p "$OUT/input/doc" && cp "$ROOT/greenfoot/doc/LICENSE.txt" "$ROOT/greenfoot/doc/THIRDPARTYLICENSE.txt" "$ROOT/greenfoot/doc/GREENFOOT_LICENSES.txt" "$OUT/input/doc/" 2>/dev/null || true
 cp "$ROOT/greenfoot/doc/Greenfoot-README.txt" "$OUT/input/README.TXT" 2>/dev/null || true
-printf 'SuperGreenfoot %s built %s\n' "$VERSION" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$OUT/input/supergreenfoot-build.txt"
+printf 'SuperGreenfoot %s built %s from %s\n' "$VERSION" "$(date -u +%Y-%m-%dT%H:%MZ)" "$GIT_REV" > "$OUT/input/supergreenfoot-build.txt"
 
 # The JNA jar carries an unsigned native library; notarization requires it signed.
 if [[ -n "$SIGN" ]]; then

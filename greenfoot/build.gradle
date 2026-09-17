@@ -222,7 +222,7 @@ task packageSuperGreenfootMac(type: Exec) {
     description = 'Build SuperGreenfoot.app and a DMG with jpackage (signed/notarized when -PsignName/-PnotarizeProfile are given).'
     workingDir rootDir
     environment JAVA_HOME: System.getProperty('java.home')
-    def args = ['installer/mac/build-dmg.sh']
+    def args = ['installer/mac/build-dmg.sh', '--no-build']
     if (project.hasProperty('signName')) { args += ['--sign', project.property('signName')] }
     if (project.hasProperty('notarizeProfile')) { args += ['--notarize', project.property('notarizeProfile')] }
     commandLine args

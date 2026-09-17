@@ -322,16 +322,6 @@ public class Exporter implements PublishListener
     }
     
     /**
-     * Create an standalone project (gfar-file)
-     */
-    @OnThread(Tag.Worker)
-    /**
-     * SuperGreenfoot: create a standalone application jar. The jar contains the
-     * scenario's classes and resources, the SuperGreenfoot runtime (engine +
-     * Swing player + BlueJ support classes + MP3 decoder) and standalone.properties;
-     * it runs with "java -jar" on any JDK 21 or later and needs no JavaFX.
-     */
-    /**
      * Locate supergreenfoot-runtime.jar in the given candidate directories (first
      * match wins); null if absent everywhere.
      */
@@ -353,6 +343,13 @@ public class Exporter implements PublishListener
         return null;
     }
 
+    /**
+     * SuperGreenfoot: create a standalone application jar. The jar contains the
+     * scenario's classes and resources, the SuperGreenfoot runtime (engine +
+     * Swing player + BlueJ support classes + MP3 decoder) and standalone.properties;
+     * it runs with "java -jar" on any JDK 21 or later and needs no JavaFX.
+     */
+    @OnThread(Tag.Worker)
     private void makeApplication()
     {
         dialog.setProgress(true, Config.getString("export.progress.writingJar"));
@@ -432,6 +429,9 @@ public class Exporter implements PublishListener
         dialog.setProgress(false, Config.getString("export.progress.complete"));
     }
 
+    /**
+     * Create an standalone project (gfar-file)
+     */
     @OnThread(Tag.Worker)
     private void makeProject()
     {
