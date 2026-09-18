@@ -1,0 +1,710 @@
+{
+  "undoManifest" : [
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 0,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 1,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 2,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 3,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 4,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 5,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 6,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 7,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 8,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 9,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 10,
+      "name" : "Nudge",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 11,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 12,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 13,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 14,
+      "name" : "Resize",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 15,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 16,
+      "name" : "Corner Radius",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 17,
+      "name" : "Corner Radius",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 18,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 19,
+      "name" : "Resize",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 20,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 21,
+      "name" : "Rotate",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 22,
+      "name" : "Resize",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 23,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 24,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 25,
+      "name" : "Rotate",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 26,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 27,
+      "name" : "Move",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 28,
+      "name" : "Move Node",
+      "type" : "all"
+    },
+    {
+      "snapshotPaintLayerCount" : 1,
+      "hasVectorData" : true,
+      "snapshotVectorLayerCount" : 1,
+      "layerCount" : 0,
+      "layerOrder" : [
+        {
+          "paint" : {
+            "_0" : 0
+          }
+        },
+        {
+          "vector" : {
+            "_0" : 0
+          }
+        }
+      ],
+      "index" : 29,
+      "name" : "Move Node",
+      "type" : "all"
+    }
+  ],
+  "layerOrder" : [
+    {
+      "paint" : {
+        "_0" : 0
+      }
+    },
+    {
+      "vector" : {
+        "_0" : 0
+      }
+    }
+  ],
+  "historyIndex" : 30,
+  "savedByAppVersion" : "1.2.0",
+  "vectorLayers" : [
+    {
+      "blendMode" : "Normal",
+      "creationStamp" : 2,
+      "isSelectedForEffects" : true,
+      "isVisible" : true,
+      "name" : "Mark",
+      "id" : "756EADA0-7DF4-4B47-87E5-23121D4E6131",
+      "objects" : [
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MC40NzA1ODgyMzUyOTQxMTc2NCwiYmx1ZSI6MC4zNDExNzY0NzA1ODgyMzUzLCJyZWQiOjAuMDE1Njg2Mjc0NTA5ODAzOTIsImFscGhhIjoxfSwicGF0dGVybkZpbGxzQmFja2dyb3VuZCI6ZmFsc2UsInpPcmRlciI6MCwibWlycm9yZWRWIjpmYWxzZSwiZ3JhZGllbnRFbmQiOlsxLDFdLCJmaWxsQ29sb3IiOnsiZ3JlZW4iOjAuNDcwNTg4MjM1Mjk0MTE3NjQsImJsdWUiOjAuMzQxMTc2NDcwNTg4MjM1MywicmVkIjowLjAxNTY4NjI3NDUwOTgwMzkyLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImdyYWRpZW50U2Vjb25kYXJ5Q29sb3IiOnsiZ3JlZW4iOjAuODI3NDUwOTgwMzkyMTU2OCwiYmx1ZSI6MC42LCJhbHBoYSI6MSwicmVkIjowLjIwMzkyMTU2ODYyNzQ1MDk4fSwiY29ybmVyUmFkaXVzIjoyMzAsInJlY3QiOltbMCwwXSxbMTAyNCwxMDI0XV0sIm1pcnJvcmVkSCI6ZmFsc2UsImdyYWRpZW50U3RhcnQiOlswLDBdLCJyb3RhdGlvbiI6MCwiaWQiOiIyMjU0RjYzQS1FQ0YwLTQ3RDctOEQ5Ny1FMTIyM0REQjJBRjYiLCJmaWxsU3R5bGUiOnsidHlwZSI6ImdyYWRpZW50IiwiZ3JhZGllbnRJRCI6IjAwMDAwMDAwLTAwMDAtMDAwMC0wMDAwLTAwMDAwMDAwMDAwMSJ9LCJib3JkZXJGaWxsU3R5bGUiOnsidHlwZSI6InNvbGlkIn0sImdyYWRpZW50VHlwZSI6IkxpbmVhciJ9",
+          "type" : "rectangle"
+        },
+        {
+          "data" : "eyJncmFkaWVudFR5cGUiOiJMaW5lYXIiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sIm5vZGVzIjpbeyJwb2ludCI6WzUwOC45OTU1OTA0MTUxNjk2LDMxOC44NDE4NjExOTE5OTg5XSwiY29udHJvbEluIjpbNDg2Ljc3OTEwNjM1NTk0ODY3LDMxNy43MDU1NDAwMzAxMDQ5XSwiY29udHJvbE91dCI6WzUzMS4yMTIwNzQ0NzQzOTA1LDMxOS45NzgxODIzNTM4OTI4Nl19LHsicG9pbnQiOls2MDIsMzM1XSwiY29udHJvbEluIjpbNTc1Ljg5MzMzMzMzMzMzMzMsMzI1LjYxMzMzMzMzMzMzMzM0XSwiY29udHJvbE91dCI6WzYyOC4xMDY2NjY2NjY2NjY3LDM0NC4zODY2NjY2NjY2NjY2Nl19LHsicG9pbnQiOls2NzgsMzg3XSwiY29udHJvbEluIjpbNjYyLjE2LDM2OS4xMDY2NjY2NjY2NjY3XSwiY29udHJvbE91dCI6WzY5My44NCw0MDQuODkzMzMzMzMzMzMzM119LHsicG9pbnQiOls3MTAsNDU3XSwiY29udHJvbEluIjpbNzA2LjQ4LDQzNC43MDY2NjY2NjY2NjY2NV0sImNvbnRyb2xPdXQiOls3MTMuNTIsNDc5LjI5MzMzMzMzMzMzMzM1XX0seyJwb2ludCI6WzcwMiw1MzldLCJjb250cm9sSW4iOls3MDQuOTMzMzMzMzMzMzMzMyw1MTYuNDEzMzMzMzMzMzMzNF0sImNvbnRyb2xPdXQiOls2OTkuMDY2NjY2NjY2NjY2Nyw1NjEuNTg2NjY2NjY2NjY2N119LHsicG9pbnQiOls2OTAsNjExXSwiY29udHJvbEluIjpbNjkzLjA4LDU4OV0sImNvbnRyb2xPdXQiOls2ODYuOTIsNjMzXX0seyJwb2ludCI6WzY4MSw2ODldLCJjb250cm9sSW4iOls2ODMuMzQ2NjY2NjY2NjY2Nyw2NjYuNzA2NjY2NjY2NjY2N10sImNvbnRyb2xPdXQiOls2NzguNjUzMzMzMzMzMzMzMyw3MTEuMjkzMzMzMzMzMzMzM119LHsicG9pbnQiOls2NzQsNzYzXSwiY29udHJvbEluIjpbNjgxLjQ4LDc0Mi43Nl0sImNvbnRyb2xPdXQiOls2NjYuNTIsNzgzLjI0XX0seyJwb2ludCI6WzYzMCw4MjddLCJjb250cm9sSW4iOls2NDguNDgsODE0LjA5MzMzMzMzMzMzMzRdLCJjb250cm9sT3V0IjpbNjExLjUyLDgzOS45MDY2NjY2NjY2NjY2XX0seyJwb2ludCI6WzU0OCw4NTFdLCJjb250cm9sSW4iOls1NzAuODgsODUyLjc2XSwiY29udHJvbE91dCI6WzUyNS4xMiw4NDkuMjRdfSx7InBvaW50IjpbNDgwLjMyNDg0MDI2NDgyMTk0LDgyMC44NTkwMTE4MjY2NzMzXSwiY29udHJvbEluIjpbNDk0LjY5ODE3MzU5ODE1NTMsODM0LjkzOTAxMTgyNjY3MzNdLCJjb250cm9sT3V0IjpbNDY1Ljk1MTUwNjkzMTQ4ODYsODA2Ljc3OTAxMTgyNjY3MzJdfSx7InBvaW50IjpbNDYwLjM0ODQyMzE4Njg2Njk3LDc1Ny4wMjQ2NTEwMjkzMzQ4XSwiY29udHJvbEluIjpbNDU5LjI1OTU4MzI4ODMyMTU1LDc3Ny43ODEzODQzNDQwMzEyXSwiY29udHJvbE91dCI6WzQ2MS40Mjc4NzY1ODcyMjExLDczNi40NDY4NTQwNjY5NjY2XX0seyJwb2ludCI6WzQ4Ni44Mjk3MjAxNjE1MjA0Nyw2OTYuODU1NDIwOTk1NDc5OF0sImNvbnRyb2xJbiI6WzQ3OC4zODQxNzc3NjY4NDg0NCw3MDguMDc3NDUwNDc1NDQxMl0sImNvbnRyb2xPdXQiOls0OTUuMjc1MjYyNTU2MTkyNSw2ODUuNjMzMzkxNTE1NTE4NF19LHsicG9pbnQiOls1MTMuNzY5MTU4NDgxNjA5Myw2NTQuODY2NDAzMDgyMDc4OV0sImNvbnRyb2xJbiI6WzUwOC4zNTkzNDA3OTU2MzMxNiw2NzcuMjQ5OTAxMTczMDA0OF0sImNvbnRyb2xPdXQiOls1MTkuMTc4OTc2MTY3NTg1NSw2MzIuNDgyOTA0OTkxMTUzMV19LHsicG9pbnQiOls1MTMuMzk2MzQxODM1MjMyMSw2MTYuNTI4NTQ0NjcyODg0NV0sImNvbnRyb2xJbiI6WzUxOC4yMTMzNTAxNTI2Nzg2LDYyNy43ODU2NTQyNjUyMjY5XSwiY29udHJvbE91dCI6WzUwOC41NzkzMzM1MTc3ODU3LDYwNS4yNzE0MzUwODA1NDIyXX0seyJwb2ludCI6WzQ3NC4xMzAxNjAwODY5ODU0LDU3NS4zNDI0Mzc4ODkwMDk1XSwiY29udHJvbEluIjpbNDg5Ljg3MDY1NTA3NTg3OTY1LDU4NS42Nzg5NTM5ODY1MDQ3XSwiY29udHJvbE91dCI6WzQ1OC4zODk2NjUwOTgwOTEyLDU2NS4wMDU5MjE3OTE1MTQzXX0seyJwb2ludCI6WzQyOC45MzczNzk3OTM1NDgzNiw1NDYuOTE2NjE5MDgxNDgzOV0sImNvbnRyb2xJbiI6WzQ0Ny4xMDA4NzA4MTYwMzMsNTU4LjUyMzcxMDExNzE0MV0sImNvbnRyb2xPdXQiOls0MTAuNzczODg4NzcxMDYzNyw1MzUuMzA5NTI4MDQ1ODI2N119LHsicG9pbnQiOlszNzQsNTA1XSwiY29udHJvbEluIjpbMzg0Ljg1MzMzMzMzMzMzMzM1LDUxNy45MDY2NjY2NjY2NjY2XSwiY29udHJvbE91dCI6WzM2My4xNDY2NjY2NjY2NjY2NSw0OTIuMDkzMzMzMzMzMzMzMzZdfSx7InBvaW50IjpbMzQyLDQ1OV0sImNvbnRyb2xJbiI6WzM0OS4zMzMzMzMzMzMzMzMzLDQ3Mi43ODY2NjY2NjY2NjY3XSwiY29udHJvbE91dCI6WzMzNC42NjY2NjY2NjY2NjY3LDQ0NS4yMTMzMzMzMzMzMzMzXX0seyJwb2ludCI6WzMzMS43OTE3MjU4MzExMTY2NSw0MDguMTk1NjUyNjI3MzYzM10sImNvbnRyb2xJbiI6WzMzMC44NDIxNDMyOTIwMTczLDQyNC4zMjk1NzM5MDM5NTkxXSwiY29udHJvbE91dCI6WzMzMi42ODYwMDM1NTY4MzUzLDM5My4wMDEzOTAwNjI0MjI4NF19LHsicG9pbnQiOlszNDcuNTMxNTgwNzk0NDU0MDQsMzY1LjAxNTQ0ODQ3NTM5MTNdLCJjb250cm9sSW4iOlszMzcuNTU4MjQ3NDYxMTIwNywzNzUuODY4NzgxODA4NzI0NjNdLCJjb250cm9sT3V0IjpbMzU3LjUwNDkxNDEyNzc4NzQsMzU0LjE2MjExNTE0MjA1NzldfSx7InBvaW50IjpbMzkyLDMzN10sImNvbnRyb2xJbiI6WzM3NS41NzMzMzMzMzMzMzMzLDM0My43NDY2NjY2NjY2NjY2N10sImNvbnRyb2xPdXQiOls0MDguNDI2NjY2NjY2NjY2NywzMzAuMjUzMzMzMzMzMzMzMzNdfSx7InBvaW50IjpbNDUyLDMyMV0sImNvbnRyb2xJbiI6WzQzNi4xNiwzMjMuMDUzMzMzMzMzMzMzMzRdLCJjb250cm9sT3V0IjpbNDY3Ljg0LDMxOC45NDY2NjY2NjY2NjY2Nl19XSwicGF0dGVybkZpbGxzQmFja2dyb3VuZCI6ZmFsc2UsInpPcmRlciI6MSwibWlycm9yZWRWIjpmYWxzZSwiZmlsbENvbG9yIjp7ImdyZWVuIjoxLCJibHVlIjoxLCJyZWQiOjEsImFscGhhIjoxfSwibGluZVdpZHRoIjoyLCJzaGFwZU1vZGUiOiJTb2xpZCIsIm1pcnJvcmVkSCI6ZmFsc2UsInJvdGF0aW9uIjowLCJpZCI6IjExREUzQkIyLUVDNzMtNDQ2Qy04QTQ5LTNGRjY0NzE4NDY5NSIsImZpbGxTdHlsZSI6eyJ0eXBlIjoic29saWQifSwiZ3JhZGllbnRSZXBlYXRNb2RlIjoiTm8gUmVwZWF0IiwiYm9yZGVyRmlsbFN0eWxlIjp7InR5cGUiOiJzb2xpZCJ9fQ==",
+          "type" : "customPolygon"
+        },
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sInBhdHRlcm5GaWxsc0JhY2tncm91bmQiOmZhbHNlLCJ6T3JkZXIiOjIsIm1pcnJvcmVkViI6ZmFsc2UsImZpbGxDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImNvcm5lclJhZGl1cyI6NDYuNzUzMTI1LCJyZWN0IjpbWzMxNC43MjI5ODE3MDQ2MjQxNSwyMDYuNDA0ODU3MDA3NzQwMDVdLFsxMjIuNTg3MzIwNjkzNzY0ODcsMTAwLjA3ODc0ODk0MTUzMzY5XV0sIm1pcnJvcmVkSCI6ZmFsc2UsInJvdGF0aW9uIjotMTQuMTM3MTY2OTQxMTU0MDY3LCJpZCI6IjgxREVEQkZBLTI4NzYtNEU4My1CNjVELUMxQUE3QUI2NUREQiIsImZpbGxTdHlsZSI6eyJ0eXBlIjoic29saWQifSwiYm9yZGVyRmlsbFN0eWxlIjp7InR5cGUiOiJzb2xpZCJ9LCJncmFkaWVudFR5cGUiOiJMaW5lYXIifQ==",
+          "type" : "rectangle"
+        },
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sInBhdHRlcm5GaWxsc0JhY2tncm91bmQiOmZhbHNlLCJ6T3JkZXIiOjMsIm1pcnJvcmVkViI6ZmFsc2UsImZpbGxDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImNvcm5lclJhZGl1cyI6MzgsInJlY3QiOltbNDM4LDE5MF0sWzc2LDExMF1dLCJtaXJyb3JlZEgiOmZhbHNlLCJyb3RhdGlvbiI6MCwiaWQiOiI2RDEyNUExOS04QTZBLTRCMzEtOUZGQy03RTgzRDM4QjE0QjUiLCJmaWxsU3R5bGUiOnsidHlwZSI6InNvbGlkIn0sImJvcmRlckZpbGxTdHlsZSI6eyJ0eXBlIjoic29saWQifSwiZ3JhZGllbnRUeXBlIjoiTGluZWFyIn0=",
+          "type" : "rectangle"
+        },
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sInBhdHRlcm5GaWxsc0JhY2tncm91bmQiOmZhbHNlLCJ6T3JkZXIiOjQsIm1pcnJvcmVkViI6ZmFsc2UsImZpbGxDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImNvcm5lclJhZGl1cyI6MzQsInJlY3QiOltbNTI2LDE5OF0sWzY4LDEwMF1dLCJtaXJyb3JlZEgiOmZhbHNlLCJyb3RhdGlvbiI6MCwiaWQiOiJFRDhGMUQ0My1CNzBCLTRDM0EtODAwMy1DM0Q3QzIyQzBEN0QiLCJmaWxsU3R5bGUiOnsidHlwZSI6InNvbGlkIn0sImJvcmRlckZpbGxTdHlsZSI6eyJ0eXBlIjoic29saWQifSwiZ3JhZGllbnRUeXBlIjoiTGluZWFyIn0=",
+          "type" : "rectangle"
+        },
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sInBhdHRlcm5GaWxsc0JhY2tncm91bmQiOmZhbHNlLCJ6T3JkZXIiOjUsIm1pcnJvcmVkViI6ZmFsc2UsImZpbGxDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImNvcm5lclJhZGl1cyI6MzAsInJlY3QiOltbNjAyLjI0NDUyMzQ4NDI3ODYsMjQ1LjYwNDQ4MjQ1MTAwNjRdLFs2MCw3OC4xMzQ4MjA0MDEwNDE2XV0sIm1pcnJvcmVkSCI6ZmFsc2UsInJvdGF0aW9uIjowLCJpZCI6IjU1NTE5NURFLTU0NTctNDM2Ny1BQTRBLUU2RENDQUQ0ODI0QSIsImZpbGxTdHlsZSI6eyJ0eXBlIjoic29saWQifSwiYm9yZGVyRmlsbFN0eWxlIjp7InR5cGUiOiJzb2xpZCJ9LCJncmFkaWVudFR5cGUiOiJMaW5lYXIifQ==",
+          "type" : "rectangle"
+        },
+        {
+          "data" : "eyJncmFkaWVudFJlcGVhdE1vZGUiOiJObyBSZXBlYXQiLCJzdHJva2VDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sInBhdHRlcm5GaWxsc0JhY2tncm91bmQiOmZhbHNlLCJ6T3JkZXIiOjYsIm1pcnJvcmVkViI6ZmFsc2UsImZpbGxDb2xvciI6eyJncmVlbiI6MSwiYmx1ZSI6MSwicmVkIjoxLCJhbHBoYSI6MX0sImxpbmVXaWR0aCI6MiwiaXNSb3VuZGVkUmVjdGFuZ2xlIjp0cnVlLCJzaGFwZU1vZGUiOiJTb2xpZCIsImNvcm5lclJhZGl1cyI6MjYsInJlY3QiOltbNjYzLjk2NjMwMTcyMjYxNzgsMzAwLjI3MTQxODQ0MjU2NjI0XSxbNTEuNTE5OTk5OTk5OTk5OTgsNjZdXSwibWlycm9yZWRIIjpmYWxzZSwicm90YXRpb24iOjAsImlkIjoiRjFBMjlFQUYtMjY2Ri00REM1LThCNkEtNEU0ODBGMEFERDgzIiwiZmlsbFN0eWxlIjp7InR5cGUiOiJzb2xpZCJ9LCJib3JkZXJGaWxsU3R5bGUiOnsidHlwZSI6InNvbGlkIn0sImdyYWRpZW50VHlwZSI6IkxpbmVhciJ9",
+          "type" : "rectangle"
+        }
+      ],
+      "opacity" : 1
+    }
+  ],
+  "activeUnifiedIndex" : 1,
+  "canvasWidth" : 1024,
+  "editingMode" : "Vector",
+  "version" : 3,
+  "paintLayers" : [
+    {
+      "isVisible" : true,
+      "name" : "Background",
+      "isLocked" : false,
+      "blendMode" : "Normal",
+      "opacity" : 1,
+      "id" : "974B70A3-4E9B-48F4-8C2E-F7053767BCBC",
+      "isSelectedForEffects" : true,
+      "creationStamp" : 1
+    }
+  ],
+  "showOverflow" : false,
+  "activeLayerIndex" : 0,
+  "gridSize" : 16,
+  "activeVectorLayerIndex" : 0,
+  "canvasHeight" : 1024
+}
