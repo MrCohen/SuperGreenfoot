@@ -38,7 +38,12 @@ ln -s /Applications "$MOUNT/Applications"
 mkdir "$MOUNT/.background"
 cp "$BACKGROUND" "$MOUNT/.background/installer-background.png"
 osascript "$SCRIPT_DIR/set-dmg-layout.applescript" "${MOUNT:t}" "$MOUNT/.background/installer-background.png"
+# The dot keeps .background out of sight in a default Finder; the hidden flag covers
+# tools that only honour the flag. .fseventsd is macOS's event log from this
+# read-write mount and does not belong in the installer.
+chflags hidden "$MOUNT/.background"
 sync
+rm -rf "$MOUNT/.fseventsd"
 hdiutil detach "$MOUNT" -quiet
 MOUNTED=0
 
