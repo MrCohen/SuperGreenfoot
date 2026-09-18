@@ -117,7 +117,7 @@ This works on Windows, Linux and any Mac. You need two things installed:
 Then, on macOS or Linux:
 
 ```sh
-git clone --depth 1 --branch v0.1.0 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.1.1 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 ./gradlew runGreenfoot -x test
 ```
@@ -125,7 +125,7 @@ cd SuperGreenfoot
 On Windows, in Command Prompt or PowerShell:
 
 ```bat
-git clone --depth 1 --branch v0.1.0 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.1.1 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 gradlew.bat runGreenfoot -x test
 ```
