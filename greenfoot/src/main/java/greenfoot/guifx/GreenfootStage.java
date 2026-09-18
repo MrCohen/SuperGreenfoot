@@ -1743,11 +1743,17 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     }
 
     /**
-     * SuperGreenfoot: enter or leave full-screen play mode.
+     * SuperGreenfoot: enter or leave full-screen play mode. If the full-screen
+     * window exists but the user has gone back to this one, bring it forward.
      */
     public void toggleFullScreenView()
     {
-        if (fullScreenView != null)
+        if (fullScreenView != null && !fullScreenView.isFocused())
+        {
+            fullScreenView.toFront();
+            fullScreenView.requestFocus();
+        }
+        else if (fullScreenView != null)
         {
             exitFullScreenView();
         }
@@ -1775,7 +1781,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             fsPixelPerfect = v.isPixelPerfect();
             fsControlsLocked = v.isControlsLocked();
             fsControlsVisible = v.isControlsVisible() || !fsControlsLocked;
-            v.close();
+            v.leave();
             worldDisplay.requestFocus();
             sendDisplayState();
         }

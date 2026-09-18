@@ -91,6 +91,10 @@ public class PlayerFrame implements DisplayDelegate
     private volatile java.awt.Rectangle screenBoundsCache = new java.awt.Rectangle();
     private long escDownSince = -1;
     private BufferedImage currentFrame;
+    /** Where the window was before full screen, so leaving puts it back on the same display. */
+    private java.awt.Point windowedLocation;
+    /** Whether the floating bar has been placed in this full-screen session (after that, the user may drag it). */
+    private boolean controlBarPlaced = false;
 
     public PlayerFrame(PlayerSession session)
     {
@@ -321,11 +325,31 @@ public class PlayerFrame implements DisplayDelegate
     /** Refresh the cached screen bounds (AWT reports scaled pixels on HiDPI screens). */
     private void updateScreenBounds()
     {
-        java.awt.GraphicsConfiguration gc = frame.getGraphicsConfiguration();
-        if (gc == null) {
-            gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+        screenBoundsCache = displayOfFrame().getDefaultConfiguration().getBounds();
+    }
+
+    /**
+     * The display the window is full screen on, or else the one holding most of it.
+     * (The frame's GraphicsConfiguration is not reliable here: after the frame has
+     * been disposed and shown again it can still name the previous display.)
+     */
+    private GraphicsDevice displayOfFrame()
+    {
+        GraphicsDevice best = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        long bestArea = 0;
+        java.awt.Rectangle fb = frame.getBounds();
+        for (GraphicsDevice d : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices()) {
+            if (d.getFullScreenWindow() == frame) {
+                return d;
+            }
+            java.awt.Rectangle overlap = d.getDefaultConfiguration().getBounds().intersection(fb);
+            long area = overlap.isEmpty() ? 0 : (long) overlap.width * overlap.height;
+            if (area > bestArea) {
+                bestArea = area;
+                best = d;
+            }
         }
-        screenBoundsCache = gc.getBounds();
+        return best;
     }
 
     // ---- full screen ----
@@ -336,11 +360,15 @@ public class PlayerFrame implements DisplayDelegate
             return;
         }
         fullScreen = on;
-        GraphicsDevice device = frame.getGraphicsConfiguration() != null
-                ? frame.getGraphicsConfiguration().getDevice()
-                : GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
+        GraphicsDevice device = displayOfFrame();
+        if (on && frame.isShowing()) {
+            windowedLocation = frame.getLocation();
+        }
+        // Before any layout: the bar's size depends on the mode
+        controlBar.setFullScreenMode(on);
         frame.dispose();
         if (on) {
+            controlBarPlaced = false;
             layers.removeAll();
             layers.setLayout(null);
             layers.setBackground(Color.BLACK);
@@ -377,10 +405,16 @@ public class PlayerFrame implements DisplayDelegate
             frame.setResizable(true);
             frame.setContentPane(windowedRoot);
             frame.pack();
-            frame.setLocationRelativeTo(null);
+            if (windowedLocation != null) {
+                frame.setLocation(windowedLocation);
+            }
+            else {
+                // Started full screen: centre on the display we were full screen on
+                java.awt.Rectangle b = device.getDefaultConfiguration().getBounds();
+                frame.setLocation(b.x + (b.width - frame.getWidth()) / 2, b.y + (b.height - frame.getHeight()) / 2);
+            }
             frame.setVisible(true);
         }
-        controlBar.setFullScreenMode(on);
         controlBar.setVisible(controlsVisible);
         worldPanel.requestFocusInWindow();
         updateScreenBounds();
@@ -392,8 +426,10 @@ public class PlayerFrame implements DisplayDelegate
         int h = layers.getHeight();
         worldPanel.setBounds(0, 0, w, h);
         Dimension pref = controlBar.getPreferredSize();
-        if (controlBar.getX() == 0 && controlBar.getY() == 0) {
+        if (!controlBarPlaced && w > 0 && h > 0) {
+            // Bottom centre; its windowed-mode position is meaningless here
             controlBar.setBounds((w - pref.width) / 2, h - pref.height - 24, pref.width, pref.height);
+            controlBarPlaced = true;
         }
         else {
             controlBar.setSize(pref);

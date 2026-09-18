@@ -81,6 +81,8 @@ public class FullScreenView extends Stage
     private double displayScale = 1.0;
     private long escDownSince = -1;
     private double dragOffsetX, dragOffsetY;
+    /** Set once leave() has started, so a second request does nothing. */
+    private boolean leaving = false;
 
     public FullScreenView(GreenfootStage owner)
     {
@@ -88,6 +90,13 @@ public class FullScreenView extends Stage
         setTitle(owner.getTitle());
         // Deliberately no initOwner(): on macOS an owned window is a child window
         // and cannot enter native full-screen mode (it only maximises).
+        // Without an owner or a position JavaFX would centre this window on the
+        // primary display, and macOS goes full screen on the display the window is
+        // on. Start over the main window instead, so full screen uses its display.
+        setX(owner.getX());
+        setY(owner.getY());
+        setWidth(owner.getWidth());
+        setHeight(owner.getHeight());
 
         imageView.setPreserveRatio(true);
         imageView.setSmooth(true);
@@ -216,6 +225,32 @@ public class FullScreenView extends Stage
             owner.notifyWorldFocus(true);
         });
         setOnHidden(e -> owner.notifyWorldFocus(false));
+        // macOS can leave full screen without us (the green window button, for example);
+        // treat that as leaving full-screen play mode, rather than keeping a plain window.
+        JavaFXUtil.addChangeListenerPlatform(fullScreenProperty(), fs -> {
+            if (!fs && isShowing() && !leaving) {
+                owner.exitFullScreenView();
+            }
+        });
+    }
+
+    /**
+     * Leave native full screen, then close this window. Closing a window that is
+     * still in native full screen deadlocks JavaFX on macOS: Stage.close() waits for
+     * the exit animation while holding the render lock, and a pulse during that wait
+     * blocks on the renderer, which needs the same lock. setFullScreen(false) waits
+     * for the animation without holding the lock.
+     */
+    public void leave()
+    {
+        if (leaving) {
+            return;
+        }
+        leaving = true;
+        if (isFullScreen()) {
+            setFullScreen(false);
+        }
+        JavaFXUtil.runAfterCurrent(this::close);
     }
 
     /** Show the given world image (called for every frame). */
@@ -312,7 +347,9 @@ public class FullScreenView extends Stage
         double sw = scene.getWidth();
         double sh = scene.getHeight();
         if (sw <= 0 || sh <= 0) {
-            javafx.geometry.Rectangle2D b = Screen.getPrimary().getBounds();
+            java.util.List<Screen> screens = Screen.getScreensForRectangle(getX(), getY(),
+                    Math.max(1, getWidth()), Math.max(1, getHeight()));
+            javafx.geometry.Rectangle2D b = (screens.isEmpty() ? Screen.getPrimary() : screens.get(0)).getBounds();
             sw = b.getWidth();
             sh = b.getHeight();
         }
