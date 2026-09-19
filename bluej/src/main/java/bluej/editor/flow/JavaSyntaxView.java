@@ -372,7 +372,9 @@ public class JavaSyntaxView implements ReparseableDocument, LineDisplayListener
                 JavaFXUtil.runAfterCurrent(() ->
                 {
                     resetColors();
-                    recalculateAllScopes();
+                    // Apply too, so a colour change (e.g. a light/dark theme switch)
+                    // repaints the scopes already on screen:
+                    recalculateAndApplyAllScopes();
                 });
             }
         });

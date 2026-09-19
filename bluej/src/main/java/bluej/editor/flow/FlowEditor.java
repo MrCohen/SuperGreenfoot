@@ -556,7 +556,8 @@ public class FlowEditor extends ScopeColorsBorderPane implements TextEditor, Flo
             watcher.addExtensionContextMenuItemsToJavaEditor(this.editorContextMenu);
         }
 
-        JavaFXUtil.addChangeListenerPlatform(PrefMgr.getEditorFontSize(), s -> {
+        // The size-and-family CSS changes with the size and with the font family:
+        JavaFXUtil.addChangeListenerPlatform(PrefMgr.getEditorFontCSS(PrefMgr.FontCSS.EDITOR_SIZE_AND_FAMILY), s -> {
             javaSyntaxView.fontSizeChanged();
             flowEditorPane.fontSizeChanged();
         });

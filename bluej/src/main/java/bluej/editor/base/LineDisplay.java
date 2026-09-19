@@ -315,9 +315,10 @@ public class LineDisplay
                 // So the top line is 14 - 9 + 1 = 6
                 firstVisibleLineIndex = line - numLinesCanDisplay + 1;
             }
-            if (firstVisibleLineIndex < 0)
+            if (firstVisibleLineIndex < 0 || linesInDocument * singleLineHeight <= containerHeight)
             {
-                // Just scroll to top:
+                // Just scroll to top (also when the whole document fits, which the
+                // calculation above can otherwise leave with the first line half hidden):
                 firstVisibleLineIndex = 0;
                 firstVisibleLineOffset = 0.0;
             }

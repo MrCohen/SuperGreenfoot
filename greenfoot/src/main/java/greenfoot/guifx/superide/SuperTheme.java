@@ -24,6 +24,7 @@ package greenfoot.guifx.superide;
 import atlantafx.base.theme.PrimerDark;
 import atlantafx.base.theme.PrimerLight;
 import atlantafx.base.theme.Theme;
+import bluej.prefmgr.PrefMgr;
 import bluej.utility.Debug;
 import bluej.utility.javafx.JavaFXUtil;
 import javafx.application.Application;
@@ -32,6 +33,7 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Window;
 import threadchecker.OnThread;
@@ -45,6 +47,8 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * The SuperGreenfoot IDE's look: AtlantaFX's Primer theme as the application's
@@ -55,6 +59,13 @@ import java.util.List;
  * SuperGreenfoot IDE is the active UI ({@link #activate()}), and cleared again
  * for the Classic IDE ({@link #deactivate()}), which then looks exactly as
  * before.
+ *
+ * <p>While active, every window gets the palette, including the windows the new
+ * IDE shares with BlueJ (editors, terminal, debugger, inspectors, popups): they
+ * also get lib/stylesheets/superide-shared.css, which restyles BlueJ's own
+ * style classes for light and dark, and the Java editor and terminal use the
+ * bundled code font. {@link #deactivate()} takes all of that off again, so
+ * windows left open across a switch to Classic look as they always did.
  */
 @OnThread(Tag.FXPlatform)
 public final class SuperTheme
@@ -68,16 +79,25 @@ public final class SuperTheme
 
     /** Relative to the lib directory. */
     public static final String STYLESHEET = "stylesheets/superide.css";
+    /** Relative to the lib directory: BlueJ's shared windows (editor, terminal, ...) in the new IDE's look. */
+    public static final String SHARED_STYLESHEET = "stylesheets/superide-shared.css";
     /** Relative to the lib directory. */
     public static final String FONT_DIR = "superide/fonts";
 
     private static final String LIGHT_CLASS = "sg-light";
     private static final String DARK_CLASS = "sg-dark";
+    /** On every themed root, light or dark; superide-shared.css keys its rules on it. */
+    private static final String THEME_CLASS = "sg-theme";
+    /** On the root of a see-through window (e.g. BlueJ's rounded object inspector), which must keep no background. */
+    private static final String TRANSPARENT_CLASS = "sg-transparent-root";
 
     private static final BooleanProperty dark = new SimpleBooleanProperty(false);
     private static final List<WeakReference<Scene>> scenes = new ArrayList<>();
     /** Nodes that hold docked editors, which act as a scene root for the editors' stylesheets */
     private static final List<WeakReference<Parent>> editorHosts = new ArrayList<>();
+
+    // Scenes whose root property we already watch (so re-installing adds no second listener):
+    private static final Map<Scene, Boolean> watchedScenes = new WeakHashMap<>();
     private static File libDir;
     private static boolean fontsLoaded = false;
     private static boolean active = false;
@@ -113,6 +133,7 @@ public final class SuperTheme
     {
         active = true;
         applyUserAgentStylesheet();
+        PrefMgr.setEditorFontFamilyOverride(MONO);
         Window.getWindows().removeListener(windowListener);
         Window.getWindows().addListener(windowListener);
         for (Window window : new ArrayList<>(Window.getWindows()))
@@ -121,18 +142,23 @@ public final class SuperTheme
         }
     }
 
-    /** Go back to JavaFX's default look, as the Classic IDE expects. */
+    /**
+     * Go back to JavaFX's default look, as the Classic IDE expects: windows that
+     * stay open (editors, the terminal, ...) lose our stylesheets and palette.
+     */
     public static void deactivate()
     {
         active = false;
         Window.getWindows().removeListener(windowListener);
         Application.setUserAgentStylesheet(null);
+        PrefMgr.setEditorFontFamilyOverride(null);
+        forEachScene(SuperTheme::uninstall);
+        scenes.clear();
     }
 
     /**
-     * Dialogs copy their owner's stylesheets, so a dialog owned by a new IDE window
-     * gets our stylesheet; it also needs the palette class on its root, or the
-     * -sg-* colours cannot be resolved (and would not follow light/dark).
+     * While the new IDE is active, every window that appears (an editor, the
+     * terminal, a dialog, a popup) gets our stylesheets and the palette class.
      */
     private static final ListChangeListener<Window> windowListener = new ListChangeListener<Window>()
     {
@@ -153,8 +179,7 @@ public final class SuperTheme
     private static void adopt(Window window)
     {
         Scene scene = window.getScene();
-        String url = libDir == null ? null : stylesheetURL();
-        if (scene == null || url == null || !scene.getStylesheets().contains(url) || isTracked(scene))
+        if (!active || scene == null || libDir == null || isTracked(scene))
         {
             return;
         }
@@ -185,19 +210,50 @@ public final class SuperTheme
     }
 
     /**
-     * Give a scene the SuperGreenfoot stylesheet and palette class; the scene
+     * Give a scene the SuperGreenfoot stylesheets and palette class; the scene
      * follows later light/dark switches.
      */
     public static void install(Scene scene)
     {
         String url = stylesheetURL();
+        String sharedUrl = sharedStylesheetURL();
         if (url != null && !scene.getStylesheets().contains(url))
         {
             scene.getStylesheets().add(url);
         }
-        scenes.add(new WeakReference<>(scene));
+        // Last, so it wins over BlueJ's own sheets of the same specificity:
+        if (sharedUrl != null)
+        {
+            scene.getStylesheets().remove(sharedUrl);
+            scene.getStylesheets().add(sharedUrl);
+        }
+        if (!isTracked(scene))
+        {
+            scenes.add(new WeakReference<>(scene));
+        }
         updateRoot(scene);
-        JavaFXUtil.addChangeListenerPlatform(scene.rootProperty(), newRoot -> updateRoot(scene));
+        if (!watchedScenes.containsKey(scene))
+        {
+            watchedScenes.put(scene, Boolean.TRUE);
+            JavaFXUtil.addChangeListenerPlatform(scene.rootProperty(), newRoot -> {
+                if (isTracked(scene))
+                {
+                    updateRoot(scene);
+                }
+            });
+        }
+    }
+
+    /** Take our stylesheets and palette class off a scene again. */
+    private static void uninstall(Scene scene)
+    {
+        scene.getStylesheets().removeAll(stylesheetURL(), sharedStylesheetURL());
+        Parent root = scene.getRoot();
+        if (root != null)
+        {
+            root.getStyleClass().removeAll(LIGHT_CLASS, DARK_CLASS, THEME_CLASS, TRANSPARENT_CLASS);
+            root.getStylesheets().remove(sharedStylesheetURL());
+        }
     }
 
     /** Relative to the lib directory: the look of editors docked in the new IDE. */
@@ -216,12 +272,24 @@ public final class SuperTheme
         {
             host.getStyleClass().add("root");
         }
+        if (!host.getStyleClass().contains(THEME_CLASS))
+        {
+            host.getStyleClass().add(THEME_CLASS);
+        }
         editorHosts.add(new WeakReference<>(host));
         updatePaletteClass(host);
         if (libDir == null)
         {
             Debug.reportError("SuperTheme used before init(libDir)");
             return;
+        }
+        // The editors' stylesheets on this node outrank the scene's, so the shared
+        // light/dark sheet must sit on the node too, after them:
+        String sharedUrl = sharedStylesheetURL();
+        if (sharedUrl != null)
+        {
+            host.getStylesheets().remove(sharedUrl);
+            host.getStylesheets().add(sharedUrl);
         }
         String url = new File(libDir, EDITOR_HOST_STYLESHEET).toURI().toString();
         host.getStylesheets().remove(url);
@@ -259,6 +327,22 @@ public final class SuperTheme
         }
         root.getStyleClass().removeAll(LIGHT_CLASS, DARK_CLASS);
         root.getStyleClass().add(dark.get() ? DARK_CLASS : LIGHT_CLASS);
+        if (!root.getStyleClass().contains(THEME_CLASS))
+        {
+            root.getStyleClass().add(THEME_CLASS);
+        }
+        boolean seeThrough = scene.getFill() == null || Color.TRANSPARENT.equals(scene.getFill());
+        if (seeThrough && !root.getStyleClass().contains(TRANSPARENT_CLASS))
+        {
+            root.getStyleClass().add(TRANSPARENT_CLASS);
+        }
+        // A root with stylesheets of its own (BlueJ's popups add theirs there)
+        // outranks the scene's, so our shared sheet goes on the root too:
+        String sharedUrl = sharedStylesheetURL();
+        if (sharedUrl != null && !root.getStylesheets().isEmpty() && !root.getStylesheets().contains(sharedUrl))
+        {
+            root.getStylesheets().add(sharedUrl);
+        }
     }
 
     private interface SceneAction
@@ -291,6 +375,15 @@ public final class SuperTheme
         }
         File css = new File(libDir, STYLESHEET);
         return css.toURI().toString();
+    }
+
+    private static String sharedStylesheetURL()
+    {
+        if (libDir == null)
+        {
+            return null;
+        }
+        return new File(libDir, SHARED_STYLESHEET).toURI().toString();
     }
 
     private static void applyUserAgentStylesheet()

@@ -104,6 +104,10 @@ public class PrefMgr
     private static final NumberBinding editorLineNumberFontSize = Bindings.multiply(editorFontSize, 0.75);
     @OnThread(Tag.FX)
     private static final StringProperty editorStandardFont = new SimpleStringProperty("Roboto Mono");
+    // The font family from the user's settings, and an optional override of it
+    // (SuperGreenfoot's new IDE uses its own code font while it is active):
+    private static String editorConfiguredFont = "Roboto Mono";
+    private static String editorFontOverride = null;
     private static final StringProperty editorFallbackFont = new SimpleStringProperty("monospace");
     @OnThread(Tag.FX)
     private static IntegerProperty strideFontSize = null; // Setup in call to strideFontSizeProperty
@@ -300,8 +304,21 @@ public class PrefMgr
             else {
                 font = Config.getPropString(editorFontPropertyName, "Roboto Mono");
             }
-            editorStandardFont.set(font);
+            editorConfiguredFont = font;
+            editorStandardFont.set(editorFontOverride != null ? editorFontOverride : font);
         }
+    }
+
+    /**
+     * Use the given font family for the Java editor (and terminal) instead of the
+     * user's configured one, or go back to the configured one if null.  Not saved
+     * to the user's settings.  Open editors follow the change.
+     */
+    @OnThread(Tag.FXPlatform)
+    public static void setEditorFontFamilyOverride(String family)
+    {
+        editorFontOverride = family;
+        editorStandardFont.set(family != null ? family : editorConfiguredFont);
     }
     
     /**
