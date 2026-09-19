@@ -1688,9 +1688,23 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
     private static String findSuperclass(ClassTarget target)
     {
         bluej.parser.symtab.ClassInfo info = target.analyseSource();
-        if (info != null)
+        if (info != null && info.getSuperclass() != null)
         {
             return info.getSuperclass();
+        }
+        // A Stride class's Java source is generated when it compiles, so until then (or
+        // while it is out of date) the superclass comes from the Stride file itself:
+        if (target.getSourceType() == SourceType.Stride)
+        {
+            String strideSuper = StrideFiles.superclassOf(target.getFrameSourceFile());
+            if (strideSuper != null)
+            {
+                return strideSuper;
+            }
+        }
+        if (info != null)
+        {
+            return null;
         }
         try
         {
