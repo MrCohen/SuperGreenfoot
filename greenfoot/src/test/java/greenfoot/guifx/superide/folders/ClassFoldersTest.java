@@ -361,4 +361,21 @@ public class ClassFoldersTest extends TestCase
         folders.deleteFolder("Loot");
         assertEquals(3, heard.size());
     }
+
+    public void testSeveralClassesMoveAsOneChange()
+    {
+        ClassFolders folders = sample();
+        List<String> heard = new ArrayList<>();
+        folders.addListener(() -> heard.add("changed"));
+        folders.setFolder(List.of("Player", "Coin"), "Worlds");
+        assertEquals(1, heard.size());
+        assertEquals("Worlds", folders.getFolder("Player"));
+        assertEquals("Worlds", folders.getFolder("Coin"));
+        // Already there: no change.
+        folders.setFolder(List.of("Player", "Coin"), "worlds");
+        assertEquals(1, heard.size());
+        folders.setFolder(List.of("Player", "Coin"), "");
+        assertEquals(2, heard.size());
+        assertEquals("", folders.getFolder("Coin"));
+    }
 }

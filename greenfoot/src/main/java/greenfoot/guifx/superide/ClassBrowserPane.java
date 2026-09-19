@@ -56,15 +56,19 @@ import threadchecker.OnThread;
 import threadchecker.Tag;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
  * The SuperGreenfoot IDE's Classes panel: the scenario's classes grouped into
  * virtual folders, or by inheritance as in the Classic IDE. Folders can also show
  * inheritance: inside a folder, a subclass sits under its superclass when both
- * are in that folder. Classes are dragged onto a folder (or onto "Not in a
- * folder") to move them.
+ * are in that folder, and moves with it. Classes are dragged onto a folder (or
+ * onto "Not in a folder") to move them.
  */
 @OnThread(Tag.FXPlatform)
 public class ClassBrowserPane extends VBox
@@ -101,7 +105,10 @@ public class ClassBrowserPane extends VBox
     private Consumer<String> onOpenBuiltIn = name -> {};
     private Runnable onNewClass = () -> {};
     private Runnable onCollapse = () -> {};
-    private String dragging;
+    /** The classes being dragged: the dragged row and the subclasses moving with it. */
+    private final Set<String> dragging = new HashSet<>();
+    /** The class rows currently shown, by class name. */
+    private final Map<String, Node> rows = new HashMap<>();
     private String renaming;
 
     public ClassBrowserPane()
@@ -280,9 +287,31 @@ public class ClassBrowserPane extends VBox
         rebuild();
     }
 
+    /**
+     * Move a class to a folder ("" for none). When folders show inheritance,
+     * the subclasses drawn under it go too (one change, one save).
+     */
+    public void moveToFolder(String className, String folder)
+    {
+        folders.setFolder(movingWith(className), folder);
+    }
+
+    /** The class and, when folders show inheritance, the subclasses under it. */
+    private List<String> movingWith(String className)
+    {
+        List<String> moving = new ArrayList<>();
+        moving.add(className);
+        if (inheritanceInFolders.get())
+        {
+            moving.addAll(ClassTreeModel.nestedSubclasses(className, folders, classes));
+        }
+        return moving;
+    }
+
     private void rebuild()
     {
         list.getChildren().clear();
+        rows.clear();
         if (view.get() == View.FOLDERS)
         {
             for (ClassTreeModel.FolderGroup group : ClassTreeModel.folderGroups(folders, classes))
@@ -512,17 +541,23 @@ public class ClassBrowserPane extends VBox
         {
             row.getStyleClass().add("sg-selected");
         }
-        if (name.equals(dragging))
+        if (dragging.contains(name))
         {
             row.getStyleClass().add("sg-dragging");
         }
+        rows.put(name, row);
         // Inline, because the stylesheet's padding would override setPadding():
         row.setStyle("-fx-padding: 0 8 0 " + (8 + depth * 18) + ";");
         row.setFocusTraversable(true);
         row.setAccessibleRole(AccessibleRole.BUTTON);
         row.setAccessibleText(name + (entry.getSuperName() == null ? "" : ", extends " + entry.getSuperName()));
-        Tooltip.install(row, new Tooltip(view.get() == View.FOLDERS
-                ? "Double-click to edit. Drag onto a folder to move." : "Double-click to edit."));
+        String tip = "Double-click to edit.";
+        if (view.get() == View.FOLDERS)
+        {
+            tip += inheritanceInFolders.get() ? " Drag onto a folder to move it and the subclasses under it."
+                    : " Drag onto a folder to move.";
+        }
+        Tooltip.install(row, new Tooltip(tip));
         row.setOnMouseClicked(e -> {
             if (e.getButton() == MouseButton.PRIMARY && e.isStillSincePress())
             {
@@ -557,12 +592,22 @@ public class ClassBrowserPane extends VBox
                 content.putString(DRAG_PREFIX + name);
                 board.setContent(content);
                 board.setDragView(row.snapshot(null, null));
-                dragging = name;
-                row.getStyleClass().add("sg-dragging");
+                // Dim the row and any subclasses going with it (no rebuild: that
+                // would remove the row the drag started from):
+                dragging.clear();
+                dragging.addAll(movingWith(name));
+                for (String moving : dragging)
+                {
+                    Node movingRow = rows.get(moving);
+                    if (movingRow != null && !movingRow.getStyleClass().contains("sg-dragging"))
+                    {
+                        movingRow.getStyleClass().add("sg-dragging");
+                    }
+                }
                 e.consume();
             });
             row.setOnDragDone(e -> {
-                dragging = null;
+                dragging.clear();
                 rebuild();
             });
         }
@@ -589,12 +634,12 @@ public class ClassBrowserPane extends VBox
             String cls = draggedClass(e);
             if (cls != null)
             {
-                dragging = null;
+                dragging.clear();
                 if (!folder.isEmpty())
                 {
                     folders.setOpen(folder, true);
                 }
-                folders.setFolder(cls, folder);
+                moveToFolder(cls, folder);
                 e.setDropCompleted(true);
             }
             e.consume();

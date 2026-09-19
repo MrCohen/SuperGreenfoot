@@ -400,25 +400,32 @@ public class ClassFolders
      */
     public void setFolder(String className, String folder)
     {
+        setFolder(Collections.singletonList(className), folder);
+    }
+
+    /**
+     * Put several classes in a folder, or unfile them with "", as one change
+     * (listeners hear of it once). The folder must exist.
+     */
+    public void setFolder(Collection<String> classNames, String folder)
+    {
         String target = folder == null || folder.trim().isEmpty() ? null : requireFolder(folder);
-        String old = classFolder.get(className);
-        if (target == null)
+        boolean changed = false;
+        for (String className : classNames)
         {
-            if (old == null)
+            if (target == null)
             {
-                return;
+                changed |= classFolder.remove(className) != null;
             }
-            classFolder.remove(className);
+            else
+            {
+                changed |= !target.equals(classFolder.put(className, target));
+            }
         }
-        else
+        if (changed)
         {
-            if (target.equals(old))
-            {
-                return;
-            }
-            classFolder.put(className, target);
+            fireChanged();
         }
-        fireChanged();
     }
 
     /** A class was renamed: it keeps its folder. */

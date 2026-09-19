@@ -148,6 +148,7 @@ public class SuperStage extends Stage
         inspector.setOnCollapse(() -> rightOpen.set(false));
         output.setOnCollapse(() -> bottomOpen.set(false));
         inspector.setFolders(classBrowser.getFolders());
+        inspector.setOnMoveToFolder(classBrowser::moveToFolder);
         classBrowser.getFolders().addListener(statusListener);
         JavaFXUtil.addChangeListenerPlatform(running, is -> updateRunState());
         JavaFXUtil.addChangeListenerPlatform(worldHost.scaleProperty(), now -> updateScaleText());

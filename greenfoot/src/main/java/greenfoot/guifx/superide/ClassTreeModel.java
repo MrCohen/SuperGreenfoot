@@ -257,6 +257,36 @@ public final class ClassTreeModel
         return rows;
     }
 
+    /**
+     * The classes drawn under a class when its folder shows inheritance: its
+     * subclasses in the same folder (or also unfiled), their subclasses in that
+     * folder, and so on. Sorted by name.
+     */
+    public static List<String> nestedSubclasses(String name, ClassFolders folders, List<ClassEntry> classes)
+    {
+        String folder = folders.getFolder(name);
+        List<String> result = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        seen.add(name);
+        List<String> todo = new ArrayList<>();
+        todo.add(name);
+        while (!todo.isEmpty())
+        {
+            String current = todo.remove(todo.size() - 1);
+            for (ClassEntry entry : classes)
+            {
+                if (current.equals(entry.getSuperName()) && folder.equals(folders.getFolder(entry.getName()))
+                        && seen.add(entry.getName()))
+                {
+                    result.add(entry.getName());
+                    todo.add(entry.getName());
+                }
+            }
+        }
+        Collections.sort(result);
+        return result;
+    }
+
     /** Whether the class is (indirectly) a subclass of World. */
     @OnThread(Tag.Any)
     public static boolean isWorldClass(String name, List<ClassEntry> classes)

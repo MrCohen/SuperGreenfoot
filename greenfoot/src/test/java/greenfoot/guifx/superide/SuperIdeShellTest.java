@@ -166,6 +166,26 @@ public class SuperIdeShellTest extends TestCase
         assertEquals(List.of("A:1", "B:1"), describe(ClassTreeModel.nested(cycle, 1)));
     }
 
+    public void testNestedSubclassesMoveWithTheirSuperclass()
+    {
+        ClassFolders folders = new ClassFolders();
+        folders.addFolder("Characters");
+        folders.addFolder("Worlds");
+        for (String name : List.of("Enemy", "Bat", "Slime", "Player"))
+        {
+            folders.setFolder(name, "Characters");
+        }
+        assertEquals(List.of("Bat", "Slime"), ClassTreeModel.nestedSubclasses("Enemy", folders, classes()));
+        assertEquals(List.of(), ClassTreeModel.nestedSubclasses("Player", folders, classes()));
+
+        // A subclass in another folder isn't drawn under it, so it doesn't go with it.
+        folders.setFolder("Slime", "Worlds");
+        assertEquals(List.of("Bat"), ClassTreeModel.nestedSubclasses("Enemy", folders, classes()));
+
+        // Unfiled classes nest (and move) the same way.
+        assertEquals(List.of("Level1", "Level2"), ClassTreeModel.nestedSubclasses("MyWorld", folders, classes()));
+    }
+
     public void testClassHelpers()
     {
         List<ClassEntry> list = classes();

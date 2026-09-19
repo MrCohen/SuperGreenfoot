@@ -39,6 +39,7 @@ import threadchecker.Tag;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * The SuperGreenfoot IDE's Inspector panel: details and actions for the actor
@@ -111,6 +112,12 @@ public class InspectorPane extends VBox
     private ComboBox<String> folderChoice;
     private String shownClass;
     private Runnable onCollapse = () -> {};
+    private BiConsumer<String, String> onMoveToFolder = (className, folder) -> {
+        if (folders != null)
+        {
+            folders.setFolder(className, folder);
+        }
+    };
 
     public InspectorPane()
     {
@@ -140,6 +147,15 @@ public class InspectorPane extends VBox
     public void setOnCollapse(Runnable action)
     {
         onCollapse = action;
+    }
+
+    /**
+     * What the Folder chooser does to move a class (by default it moves just
+     * that class; the Classes panel may move its subclasses too).
+     */
+    public void setOnMoveToFolder(BiConsumer<String, String> action)
+    {
+        onMoveToFolder = action;
     }
 
     /** The folder model the class view's Folder chooser edits. */
@@ -256,7 +272,7 @@ public class InspectorPane extends VBox
                 String target = NO_FOLDER.equals(chosen) ? "" : chosen;
                 if (!target.equals(folders.getFolder(shownClass)))
                 {
-                    folders.setFolder(shownClass, target);
+                    onMoveToFolder.accept(shownClass, target);
                 }
             }
         });
