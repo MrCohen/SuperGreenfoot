@@ -37,11 +37,13 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuBar;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -85,6 +87,16 @@ public class SuperStage extends Stage
     private final WorldHost worldHost = new WorldHost();
     private final ClassFolders.Listener statusListener = this::updateStatus;
     private final StackPane editorArea = new StackPane();
+    private final BorderPane root = new BorderPane();
+    private final Pane glassPane = new Pane();
+    private final Label worldMessage = new Label();
+    private final Label hungMessage = new Label();
+    private final HBox controls = new HBox(8);
+    private final Slider speedSlider = new Slider(0, 100, 50);
+    private final StackPane centre = new StackPane();
+    private Node topBar;
+    private Node twirler;
+    private Node welcome;
 
     private final Button scenarioButton = new Button("Scenario");
     private final Button actButton = Widgets.button("Act", SuperIcons.ACT, () -> run(this.onAct));
@@ -135,13 +147,17 @@ public class SuperStage extends Stage
             }
         });
 
-        BorderPane root = new BorderPane();
         root.getStyleClass().add("sg-root");
-        root.setTop(buildTopBar());
+        topBar = buildTopBar();
+        root.setTop(topBar);
         root.setCenter(buildMiddle());
         root.setBottom(buildStatusBar());
+        // A layer above everything, for things that follow the mouse (a new actor being placed):
+        glassPane.setMouseTransparent(true);
+        glassPane.setPickOnBounds(false);
+        StackPane layers = new StackPane(root, glassPane);
 
-        Scene scene = new Scene(root, 1440, 900);
+        Scene scene = new Scene(layers, 1440, 900);
         SuperTheme.install(scene);
         setScene(scene);
         setMinWidth(1100);
@@ -197,7 +213,8 @@ public class SuperStage extends Stage
         HBox.setMargin(divider, new Insets(0, 8, 0, 8));
         Label speedLabel = new Label("Speed");
         speedLabel.getStyleClass().add("sg-muted");
-        Slider slider = new Slider(0, 100, speed.get());
+        Slider slider = speedSlider;
+        slider.setValue(speed.get());
         slider.getStyleClass().add("sg-speed");
         slider.setPrefWidth(130);
         slider.setAccessibleText("Speed");
@@ -209,7 +226,7 @@ public class SuperStage extends Stage
                 slider.setValue(now.intValue());
             }
         });
-        HBox controls = new HBox(8, actButton, runButton, resetButton, divider, speedLabel, slider);
+        controls.getChildren().setAll(actButton, runButton, resetButton, divider, speedLabel, slider);
         controls.setAlignment(Pos.CENTER);
         HBox.setHgrow(controls, Priority.ALWAYS);
 
@@ -266,7 +283,16 @@ public class SuperStage extends Stage
         rebuildTabStrip();
 
         editorArea.getStyleClass().add("sg-editor-area");
-        StackPane centre = new StackPane(worldHost, editorArea);
+        worldMessage.getStyleClass().add("sg-world-message");
+        worldMessage.setWrapText(true);
+        worldMessage.setMouseTransparent(true);
+        worldMessage.setVisible(false);
+        hungMessage.getStyleClass().add("sg-hung-message");
+        hungMessage.setWrapText(true);
+        hungMessage.setMouseTransparent(true);
+        hungMessage.setVisible(false);
+        StackPane.setAlignment(hungMessage, Pos.BOTTOM_CENTER);
+        centre.getChildren().setAll(worldHost, worldMessage, hungMessage, editorArea);
         VBox.setVgrow(centre, Priority.ALWAYS);
 
         StackPane bottomSlot = new StackPane();
@@ -534,6 +560,29 @@ public class SuperStage extends Stage
         updateScaleText();
     }
 
+    /**
+     * The world shown changed size (the same node stays in place).
+     */
+    public void setWorldSize(double width, double height)
+    {
+        worldHost.setWorldSize(width, height);
+        updateScaleText();
+    }
+
+    /**
+     * The name of the world shown, for the World tab and the status bar.
+     */
+    public void setWorldName(String name)
+    {
+        String newName = name == null ? "" : name;
+        if (!newName.equals(worldName))
+        {
+            worldName = newName;
+            worldTabLabel.setText(worldName.isEmpty() ? "World" : "World: " + worldName);
+            updateScaleText();
+        }
+    }
+
     public void appendOutput(String line)
     {
         output.appendOutput(line);
@@ -572,6 +621,82 @@ public class SuperStage extends Stage
     public BooleanProperty bottomOpenProperty()
     {
         return bottomOpen;
+    }
+
+    /**
+     * Add the menu bar (on macOS it goes into the system menu bar and takes no room here).
+     */
+    public void setMenuBar(MenuBar menuBar)
+    {
+        root.setTop(new VBox(menuBar, topBar));
+    }
+
+    /**
+     * A layer over the whole window that does not take mouse events, for things that
+     * follow the mouse.  It is the size of the scene, so its coordinates are scene coordinates.
+     */
+    public Pane getGlassPane()
+    {
+        return glassPane;
+    }
+
+    /**
+     * Show a message in place of the world (why there is no world, or what to do next).
+     * An empty message shows nothing.
+     */
+    public void setWorldMessage(String message)
+    {
+        worldMessage.setText(message == null ? "" : message);
+        worldMessage.setVisible(message != null && !message.isEmpty());
+    }
+
+    /**
+     * Show or hide the message that the scenario seems to be stuck (under the world).
+     */
+    public void setHungMessage(String message, boolean visible)
+    {
+        hungMessage.setText(message);
+        hungMessage.setVisible(visible);
+    }
+
+    /**
+     * Put a node (the busy indicator shown while the scenario's code runs for a long
+     * time) after the Reset button.
+     */
+    public void setTwirler(Node node)
+    {
+        if (twirler != null)
+        {
+            controls.getChildren().remove(twirler);
+        }
+        twirler = node;
+        if (node != null)
+        {
+            controls.getChildren().add(controls.getChildren().indexOf(resetButton) + 1, node);
+        }
+    }
+
+    /**
+     * Show a node over the world area (for example a welcome panel when no scenario
+     * is open), or remove it again with null.
+     */
+    public void setWelcome(Node node)
+    {
+        if (welcome != null)
+        {
+            centre.getChildren().remove(welcome);
+        }
+        welcome = node;
+        if (node != null)
+        {
+            centre.getChildren().add(node);
+        }
+    }
+
+    /** Enable or disable the speed slider. */
+    public void setSpeedEnabled(boolean enabled)
+    {
+        speedSlider.setDisable(!enabled);
     }
 
     /**

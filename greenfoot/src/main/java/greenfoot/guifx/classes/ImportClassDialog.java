@@ -34,6 +34,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.web.WebView;
 import javafx.stage.Modality;
+import javafx.stage.Window;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -63,8 +64,21 @@ public class ImportClassDialog extends Dialog<File>
      */
     public ImportClassDialog(GreenfootStage greenfootStage)
     {
+        this((Window) greenfootStage, greenfootStage);
+    }
+
+    /**
+     * Create a dialog, with the given parent window (SuperGreenfoot IDE).
+     */
+    public ImportClassDialog(Window owner)
+    {
+        this(owner, null);
+    }
+
+    private ImportClassDialog(Window owner, GreenfootStage greenfootStage)
+    {
         initModality(Modality.APPLICATION_MODAL);
-        initOwner(greenfootStage);
+        initOwner(owner);
         setTitle(Config.getString("import.dialogTitle"));
         ClassGroup classGroup = new ClassGroup(greenfootStage);
         List<ImportableGClassNode> foundClasses = findImportableClasses(new File(Config.getGreenfootLibDir(), "common"));

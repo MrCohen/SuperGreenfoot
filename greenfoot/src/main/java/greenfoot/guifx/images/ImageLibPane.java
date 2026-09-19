@@ -98,7 +98,7 @@ class ImageLibPane extends VBox
      */
     ImageLibPane(Window container, Project project, LocalGClassNode classNode)
     {
-        this(container, project, getSpecifiedImage(project, classNode));
+        this(container, project, getSpecifiedImage(project, classNode.getImageFilename()));
     }
     
     /**
@@ -117,9 +117,9 @@ class ImageLibPane extends VBox
      *
      * @param container         The contained window
      * @param project           The current project
-     * @param specifiedImage    The image to be selected initially
+     * @param specifiedImage    The image to be selected initially (may be null)
      */
-    private ImageLibPane(Window container, Project project, File specifiedImage)
+    ImageLibPane(Window container, Project project, File specifiedImage)
     {
         super(10);
         this.container = container;
@@ -319,9 +319,8 @@ class ImageLibPane extends VBox
      * class, without searching super classes (see getClassImage for that).  Returns null if none
      * specified.
      */
-    private static File getSpecifiedImage(Project project, LocalGClassNode gclass)
+    static File getSpecifiedImage(Project project, String imageName)
     {
-        String imageName = gclass.getImageFilename();
         
         // If an image is specified for this class, and we can read it, return
         if (imageName != null && !imageName.equals(""))

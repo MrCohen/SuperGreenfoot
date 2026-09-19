@@ -730,6 +730,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         discardWorld();
         greyOutWorld();
         view.worldStatusChanged();
+        view.compileStarted();
     }
 
     @Override
@@ -762,6 +763,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         }
         view.worldStatusChanged();
         view.classesChanged();
+        view.compileFinished(succesful);
     }
 
     // ---- The simulation thread (SimulationStateListener) ----

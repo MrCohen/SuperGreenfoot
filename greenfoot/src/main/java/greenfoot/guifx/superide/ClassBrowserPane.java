@@ -67,6 +67,19 @@ public class ClassBrowserPane extends VBox
     /** How the classes are grouped. */
     public enum View { FOLDERS, INHERITANCE }
 
+    /** Shows the menu for a class (or a built-in class) that was right-clicked. */
+    @OnThread(Tag.FXPlatform)
+    public interface ClassMenuHandler
+    {
+        /**
+         * @param className  the class's name ("World" or "Actor" for the built-in rows)
+         * @param anchor     the row that was clicked
+         * @param screenX    where to show the menu
+         * @param screenY    where to show the menu
+         */
+        void showMenu(String className, Node anchor, double screenX, double screenY);
+    }
+
     private static final String DRAG_PREFIX = "sg-class:";
     static final double WIDTH = 272;
 
@@ -77,7 +90,8 @@ public class ClassBrowserPane extends VBox
     private List<ClassEntry> classes = new ArrayList<>();
     private ClassFolders folders = new ClassFolders();
     private Consumer<String> onOpenClass = name -> {};
-    private Consumer<String> onShowClassMenu = name -> {};
+    private ClassMenuHandler onShowClassMenu = (name, anchor, x, y) -> {};
+    private ClassMenuHandler onShowBuiltInMenu = (name, anchor, x, y) -> {};
     private Runnable onNewClass = () -> {};
     private Runnable onCollapse = () -> {};
     private String dragging;
@@ -198,9 +212,15 @@ public class ClassBrowserPane extends VBox
     }
 
     /** Right-click on a class (the caller shows its class menu). */
-    public void setOnShowClassMenu(Consumer<String> action)
+    public void setOnShowClassMenu(ClassMenuHandler action)
     {
         onShowClassMenu = action;
+    }
+
+    /** Right-click on the built-in World or Actor row of the inheritance view. */
+    public void setOnShowBuiltInMenu(ClassMenuHandler action)
+    {
+        onShowBuiltInMenu = action;
     }
 
     public void setOnNewClass(Runnable action)
@@ -263,6 +283,8 @@ public class ClassBrowserPane extends VBox
                     builtIn.getStyleClass().add("sg-sup");
                     HBox row = new HBox(Widgets.builtinTile(20), base, builtIn);
                     row.getStyleClass().addAll("sg-row", "sg-builtin");
+                    String baseName = group.base;
+                    row.setOnContextMenuRequested(e -> onShowBuiltInMenu.showMenu(baseName, row, e.getScreenX(), e.getScreenY()));
                     list.getChildren().add(row);
                 }
                 for (ClassTreeModel.InheritanceRow row : group.rows)
@@ -446,7 +468,7 @@ public class ClassBrowserPane extends VBox
         });
         row.setOnContextMenuRequested(e -> {
             selectedClass.set(name);
-            onShowClassMenu.accept(name);
+            onShowClassMenu.showMenu(name, row, e.getScreenX(), e.getScreenY());
         });
         row.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER)

@@ -48,9 +48,23 @@ public class SelectImageFrame extends FXCustomizedDialog<File>
      */
     public SelectImageFrame(Window owner, Project project, LocalGClassNode classNode)
     {
-        super(owner, Config.getString("imagelib.title") + " " + classNode.getDisplayName(), "image-lib");
+        this(owner, project, classNode.getDisplayName(), ImageLibPane.getSpecifiedImage(project, classNode.getImageFilename()));
+    }
+
+    /**
+     * Construct an SelectImageFrame for changing the image of an existing class,
+     * given the class's name and its current image (SuperGreenfoot IDE).
+     *
+     * @param owner         The parent window
+     * @param project       The project
+     * @param className     The class's name, for the title
+     * @param currentImage  The class's current image file, to select initially (may be null)
+     */
+    public SelectImageFrame(Window owner, Project project, String className, File currentImage)
+    {
+        super(owner, Config.getString("imagelib.title") + " " + className, "image-lib");
         
-        ImageLibPane imageLibPane = new ImageLibPane(this.asWindow(), project, classNode);
+        ImageLibPane imageLibPane = new ImageLibPane(this.asWindow(), project, currentImage);
         setContentPane(imageLibPane);
         final Window window = this.getDialogPane().getScene().getWindow();
         Stage stage = (Stage) window;

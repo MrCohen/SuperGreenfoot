@@ -182,4 +182,21 @@ public interface ProjectView
      * else tied to the old VM (a new VM is starting).
      */
     void vmTerminated();
+
+    /**
+     * The project's classes have started compiling.  (The Classic window shows this
+     * on the classes themselves, so it does nothing here.)
+     */
+    default void compileStarted()
+    {
+    }
+
+    /**
+     * The project's classes have finished compiling.
+     *
+     * @param successful  whether the compilation succeeded
+     */
+    default void compileFinished(boolean successful)
+    {
+    }
 }
