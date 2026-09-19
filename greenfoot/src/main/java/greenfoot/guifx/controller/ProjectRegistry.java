@@ -209,6 +209,11 @@ public final class ProjectRegistry
         }
         else
         {
+            if (controller != null)
+            {
+                // Stop polling the closed project's debug VM:
+                controller.dispose();
+            }
             stages.remove(stage);
             stage.close();
         }
