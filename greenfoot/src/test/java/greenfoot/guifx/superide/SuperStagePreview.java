@@ -28,6 +28,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
@@ -171,12 +173,42 @@ public class SuperStagePreview
             stage.show();
         }
 
+        /** The preview's stand-in for the editor host: a plain tab pane with a World tab. */
+        private static TabPane editorTabs;
+
         private static void openEditor(SuperStage stage, String name)
         {
-            Label placeholder = new Label("public class " + name + " ...\n\n(The real editor docks here in milestone 4.)");
+            if (editorTabs == null)
+            {
+                editorTabs = new TabPane();
+                editorTabs.getStyleClass().add("tabbed-editor");
+                Tab world = new Tab();
+                world.setGraphic(stage.makeWorldTabGraphic());
+                world.setContent(stage.getWorldArea());
+                world.setClosable(false);
+                editorTabs.getTabs().add(world);
+                StackPane host = new StackPane(editorTabs);
+                host.getStyleClass().add("sg-editor-host");
+                SuperTheme.installEditorHost(host);
+                stage.setCentreContent(host);
+            }
+            for (Tab t : editorTabs.getTabs())
+            {
+                if (name.equals(t.getUserData()))
+                {
+                    editorTabs.getSelectionModel().select(t);
+                    return;
+                }
+            }
+            Label placeholder = new Label("public class " + name + " ...\n\n(Real editors dock here in the IDE.)");
             placeholder.getStyleClass().add("sg-mono");
-            StackPane content = new StackPane(placeholder);
-            stage.openEditorTab(name, name + ".java", content, null);
+            Tab tab = new Tab();
+            tab.setGraphic(new Label(name + ".java"));
+            tab.setContent(new StackPane(placeholder));
+            tab.setUserData(name);
+            tab.getStyleClass().add("moe-tab");
+            editorTabs.getTabs().add(tab);
+            editorTabs.getSelectionModel().select(tab);
         }
 
         private static void showPlayer(SuperStage stage)

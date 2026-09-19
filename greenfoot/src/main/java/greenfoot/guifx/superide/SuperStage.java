@@ -40,7 +40,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Tooltip;
-import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -52,9 +51,7 @@ import javafx.stage.Stage;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -73,7 +70,6 @@ public class SuperStage extends Stage
     /** What the compile pill in the top bar says. */
     public enum CompileState { COMPILED, COMPILING, NEEDS_COMPILE, ERRORS }
 
-    private static final String WORLD_TAB = "";
 
     private final BooleanProperty leftOpen = new SimpleBooleanProperty(true);
     private final BooleanProperty rightOpen = new SimpleBooleanProperty(true);
@@ -86,14 +82,18 @@ public class SuperStage extends Stage
     private final OutputPane output = new OutputPane();
     private final WorldHost worldHost = new WorldHost();
     private final ClassFolders.Listener statusListener = this::updateStatus;
-    private final StackPane editorArea = new StackPane();
     private final BorderPane root = new BorderPane();
     private final Pane glassPane = new Pane();
     private final Label worldMessage = new Label();
     private final Label hungMessage = new Label();
     private final HBox controls = new HBox(8);
     private final Slider speedSlider = new Slider(0, 100, 50);
-    private final StackPane centre = new StackPane();
+    /** The world, its messages and the zoom button: the World tab's content */
+    private final StackPane worldArea = new StackPane();
+    /** The centre when no editor host supplies it: a World-only tab strip over the world area */
+    private final VBox defaultCentre = new VBox();
+    /** Holds whatever fills the centre (the default centre, or an editor host with a World tab) */
+    private final StackPane centreSlot = new StackPane();
     private Node topBar;
     private Node twirler;
     private Node welcome;
@@ -113,8 +113,6 @@ public class SuperStage extends Stage
     private final Button zoomButton = new Button();
     private final HBox tabStrip = new HBox();
     private final HBox worldTab;
-    private final Map<String, EditorTab> editorTabs = new LinkedHashMap<>();
-    private String selectedTab = WORLD_TAB;
     private String worldName = "";
     private ContextMenu scenarioMenu;
 
@@ -124,28 +122,11 @@ public class SuperStage extends Stage
     private Runnable onSwitchToClassic;
     private Runnable onShare;
 
-    private static final class EditorTab
-    {
-        final HBox tab;
-        final Node content;
-
-        EditorTab(HBox tab, Node content)
-        {
-            this.tab = tab;
-            this.content = content;
-        }
-    }
-
     public SuperStage()
     {
         setTitle("Super Greenfoot");
         worldTab = makeTab(SuperIcons.WORLD, worldTabLabel, null);
-        worldTab.setOnMouseClicked(e -> {
-            if (e.getButton() == MouseButton.PRIMARY)
-            {
-                selectWorldTab();
-            }
-        });
+        worldTab.getStyleClass().add("sg-on");
 
         root.getStyleClass().add("sg-root");
         topBar = buildTopBar();
@@ -174,7 +155,6 @@ public class SuperStage extends Stage
         updateRunState();
         updateStatus();
         updateScaleText();
-        selectWorldTab();
     }
 
     // ------------------------------------------------------------------ layout
@@ -278,11 +258,10 @@ public class SuperStage extends Stage
         zoomButton.setTooltip(new Tooltip("Switch between fitting the world and whole-number (pixel-perfect) scaling"));
         zoomButton.setOnAction(e -> worldHost.zoomProperty().set(
                 worldHost.zoomProperty().get() == WorldHost.Zoom.FIT ? WorldHost.Zoom.PIXEL_PERFECT : WorldHost.Zoom.FIT));
-        HBox.setMargin(zoomButton, new Insets(0, 0, 8, 0));
+        StackPane.setAlignment(zoomButton, Pos.TOP_RIGHT);
+        StackPane.setMargin(zoomButton, new Insets(8, 12, 0, 0));
         tabStrip.getStyleClass().add("sg-tabstrip");
-        rebuildTabStrip();
-
-        editorArea.getStyleClass().add("sg-editor-area");
+        tabStrip.getChildren().setAll(worldTab);
         worldMessage.getStyleClass().add("sg-world-message");
         worldMessage.setWrapText(true);
         worldMessage.setMouseTransparent(true);
@@ -292,13 +271,19 @@ public class SuperStage extends Stage
         hungMessage.setMouseTransparent(true);
         hungMessage.setVisible(false);
         StackPane.setAlignment(hungMessage, Pos.BOTTOM_CENTER);
-        centre.getChildren().setAll(worldHost, worldMessage, hungMessage, editorArea);
-        VBox.setVgrow(centre, Priority.ALWAYS);
+        worldArea.getStyleClass().add("sg-world-area");
+        worldArea.getChildren().setAll(worldHost, worldMessage, hungMessage, zoomButton);
+        worldArea.setMinSize(0, 0);
+        VBox.setVgrow(worldArea, Priority.ALWAYS);
+        defaultCentre.getChildren().setAll(tabStrip, worldArea);
+        centreSlot.getChildren().setAll(defaultCentre);
+        centreSlot.setMinSize(0, 0);
+        VBox.setVgrow(centreSlot, Priority.ALWAYS);
 
         StackPane bottomSlot = new StackPane();
         bindSlot(bottomSlot, bottomOpen, output, collapsedOutputBar());
 
-        VBox centreColumn = new VBox(tabStrip, centre, bottomSlot);
+        VBox centreColumn = new VBox(centreSlot, bottomSlot);
         HBox.setHgrow(centreColumn, Priority.ALWAYS);
         centreColumn.setMinWidth(0);
         return new HBox(leftSlot, centreColumn, rightSlot);
@@ -359,17 +344,6 @@ public class SuperStage extends Stage
             tab.getChildren().add(close);
         }
         return tab;
-    }
-
-    private void rebuildTabStrip()
-    {
-        tabStrip.getChildren().clear();
-        tabStrip.getChildren().add(worldTab);
-        for (EditorTab t : editorTabs.values())
-        {
-            tabStrip.getChildren().add(t.tab);
-        }
-        tabStrip.getChildren().addAll(Widgets.spacer(), zoomButton);
     }
 
     // --------------------------------------------------------------- behaviour
@@ -684,12 +658,12 @@ public class SuperStage extends Stage
     {
         if (welcome != null)
         {
-            centre.getChildren().remove(welcome);
+            worldArea.getChildren().remove(welcome);
         }
         welcome = node;
         if (node != null)
         {
-            centre.getChildren().add(node);
+            worldArea.getChildren().add(node);
         }
     }
 
@@ -700,80 +674,51 @@ public class SuperStage extends Stage
     }
 
     /**
-     * Add (or re-show) an editor tab next to the World tab and select it.
-     * Placeholder for milestone 4, when the real editors dock here.
+     * The world area: the world, its messages and the zoom button (and the welcome panel
+     * when there is no scenario).  It is the content of the World tab.
      */
-    public void openEditorTab(String id, String title, Node content, Runnable onClose)
+    public StackPane getWorldArea()
     {
-        if (!editorTabs.containsKey(id))
+        return worldArea;
+    }
+
+    /**
+     * A header for a World tab (the world icon and the world's name), for a tab strip
+     * other than this window's own (an editor host's).
+     */
+    public Node makeWorldTabGraphic()
+    {
+        Label label = new Label();
+        label.textProperty().bind(worldTabLabel.textProperty());
+        label.getStyleClass().add("sg-world-tab-label");
+        HBox header = new HBox(7, SuperIcons.icon(SuperIcons.WORLD, 14), label);
+        header.setAlignment(Pos.CENTER_LEFT);
+        return header;
+    }
+
+    /**
+     * Fill the centre (above the Output panel) with the given node, typically an editor
+     * host whose first tab shows {@link #getWorldArea()}.  With null, the centre goes back
+     * to a World-only tab strip over the world area.
+     */
+    public void setCentreContent(Node content)
+    {
+        if (content == null)
         {
-            Label label = new Label(title);
-            HBox tab = makeTab(SuperIcons.FILE, label, () -> {
-                closeEditorTab(id);
-                run(onClose);
-            });
-            tab.setOnMouseClicked(e -> {
-                if (e.getButton() == MouseButton.PRIMARY)
+            // Take the world area back from whatever was showing it:
+            if (worldArea.getParent() != defaultCentre)
+            {
+                if (worldArea.getParent() instanceof Pane)
                 {
-                    selectEditorTab(id);
+                    ((Pane) worldArea.getParent()).getChildren().remove(worldArea);
                 }
-            });
-            editorTabs.put(id, new EditorTab(tab, content));
-            rebuildTabStrip();
-        }
-        selectEditorTab(id);
-    }
-
-    public void selectEditorTab(String id)
-    {
-        EditorTab t = editorTabs.get(id);
-        if (t == null)
-        {
-            return;
-        }
-        selectedTab = id;
-        editorArea.getChildren().setAll(t.content);
-        editorArea.setVisible(true);
-        worldHost.setVisible(false);
-        updateTabStyles();
-    }
-
-    public void closeEditorTab(String id)
-    {
-        if (editorTabs.remove(id) != null)
-        {
-            rebuildTabStrip();
-            if (id.equals(selectedTab))
-            {
-                selectWorldTab();
+                defaultCentre.getChildren().setAll(tabStrip, worldArea);
             }
+            centreSlot.getChildren().setAll(defaultCentre);
         }
-    }
-
-    public void selectWorldTab()
-    {
-        selectedTab = WORLD_TAB;
-        editorArea.getChildren().clear();
-        editorArea.setVisible(false);
-        worldHost.setVisible(true);
-        updateTabStyles();
-    }
-
-    private void updateTabStyles()
-    {
-        worldTab.getStyleClass().remove("sg-on");
-        if (selectedTab.equals(WORLD_TAB))
+        else
         {
-            worldTab.getStyleClass().add("sg-on");
+            centreSlot.getChildren().setAll(content);
         }
-        for (Map.Entry<String, EditorTab> e : editorTabs.entrySet())
-        {
-            e.getValue().tab.getStyleClass().remove("sg-on");
-            if (e.getKey().equals(selectedTab))
-            {
-                e.getValue().tab.getStyleClass().add("sg-on");
-            }
-        }
-        zoomButton.setVisible(selectedTab.equals(WORLD_TAB));
     }
 }

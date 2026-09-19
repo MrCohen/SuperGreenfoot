@@ -1,0 +1,64 @@
+/*
+ This file is part of the SuperGreenfoot program, a derivative of Greenfoot.
+ Copyright (C) 2026 SuperGreenfoot contributors
+ Licensed under the GNU General Public License version 2 or later, with the
+ Classpath exception (see LICENSE.txt).
+
+ The tab strip of the new IDE's editor host (the World tab and the docked editors).
+ Added to the host node after BlueJ's editor stylesheets, so these rules win there.
+ The -sg-* colours come from superide.css on the scene root.
+*/
+.sg-editor-host .tabbed-editor > .tab-header-area {
+    -fx-padding: 8 12 0 12;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area > .tab-header-background {
+    -fx-background-color: -sg-panel2;
+    -fx-border-color: -sg-line;
+    -fx-border-width: 0 0 1 0;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 1 1 0 1;
+    -fx-background-radius: 8 8 0 0;
+    -fx-border-radius: 8 8 0 0;
+    -fx-padding: 0 8 0 10;
+    -fx-pref-height: 32;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab:hover {
+    -fx-background-color: -sg-hover;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab:selected {
+    -fx-background-color: -sg-world-bg;
+    -fx-border-color: -sg-line;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .moe-tab:selected {
+    -fx-background-color: -sg-panel !important;
+    -fx-border-color: -sg-line !important;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab .label {
+    -fx-text-fill: -sg-muted;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab:selected .label {
+    -fx-text-fill: -sg-text;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab .sg-icon {
+    -fx-stroke: -sg-muted;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab:selected .sg-icon {
+    -fx-stroke: -sg-text;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab .tab-close-button {
+    -fx-background-color: -sg-muted;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .tab .tab-close-button:hover {
+    -fx-background-color: -sg-text;
+}
+.sg-editor-host .tabbed-editor > .tab-header-area .bj-tab-error .label {
+    -fx-text-fill: -sg-danger;
+}
+.sg-editor-host .tabbed-editor > .tab-content-area {
+    -fx-background-color: -sg-world-bg;
+    -fx-padding: 0;
+}

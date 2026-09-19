@@ -197,6 +197,25 @@ public final class SuperTheme
         JavaFXUtil.addChangeListenerPlatform(scene.rootProperty(), newRoot -> updateRoot(scene));
     }
 
+    /** Relative to the lib directory: the look of editors docked in the new IDE. */
+    public static final String EDITOR_HOST_STYLESHEET = "stylesheets/superide-host.css";
+
+    /**
+     * Give the node that holds the new IDE's docked editors (and its World tab) our
+     * look for the tab strip.  It must come after the editor stylesheets on that node.
+     */
+    public static void installEditorHost(Parent host)
+    {
+        if (libDir == null)
+        {
+            Debug.reportError("SuperTheme used before init(libDir)");
+            return;
+        }
+        String url = new File(libDir, EDITOR_HOST_STYLESHEET).toURI().toString();
+        host.getStylesheets().remove(url);
+        host.getStylesheets().add(url);
+    }
+
     private static void updateRoot(Scene scene)
     {
         Parent root = scene.getRoot();
