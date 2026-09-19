@@ -29,7 +29,11 @@ import bluej.pkgmgr.Project;
 import bluej.utility.javafx.FXPlatformRunnable;
 import javafx.beans.binding.StringExpression;
 import javafx.scene.Node;
+import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+
+import java.util.ArrayList;
+import java.util.List;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -48,6 +52,13 @@ public final class DockedEditors
     private final Project project;
     private final FXTabbedEditor host;
     private final PinnedTab worldTab;
+
+    /**
+     * Editors that were the selected tab when their docks were put away by a switch to
+     * the Classic IDE; {@link #focusMovedEditors()} brings them to the front once the
+     * Classic windows are showing.
+     */
+    private static final List<Tab> movedActiveEditors = new ArrayList<>();
 
     /**
      * @param project           The project whose editors dock here
@@ -126,21 +137,112 @@ public final class DockedEditors
     }
 
     /**
+     * Dock the project's editor windows here: every tab of every standalone editor
+     * window (except tutorial windows) moves into the main window, as it is (text, undo
+     * history, unsaved changes).  Used when the project comes to the new IDE, e.g. on a
+     * switch from the Classic IDE.  Does nothing while the user prefers editors in
+     * windows of their own.
+     *
+     * @param reselect  If one of the windows was focused when the switch began, the tab
+     *                  that was selected in it (it is selected here); otherwise null,
+     *                  and the World tab stays selected.
+     */
+    public void dockStandaloneEditors(Tab reselect)
+    {
+        if (isOwnWindowPreferred())
+        {
+            return;
+        }
+        dockAll();
+        if (reselect != null && FXTabbedEditor.hostOf(reselect) == host)
+        {
+            host.bringToFront(reselect);
+        }
+        else
+        {
+            selectWorld();
+        }
+    }
+
+    /**
+     * Dock every standalone editor window's tabs (except tutorial windows) here.
+     */
+    public void dockAll()
+    {
+        for (FXTabbedEditor window : new ArrayList<>(project.getAllFXTabbedEditorWindows()))
+        {
+            if (window != host && !window.hasTutorial() && window.hasEditorTabs())
+            {
+                window.moveEditorTabsTo(host);
+            }
+        }
+    }
+
+    /**
      * Put the docked editors away (the window stops showing this project).  Open
-     * editors move, as they are, to a window of their own, so nothing is lost; the
-     * World tab lets go of the world area.
+     * editors move, as they are and in order, to a window of their own, so nothing is
+     * lost; the World tab lets go of the world area.  If an editor was the selected tab,
+     * it is remembered for {@link #focusMovedEditors()}.
      */
     public void dispose()
     {
+        Tab active = isWorldSelected() ? null : host.getSelectedTab();
         // First, so that editors no longer open here or offer to move here:
         project.setEmbeddedFXTabbedEditor(null);
         if (host.hasEditorTabs())
         {
-            host.moveEditorTabsTo(project.getDefaultFXTabbedEditor());
+            // A hidden (empty) editor window if there is one, else a new one, so the
+            // docked editors are not mixed into a torn-off window:
+            FXTabbedEditor destination = null;
+            for (FXTabbedEditor window : project.getAllFXTabbedEditorWindows())
+            {
+                if (!window.isWindowVisible() && !window.hasTutorial())
+                {
+                    destination = window;
+                    break;
+                }
+            }
+            if (destination == null)
+            {
+                destination = project.createNewFXTabbedEditor();
+            }
+            host.moveEditorTabsTo(destination);
+            if (active != null && FXTabbedEditor.hostOf(active) == destination)
+            {
+                movedActiveEditors.add(active);
+            }
         }
         host.detach();
         worldTab.setContent(null);
         host.close(worldTab);
         host.cleanup();
+    }
+
+    /**
+     * Bring to the front the editors that were active in docks put away since the last
+     * call (see {@link #dispose()}): after a switch to the Classic IDE, the editor the
+     * user was working in stays in front of the Classic window.
+     */
+    public static void focusMovedEditors()
+    {
+        List<Tab> tabs = new ArrayList<>(movedActiveEditors);
+        movedActiveEditors.clear();
+        for (Tab tab : tabs)
+        {
+            FXTabbedEditor window = FXTabbedEditor.hostOf(tab);
+            if (window != null)
+            {
+                window.bringToFront(tab);
+            }
+        }
+    }
+
+    /**
+     * Forget editors remembered by {@link #dispose()} (when the windows were put away
+     * for another reason than a switch of IDE).
+     */
+    public static void forgetMovedEditors()
+    {
+        movedActiveEditors.clear();
     }
 }

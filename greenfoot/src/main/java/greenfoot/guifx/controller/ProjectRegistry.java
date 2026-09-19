@@ -29,9 +29,12 @@ import bluej.utility.Debug;
 import bluej.utility.DialogManager;
 import bluej.utility.Utility;
 import greenfoot.core.ProjectManager;
+import bluej.editor.stride.FXTabbedEditor;
 import greenfoot.guifx.GreenfootStage;
+import greenfoot.guifx.superide.DockedEditors;
 import greenfoot.guifx.superide.SuperIdeWindow;
 import greenfoot.vmcomm.GreenfootDebugHandler;
+import javafx.scene.control.Tab;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
@@ -396,6 +399,26 @@ public final class ProjectRegistry
             return true;
         }
 
+        // If an editor window is the focused window, its selected tab stays selected
+        // when the new IDE docks it:
+        Tab focusedEditorTab = null;
+        for (IdeWindow window : windows)
+        {
+            Project project = window.getProject();
+            if (project == null)
+            {
+                continue;
+            }
+            for (FXTabbedEditor editorWindow : project.getAllFXTabbedEditorWindows())
+            {
+                if (!editorWindow.isEmbedded() && editorWindow.getStage() != null && editorWindow.getStage().isFocused())
+                {
+                    focusedEditorTab = editorWindow.getSelectedTab();
+                }
+            }
+        }
+        DockedEditors.forgetMovedEditors();
+
         // Let go of every window first, so that no window of the old IDE is showing
         // when the look changes (the two IDEs' stylesheets do not mix):
         List<GreenfootProjectController> controllers = new ArrayList<>();
@@ -434,6 +457,17 @@ public final class ProjectRegistry
             focus.toFront();
             focus.requestFocus();
         }
+        // The project's editors go where the new IDE keeps them: docked in the new IDE
+        // (re-selecting the editor that was focused), or back in windows of their own in
+        // the Classic IDE, with the one the user was working in at the front:
+        for (IdeWindow window : fresh)
+        {
+            if (window instanceof SuperIdeWindow)
+            {
+                ((SuperIdeWindow) window).dockStandaloneEditors(focusedEditorTab);
+            }
+        }
+        DockedEditors.focusMovedEditors();
         return true;
     }
 

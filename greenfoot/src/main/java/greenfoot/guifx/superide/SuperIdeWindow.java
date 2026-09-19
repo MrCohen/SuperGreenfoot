@@ -104,6 +104,7 @@ import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.control.Tab;
 import javafx.scene.control.TextInputControl;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
@@ -502,6 +503,23 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
             controller.viewReady();
         }
         updateWorldMessage();
+        // Editors already open in windows of their own (reopened with the project, or
+        // from the Classic IDE) join the others here:
+        docked.dockStandaloneEditors(null);
+    }
+
+    /**
+     * Dock the project's editor windows here (see
+     * {@link DockedEditors#dockStandaloneEditors}); the registry calls this after a switch
+     * from the Classic IDE.
+     */
+    @OnThread(Tag.FXPlatform)
+    public void dockStandaloneEditors(Tab reselect)
+    {
+        if (docked != null)
+        {
+            docked.dockStandaloneEditors(reselect);
+        }
     }
 
     @Override
@@ -2527,6 +2545,18 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
                 JavaFXUtil.makeMenuItem("Fit World to Window", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.FIT), null),
                 JavaFXUtil.makeMenuItem("Pixel-Perfect World", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.PIXEL_PERFECT), null),
                 new SeparatorMenuItem(),
+                // The terminal and debugger stay reachable while an editor tab (whose
+                // menus replace Edit and Tools) is selected:
+                JavaFXUtil.makeMenuItem("Show Terminal", this::showTerminal, null),
+                JavaFXUtil.makeCheckMenuItem(Config.getString("menu.debugger"), showingDebugger,
+                        new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN)),
+                new SeparatorMenuItem(),
+                withDisable(JavaFXUtil.makeMenuItem(Config.getString("menu.window.dockAll", "Dock All Editors"), () -> {
+                    if (docked != null)
+                    {
+                        docked.dockAll();
+                    }
+                }, null), hasNoProject),
                 JavaFXUtil.makeCheckMenuItem("Open Editors in Their Own Window", editorsInOwnWindow, null),
                 JavaFXUtil.makeCheckMenuItem("Dark Theme", SuperTheme.darkProperty(), null));
 
@@ -2544,9 +2574,6 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
                 JavaFXUtil.makeMenuItem("menu.tools.generateDoc", new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN),
                         this::generateDocumentation, hasNoProject),
                 soundRecorderItem,
-                JavaFXUtil.makeMenuItem("Show Terminal", this::showTerminal, null),
-                JavaFXUtil.makeCheckMenuItem(Config.getString("menu.debugger"), showingDebugger,
-                        new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN)),
                 JavaFXUtil.makeMenuItem("set.player", Config.GREENFOOT_SET_PLAYER_NAME_SHORTCUT, this::setPlayer, hasNoProject),
                 new SeparatorMenuItem(),
                 JavaFXUtil.makeMenuItem(Config.getString("menu.tools.switchToClassic"),
