@@ -64,7 +64,7 @@ public final class ProjectRegistry
      */
     public static void open(Project project, GreenfootDebugHandler greenfootDebugHandler)
     {
-        GreenfootStage.makeStage(project, greenfootDebugHandler).show();
+        GreenfootStage.makeStage(new GreenfootProjectController(project, greenfootDebugHandler)).show();
     }
 
     /**
@@ -74,7 +74,7 @@ public final class ProjectRegistry
      */
     public static Stage showEmptyWindow()
     {
-        GreenfootStage stage = GreenfootStage.makeStage(null, null);
+        GreenfootStage stage = GreenfootStage.makeStage(null);
         stage.show();
         return stage;
     }

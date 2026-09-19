@@ -73,13 +73,14 @@ import bluej.views.MethodView;
 import greenfoot.Actor;
 import greenfoot.core.ProjectManager;
 import greenfoot.export.ScenarioSaver;
-import greenfoot.export.mygame.ScenarioInfo;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
 import greenfoot.guifx.classes.GClassDiagram;
 import greenfoot.guifx.classes.GClassDiagram.GClassType;
 import greenfoot.guifx.classes.ImportClassDialog;
 import greenfoot.guifx.classes.LocalGClassNode;
+import greenfoot.guifx.controller.GreenfootProjectController;
 import greenfoot.guifx.controller.ProjectRegistry;
+import greenfoot.guifx.controller.ProjectView;
 import greenfoot.guifx.controller.SimulationState;
 import greenfoot.guifx.export.ExportDialog;
 import greenfoot.guifx.export.ExportException;
@@ -93,7 +94,6 @@ import greenfoot.vmcomm.GreenfootDebugHandler;
 import greenfoot.vmcomm.GreenfootDebugHandler.SimulationStateListener;
 import greenfoot.vmcomm.DisplayState;
 import greenfoot.vmcomm.VMCommsMain;
-import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
@@ -149,11 +149,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.Queue;
 
 import static bluej.pkgmgr.target.EditableTarget.MENU_STYLE_INBUILT;
 import static greenfoot.vmcomm.Command.*;
@@ -164,13 +162,15 @@ import static greenfoot.vmcomm.Command.*;
 @OnThread(Tag.FXPlatform)
 public class GreenfootStage extends Stage implements FXCompileObserver,
         SimulationStateListener, PackageUI, ControlPanelListener, ScenarioSaver,
-        VMCommsMain.CommsListener
+        ProjectView
 {
     private static final String STAGE_TITLE = "Greenfoot";
 
     // Flag indicating Greenfoot is being exited by the user
     private boolean isQuittingRequest = false;
 
+    // The controller for the project this window shows (null when the window is empty):
+    private GreenfootProjectController controller;
     private Project project;
     private BooleanProperty hasNoProject = new SimpleBooleanProperty(true);
     // The glass pane used to show a new actor while it is being placed:
@@ -214,18 +214,12 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     private final ControlPanel controlPanel;
     
     private DebuggerObject draggedActor;
-    private AnimationTimer vmCommsHandler;
     private boolean constructingWorld = false;
 
     private final ObjectProperty<SimulationState> stateProperty = new SimpleObjectProperty<>(SimulationState.NO_PROJECT);
     private boolean atBreakpoint = false;
     private boolean simulationRunning = false;
     private boolean waitingForDiscard = false;
-    
-    // Tasks to add to executeAfterReady after the VM has been terminated:
-    private final Queue<FXPlatformRunnable> executeAfterTermination = new LinkedList<>();
-    // Tasks to be run once the VM has initialised:
-    private final Queue<FXPlatformRunnable> executeAfterReady = new LinkedList<>();
 
     // Details for pick requests that we have sent to the debug VM:
     private static enum PickType
@@ -258,24 +252,6 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     // World image
     private final WritableImage[] worldImg = new WritableImage[2];
     private int nextWorldImgToWrite = 0;
-
-    // The scenario information that usually shipped with it when uploading
-    // to the gallery. We should maintain a reference to it and make sure
-    // that its properties are written to the project properties file always.
-    // This change is needed as we now wipe the properties file each time
-    // before saving to avoid stacking unneeded properties hanging forever.
-    private ScenarioInfo scenarioInfo;
-    
-    private ChangeListener<String> playerNameListener = new ChangeListener<String>()
-    {
-        @Override
-        @OnThread(value = Tag.FXPlatform, ignoreParent = true)
-        public void changed(ObservableValue<? extends String> observable, String oldValue,
-                            String newValue)
-        {
-            sendPropertyToDebugVM("greenfoot.player.name", newValue);
-        }
-    };
 
     /**
      * Details for a new actor being added to the world, after you have made it
@@ -351,12 +327,13 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
 
     
     /**
-     * Creates a GreenfootStage for the given project with given debug interface handler.
-     * @param project   the project to show (may be null for none)
-     * @param greenfootDebugHandler   the debug handler interface
+     * Creates a GreenfootStage for the given project.
+     * @param controller   the controller of the project to show (may be null for none)
      */
-    private GreenfootStage(Project project, GreenfootDebugHandler greenfootDebugHandler)
+    private GreenfootStage(GreenfootProjectController controller)
     {
+        Project project = controller == null ? null : controller.getProject();
+        GreenfootDebugHandler greenfootDebugHandler = controller == null ? null : controller.getDebugHandler();
         setTitle(STAGE_TITLE);
 
         ProjectRegistry.windowOpened(this);
@@ -437,9 +414,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
 
         setupKeyAndMouseHandlers();
 
-        if (project != null)
+        if (controller != null)
         {
-            showProject(project, greenfootDebugHandler);
+            showProject(controller);
         }
         // Do this whether we have a project or not:
         updateBackgroundMessage();
@@ -480,13 +457,15 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * Therefore everything in here should be able to be
      * executed multiple times for consecutive project opens.
      * 
-     * @param project                The project to display
-     * @param greenfootDebugHandler  The debug handler for this project
+     * @param controller  The controller of the project to display
      */
-    private void showProject(Project project, GreenfootDebugHandler greenfootDebugHandler)
+    private void showProject(GreenfootProjectController controller)
     {
+        Project project = controller.getProject();
+        GreenfootDebugHandler greenfootDebugHandler = controller.getDebugHandler();
         setTitle(STAGE_TITLE + ": " + project.getProjectName());
         
+        this.controller = controller;
         this.project = project;
         this.saveTheWorldRecorder = greenfootDebugHandler.getRecorder();
         project.getPackage("").setUI(this);
@@ -503,20 +482,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         soundRecorder.setProject(project);
         executionTwirler.setProject(project, greenfootDebugHandler);
 
-        vmCommsHandler = new AnimationTimer()
-        {
-            @Override
-            public void handle(long now)
-            {
-                if (debugHandler.getVmComms().checkIO(GreenfootStage.this))
-                {
-                    // Shouldn't execute directly, because we're in an animation timer and shouldn't block:
-                    executeAfterReady.forEach(JavaFXUtil::runAfterCurrent);
-                    executeAfterReady.clear();
-                }
-            }
-        };
-        vmCommsHandler.start();
+        // The controller passes the debug VM's callbacks to this window:
+        controller.attachView(this);
+        controller.start();
         
         loadAndMirrorProperties();
         Properties lastSavedProperties = project.getUnnamedPackage().getLastSavedProperties();
@@ -541,9 +509,6 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         JavaFXUtil.addChangeListenerPlatform(xProperty(), x -> screenMayHaveChanged());
         JavaFXUtil.addChangeListenerPlatform(yProperty(), y -> screenMayHaveChanged());
 
-        PrefMgr.getPlayerName().addListener(playerNameListener);
-
-        scenarioInfo = new ScenarioInfo(lastSavedProperties);
         String xPosition = lastSavedProperties.getProperty("xPosition");
         String yPosition = lastSavedProperties.getProperty("yPosition");
         
@@ -640,21 +605,20 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     /**
      * Make a stage suitable for displaying a project.
      * 
-     * @param project   The project to display
-     * @param greenfootDebugHandler   The debug handler for this project
+     * @param controller   The controller of the project to display (null for an empty window)
      * @return  the stage (a new stage, or a previously empty stage with the project now displayed)
      */
-    public static GreenfootStage makeStage(Project project, GreenfootDebugHandler greenfootDebugHandler)
+    public static GreenfootStage makeStage(GreenfootProjectController controller)
     {
         GreenfootStage emptyStage = ProjectRegistry.getSoleEmptyStage();
-        if (emptyStage != null)
+        if (emptyStage != null && controller != null)
         {
-            emptyStage.showProject(project, greenfootDebugHandler);
+            emptyStage.showProject(controller);
             return emptyStage;
         }
         else
         {
-            return new GreenfootStage(project, greenfootDebugHandler);
+            return new GreenfootStage(controller);
         }
     }
 
@@ -862,7 +826,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     public void doClose(boolean keepLast)
     {
         exitFullScreenView();
-        PrefMgr.getPlayerName().removeListener(playerNameListener);
+        if (controller != null)
+        {
+            controller.projectClosing();
+        }
         
         if (ProjectRegistry.getNumberOfOpenProjects() <= 1 && ! keepLast)
         {
@@ -904,10 +871,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             showingDebugger.unbindBidirectional(project.debuggerShowing());
             project = null;
         }
-        if (vmCommsHandler != null)
+        if (controller != null)
         {
-            vmCommsHandler.stop();
-            vmCommsHandler = null;
+            controller.dispose();
+            controller = null;
         }
         hasNoProject.set(true);
         worldDisplay.setImage(null);
@@ -947,7 +914,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             }
             project.saveEditorLocations(p);
             classDiagram.save(p);
-            scenarioInfo.store(p);
+            controller.getScenarioInfo().store(p);
 
             // Actually write out the properties to disk:
             project.getUnnamedPackage().save(p);
@@ -1008,7 +975,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         {
             try
             {
-                new ExportDialog(this, project, this, scenarioInfo, currentWorld,
+                new ExportDialog(this, project, this, controller.getScenarioInfo(), currentWorld,
                         worldDisplay.getSnapshot()).showAndWait();
             }
             catch (ExportException e)
@@ -2337,11 +2304,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             // the new debug VM can process data:
             loadAndMirrorProperties();
             
-            if (executeAfterTermination != null)
-            {
-                executeAfterReady.addAll(executeAfterTermination);
-                executeAfterTermination.clear();
-            }
+            controller.vmTerminated();
         });
     }
 
@@ -2890,13 +2853,13 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             if (0 == DialogManager.askQuestionFX(this, "terminate-for-reset"))
             {
                 // Agreed to terminate:
-                executeAfterTermination.add(runAfterward);
+                controller.runAfterVMRestart(runAfterward);
                 project.restartVM();
             }
         }
         else
         {
-            executeAfterReady.add(runAfterward);
+            controller.runWhenVMReady(runAfterward);
         }
     }
 
