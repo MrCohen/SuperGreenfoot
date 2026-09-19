@@ -52,9 +52,10 @@ import greenfoot.guifx.classes.GClassDiagram.GClassType;
 import greenfoot.guifx.classes.ImportClassDialog;
 import greenfoot.guifx.classes.LocalGClassNode;
 import greenfoot.guifx.controller.GreenfootProjectController;
+import greenfoot.guifx.controller.IdeWindow;
 import greenfoot.guifx.controller.ProjectRegistry;
-import greenfoot.guifx.controller.ProjectView;
 import greenfoot.guifx.controller.SimulationState;
+import greenfoot.guifx.controller.UiMode;
 import greenfoot.guifx.export.ExportDialog;
 import greenfoot.guifx.export.ExportException;
 import greenfoot.guifx.images.NewImageClassFrame;
@@ -117,7 +118,7 @@ import java.util.Properties;
  * Greenfoot's main window: a JavaFX replacement for GreenfootFrame which lives on the server VM.
  */
 @OnThread(Tag.FXPlatform)
-public class GreenfootStage extends Stage implements ControlPanelListener, ProjectView
+public class GreenfootStage extends Stage implements ControlPanelListener, IdeWindow
 {
     private static final String STAGE_TITLE = "Greenfoot";
 
@@ -365,7 +366,9 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
      * 
      * @param controller  The controller of the project to display
      */
-    private void showProject(GreenfootProjectController controller)
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void showProject(GreenfootProjectController controller)
     {
         Project project = controller.getProject();
         // Is the project already live (moving here from another window), or newly opened?
@@ -495,23 +498,22 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
     }
 
     /**
-     * Make a stage suitable for displaying a project.
+     * Make a new window, showing the given project.  (ProjectRegistry decides whether
+     * to show a project in an existing empty window instead.)
      * 
      * @param controller   The controller of the project to display (null for an empty window)
-     * @return  the stage (a new stage, or a previously empty stage with the project now displayed)
+     * @return  the new window
      */
-    public static GreenfootStage makeStage(GreenfootProjectController controller)
+    public static GreenfootStage createWindow(GreenfootProjectController controller)
     {
-        GreenfootStage emptyStage = ProjectRegistry.getSoleEmptyStage();
-        if (emptyStage != null && controller != null)
-        {
-            emptyStage.showProject(controller);
-            return emptyStage;
-        }
-        else
-        {
-            return new GreenfootStage(controller);
-        }
+        return new GreenfootStage(controller);
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public UiMode getUiMode()
+    {
+        return UiMode.CLASSIC;
     }
 
     @Override
@@ -579,11 +581,11 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
         Project p = Project.openProject(projPath.getAbsolutePath());
         if (p != null)
         {
-            GreenfootStage stage = ProjectRegistry.findStageForProject(p);
-            if (stage != null)
+            IdeWindow window = ProjectRegistry.findWindowForProject(p);
+            if (window != null)
             {
                 // If already open, bring the window to the foreground:
-                stage.toFront();
+                window.getWindow().toFront();
             }
             else
             {
@@ -635,6 +637,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
     /**
      * The project's controller (null if the window is empty).
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public GreenfootProjectController getController()
     {
         return controller;
@@ -643,6 +647,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
     /**
      * The project has been closed: show this window as empty.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void showNoProject()
     {
         clearProject();
@@ -652,6 +658,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
      * The project is moving to another window: stop showing it here, without
      * closing it.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void detachProject()
     {
         hideContextMenu();
@@ -930,6 +938,11 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
             toolsMenu.getItems().add(reopenItem);
         }
 
+        // SuperGreenfoot: the way to the new IDE (every open scenario moves with its world):
+        toolsMenu.getItems().addAll(new SeparatorMenuItem(),
+                JavaFXUtil.makeMenuItem(Config.getString("menu.tools.switchToSuper"),
+                        () -> ProjectRegistry.switchMode(UiMode.SUPER), null));
+
         if (! Config.isMacOS())
         {
             toolsMenu.getItems().add(JavaFXUtil.makeMenuItem("greenfoot.preferences",
@@ -1020,7 +1033,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
      */
     public static void showPreferences()
     {
-        PrefMgrDialog.showDialog(null, new SoundPreferencePanel());
+        PrefMgrDialog.showDialog(null, new SoundPreferencePanel(), new UiModePreferencePanel());
     }
 
     /**
@@ -1811,11 +1824,29 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
                 props.put("version", Boot.GREENFOOT_API_VERSION);
                 unNamedPkg.save(props);
                 ProjectManager.instance().launchProject(proj);
-                GreenfootStage stage = ProjectRegistry.findStageForProject(proj);
-                LocalGClassNode worldClass = stage.createNewClass(unNamedPkg, "World",
-                        "MyWorld", sourceType, getWorldTemplateFileName(true, sourceType));
-                stage.controller.setCurrentWorld(worldClass.getClassTarget());
-                stage.toFront();
+                IdeWindow window = ProjectRegistry.findWindowForProject(proj);
+                if (window instanceof GreenfootStage)
+                {
+                    GreenfootStage stage = (GreenfootStage) window;
+                    LocalGClassNode worldClass = stage.createNewClass(unNamedPkg, "World",
+                            "MyWorld", sourceType, getWorldTemplateFileName(true, sourceType));
+                    stage.controller.setCurrentWorld(worldClass.getClassTarget());
+                }
+                else if (window != null && window.getController() != null)
+                {
+                    // Another IDE's window (the project opened in the current IDE):
+                    ClassTarget worldClass = window.getController().createClassFile(unNamedPkg, "World",
+                            "MyWorld", sourceType, getWorldTemplateFileName(true, sourceType));
+                    if (worldClass != null)
+                    {
+                        window.getController().setCurrentWorld(worldClass);
+                    }
+                    window.classesChanged();
+                }
+                if (window != null)
+                {
+                    window.getWindow().toFront();
+                }
                 return true;
             }
             else
@@ -1871,6 +1902,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
     /**
      * The project shown in this window, or null if the window is empty.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public Project getProject()
     {
         return project;

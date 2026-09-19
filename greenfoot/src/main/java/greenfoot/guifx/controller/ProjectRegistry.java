@@ -26,9 +26,11 @@ import bluej.Config;
 import bluej.Main;
 import bluej.pkgmgr.Project;
 import bluej.utility.Debug;
+import bluej.utility.DialogManager;
 import bluej.utility.Utility;
 import greenfoot.core.ProjectManager;
 import greenfoot.guifx.GreenfootStage;
+import greenfoot.guifx.superide.SuperIdeWindow;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -42,6 +44,7 @@ import java.util.List;
  * The open IDE windows, and the ways in and out of them: opening a project,
  * showing an empty window, finding the window for a project, closing a window
  * (and the project in it), moving a project to a new window without closing it,
+ * switching every window between the Classic IDE and the SuperGreenfoot IDE,
  * and closing everything at exit (which also writes the list of projects to
  * reopen next time).
  *
@@ -51,12 +54,40 @@ import java.util.List;
 public final class ProjectRegistry
 {
     // Every open window, in the order it was opened.  The reopen list follows this order.
-    private static final List<GreenfootStage> stages = new ArrayList<>();
+    private static final List<IdeWindow> windows = new ArrayList<>();
     // The number of windows showing a project (at most one window can be empty):
     private static int numberOfOpenProjects = 0;
+    // The IDE that new windows belong to (read from the preferences when first needed):
+    private static UiMode mode = null;
 
     private ProjectRegistry()
     {
+    }
+
+    /**
+     * The IDE the user works in (the Classic Greenfoot IDE or the SuperGreenfoot IDE).
+     * The first call reads the user's preference and sets up that IDE's look.
+     */
+    public static UiMode getMode()
+    {
+        if (mode == null)
+        {
+            mode = UiMode.fromPreferences();
+            applyLook(mode);
+        }
+        return mode;
+    }
+
+    private static void applyLook(UiMode uiMode)
+    {
+        if (uiMode == UiMode.SUPER)
+        {
+            SuperIdeWindow.activateLook();
+        }
+        else
+        {
+            SuperIdeWindow.deactivateLook();
+        }
     }
 
     /**
@@ -68,7 +99,35 @@ public final class ProjectRegistry
      */
     public static void open(Project project, GreenfootDebugHandler greenfootDebugHandler)
     {
-        GreenfootStage.makeStage(new GreenfootProjectController(project, greenfootDebugHandler)).show();
+        GreenfootProjectController controller = new GreenfootProjectController(project, greenfootDebugHandler);
+        IdeWindow empty = getSoleEmptyWindow();
+        IdeWindow window;
+        if (empty != null && empty.getUiMode() == getMode())
+        {
+            empty.showProject(controller);
+            window = empty;
+        }
+        else
+        {
+            window = newWindow(getMode(), controller);
+        }
+        window.getWindow().show();
+    }
+
+    /**
+     * Make a new window of the given IDE, showing the given controller's project (or
+     * none, if the controller is null).  The window registers itself as it is made.
+     */
+    private static IdeWindow newWindow(UiMode uiMode, GreenfootProjectController controller)
+    {
+        if (uiMode == UiMode.SUPER)
+        {
+            return new SuperIdeWindow(controller);
+        }
+        else
+        {
+            return GreenfootStage.createWindow(controller);
+        }
     }
 
     /**
@@ -78,9 +137,9 @@ public final class ProjectRegistry
      */
     public static Stage showEmptyWindow()
     {
-        GreenfootStage stage = GreenfootStage.makeStage(null);
-        stage.show();
-        return stage;
+        IdeWindow window = newWindow(getMode(), null);
+        window.getWindow().show();
+        return window.getWindow();
     }
 
     /**
@@ -111,13 +170,13 @@ public final class ProjectRegistry
     /**
      * Find the window currently showing the specified project (if any).
      */
-    public static GreenfootStage findStageForProject(Project project)
+    public static IdeWindow findWindowForProject(Project project)
     {
-        for (GreenfootStage stage : stages)
+        for (IdeWindow window : windows)
         {
-            if (stage.getProject() == project)
+            if (window.getProject() == project)
             {
-                return stage;
+                return window;
             }
         }
 
@@ -129,7 +188,7 @@ public final class ProjectRegistry
      */
     public static Stage getOpenStage()
     {
-        return stages.isEmpty() ? null : stages.get(0);
+        return windows.isEmpty() ? null : windows.get(0).getWindow();
     }
 
     /**
@@ -137,17 +196,17 @@ public final class ProjectRegistry
      */
     public static void closeAll()
     {
-        Collection<GreenfootStage> stages_copy = new ArrayList<>(stages);
+        Collection<IdeWindow> windowsCopy = new ArrayList<>(windows);
 
         // Save the list of open projects, to be re-opened next time:
         int i = 0;
-        for (GreenfootStage stage : stages_copy)
+        for (IdeWindow window : windowsCopy)
         {
-            if (stage.getProject() != null)
+            if (window.getProject() != null)
             {
                 i++;
                 Config.putPropString(Config.BLUEJ_OPENPACKAGE + i,
-                        stage.getProject().getProjectDir().getPath());
+                        window.getProject().getProjectDir().getPath());
             }
         }
 
@@ -158,24 +217,24 @@ public final class ProjectRegistry
             exists = Config.removeProperty(Config.BLUEJ_OPENPACKAGE + i);
         } while (exists != null);
 
-        // Close all stages:
-        for (GreenfootStage stage : stages_copy)
+        // Close all windows:
+        for (IdeWindow window : windowsCopy)
         {
-            // pass keepLast = true to avoid closing the final stage causing infinite recursion:
-            stage.doClose(true);
+            // pass keepLast = true to avoid closing the final window causing infinite recursion:
+            closeWindow(window, true);
         }
     }
 
     /**
      * Close a window, and the project it shows (if any).
      *
-     * @param stage     The window
+     * @param window    The window
      * @param keepLast  if true, don't close the last window; leave it open without a project. If
      *                  false, quit when the last window is closed.
      */
-    public static void closeWindow(GreenfootStage stage, boolean keepLast)
+    public static void closeWindow(IdeWindow window, boolean keepLast)
     {
-        GreenfootProjectController controller = stage.getController();
+        GreenfootProjectController controller = window.getController();
         if (controller != null)
         {
             controller.exitFullScreenView();
@@ -186,7 +245,8 @@ public final class ProjectRegistry
         {
             // We quit with the current scenario still open, so that it will be saved to the
             // projects-for-re-opening list and re-opened when Greenfoot is next started:
-            stage.close();
+            window.saveWindowSettings();
+            window.getWindow().close();
             Main.doQuit();
             return;
         }
@@ -201,7 +261,7 @@ public final class ProjectRegistry
         if (numberOfOpenProjects == 0)
         {
             // Keep this window open, but show it as empty
-            stage.showNoProject();
+            window.showNoProject();
             if (controller != null)
             {
                 controller.dispose();
@@ -214,8 +274,8 @@ public final class ProjectRegistry
                 // Stop polling the closed project's debug VM:
                 controller.dispose();
             }
-            stages.remove(stage);
-            stage.close();
+            windows.remove(window);
+            window.getWindow().close();
         }
     }
 
@@ -228,11 +288,24 @@ public final class ProjectRegistry
      */
     public static void close(GreenfootProjectController controller, boolean keepLast)
     {
-        GreenfootStage stage = findStageForProject(controller.getProject());
-        if (stage != null)
+        IdeWindow window = findWindowForProject(controller.getProject());
+        if (window != null)
         {
-            closeWindow(stage, keepLast);
+            closeWindow(window, keepLast);
         }
+    }
+
+    /**
+     * The reason a project cannot move to another window right now, or null if it can.
+     */
+    private static String whyCannotMove(GreenfootProjectController controller)
+    {
+        if (controller != null && controller.isInvocationRunning())
+        {
+            return "A method call in " + controller.getProject().getProjectName()
+                    + " is still running. Switch when it has finished.";
+        }
+        return null;
     }
 
     /**
@@ -245,47 +318,133 @@ public final class ProjectRegistry
      * @param old  The window showing the project
      * @return  true if the project moved to a new window
      */
-    public static boolean reopenInNewWindow(GreenfootStage old)
+    public static boolean reopenInNewWindow(IdeWindow old)
     {
         GreenfootProjectController controller = old.getController();
         if (controller == null || !controller.isStarted())
         {
             return false;
         }
-        if (controller.isInvocationRunning())
+        if (whyCannotMove(controller) != null)
         {
             Debug.message("Not moving " + controller.getProject().getProjectName()
                     + " to a new window while an interactive call is running");
             return false;
         }
 
-        int index = stages.indexOf(old);
-        double x = old.getX(), y = old.getY(), width = old.getWidth(), height = old.getHeight();
-        old.detachProject();
-        stages.remove(old);
-        old.close();
+        Stage oldStage = old.getWindow();
+        double x = oldStage.getX(), y = oldStage.getY(), width = oldStage.getWidth(), height = oldStage.getHeight();
+        IdeWindow fresh = replaceWindow(old, old.getUiMode());
+        Stage freshStage = fresh.getWindow();
+        freshStage.setX(x);
+        freshStage.setY(y);
+        freshStage.setWidth(width);
+        freshStage.setHeight(height);
+        freshStage.show();
+        return true;
+    }
+
+    /**
+     * Replace a window by a new window of the given IDE showing the same project (if
+     * any), keeping its place in the reopen order.  The project stays live.  The new
+     * window is not yet shown.
+     */
+    private static IdeWindow replaceWindow(IdeWindow old, UiMode uiMode)
+    {
+        GreenfootProjectController controller = old.getController();
+        int index = windows.indexOf(old);
+        old.saveWindowSettings();
+        if (controller != null)
+        {
+            old.detachProject();
+        }
+        windows.remove(old);
+        old.getWindow().close();
 
         // The new window attaches to the running controller, which brings it up to date:
-        GreenfootStage fresh = GreenfootStage.makeStage(controller);
+        IdeWindow fresh = newWindow(uiMode, controller);
         // Keep the reopen-list order:
-        stages.remove(fresh);
-        stages.add(Math.max(0, Math.min(index, stages.size())), fresh);
-        fresh.setX(x);
-        fresh.setY(y);
-        fresh.setWidth(width);
-        fresh.setHeight(height);
-        fresh.show();
+        windows.remove(fresh);
+        windows.add(Math.max(0, Math.min(index, windows.size())), fresh);
+        return fresh;
+    }
+
+    /**
+     * Switch every window to the given IDE (the Classic Greenfoot IDE or the
+     * SuperGreenfoot IDE), and remember the choice.  Projects stay open: their debug
+     * VMs keep running and their worlds keep their state.  This is refused, with a
+     * message, while an interactive method call is running in any project.
+     *
+     * @param target  the IDE to switch to
+     * @return  true if every window now belongs to that IDE
+     */
+    public static boolean switchMode(UiMode target)
+    {
+        for (IdeWindow window : windows)
+        {
+            String problem = whyCannotMove(window.getController());
+            if (problem != null)
+            {
+                DialogManager.showErrorTextFX(window.getWindow(), problem);
+                return false;
+            }
+        }
+
+        target.saveToPreferences();
+        if (target == getMode() && windows.stream().allMatch(w -> w.getUiMode() == target))
+        {
+            return true;
+        }
+
+        // Let go of every window first, so that no window of the old IDE is showing
+        // when the look changes (the two IDEs' stylesheets do not mix):
+        List<GreenfootProjectController> controllers = new ArrayList<>();
+        int focusedIndex = 0;
+        for (IdeWindow old : new ArrayList<>(windows))
+        {
+            if (old.isWindowFocused())
+            {
+                focusedIndex = controllers.size();
+            }
+            old.saveWindowSettings();
+            GreenfootProjectController controller = old.getController();
+            if (controller != null)
+            {
+                old.detachProject();
+            }
+            controllers.add(controller);
+            windows.remove(old);
+            old.getWindow().close();
+        }
+
+        mode = target;
+        applyLook(target);
+
+        // The new windows attach to the running controllers, which bring them up to date:
+        List<IdeWindow> fresh = new ArrayList<>();
+        for (GreenfootProjectController controller : controllers)
+        {
+            IdeWindow window = newWindow(target, controller);
+            window.getWindow().show();
+            fresh.add(window);
+        }
+        if (!fresh.isEmpty())
+        {
+            Stage focus = fresh.get(Math.min(focusedIndex, fresh.size() - 1)).getWindow();
+            focus.toFront();
+            focus.requestFocus();
+        }
         return true;
     }
 
     /**
      * If the only open window shows no project, return it, so a project can be shown in it.
      */
-    public static GreenfootStage getSoleEmptyStage()
+    public static IdeWindow getSoleEmptyWindow()
     {
-        if (stages.size() == 1 && stages.get(0).getProject() == null)
+        if (windows.size() == 1 && windows.get(0).getProject() == null)
         {
-            return stages.get(0);
+            return windows.get(0);
         }
         return null;
     }
@@ -293,9 +452,9 @@ public final class ProjectRegistry
     /**
      * A window was created.
      */
-    public static void windowOpened(GreenfootStage stage)
+    public static void windowOpened(IdeWindow window)
     {
-        stages.add(stage);
+        windows.add(window);
     }
 
     /**

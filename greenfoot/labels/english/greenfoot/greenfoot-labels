@@ -387,3 +387,13 @@ export.app.signHint=Signing and notarizing lets other Macs open the app without 
 export.app.noIdentity=No "Developer ID Application" certificate found in the keychain; the app will be unsigned (other Macs must right-click > Open).
 export.app.nativeFailed=Native app could not be built:
 export.app.noRuntime=Export failed: supergreenfoot-runtime.jar is missing from this installation, so the game could not be built.
+
+# SuperGreenfoot: switching between the Classic IDE and the SuperGreenfoot IDE
+menu.tools.switchToSuper=Switch to Super Greenfoot IDE
+menu.tools.switchToClassic=Switch to Classic Greenfoot IDE
+prefmgr.uimode.title=Main window
+prefmgr.uimode.super=Super Greenfoot IDE
+prefmgr.uimode.classic=Classic Greenfoot IDE
+prefmgr.uimode.note=Switching keeps your open scenarios running.
+superide.message.createWorldObject=Make a world: right-click ${exampleWorld} in the Classes panel and choose "new ${exampleWorld}()"
+superide.message.createWorldClass=Make a world class: click + in the Classes panel and choose "New World subclass..."
