@@ -283,7 +283,10 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         if (started && !disposed)
         {
             view.stateChanged(stateProperty.get(), atBreakpoint);
+            // Moving the new window's slider must not count as the user choosing a speed:
+            settingSpeedFromSimulation = true;
             view.showSpeed(shownSpeed);
+            settingSpeedFromSimulation = false;
             if (lastWorldImage != null)
             {
                 view.worldImageSizeChanged(lastWorldImage.getWidth(), lastWorldImage.getHeight());
