@@ -58,6 +58,7 @@ import bluej.utility.DialogManager;
 import bluej.utility.FileUtility;
 import bluej.utility.JavaReflective;
 import bluej.utility.Utility;
+import bluej.utility.javafx.FXPlatformConsumer;
 import bluej.utility.javafx.FXPlatformFunction;
 import bluej.utility.javafx.JavaFXUtil;
 import bluej.utility.javafx.UnfocusableScrollPane;
@@ -112,8 +113,6 @@ import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.image.PixelFormat;
-import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -131,7 +130,6 @@ import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
-import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -139,7 +137,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
@@ -177,8 +174,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     private boolean fsControlsVisible = true;
     private boolean fsControlsLocked = false;
     private int lastAppliedDisplayRequest = 0;
-    /** The most recently received world image (shared with the full-screen view). */
-    private Image lastWorldImage;
     // The scroll pane to host the world display
     private final UnfocusableScrollPane worldViewScroll;
     private final GClassDiagram classDiagram;
@@ -194,8 +189,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     private final BooleanProperty worldVisible = new SimpleBooleanProperty(false);
 
     private final ExecutionTwirler executionTwirler;
-    // When did the user code last start executing?
-    private long lastExecStartTime;
     private final ControlPanel controlPanel;
     
     private DebuggerObject draggedActor;
@@ -222,10 +215,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     private GreenfootDebugHandler debugHandler;
     private final Menu recentProjectsMenu = new Menu(Config.getString("menu.openRecent"));
     private final SimpleBooleanProperty showingDebugger = new SimpleBooleanProperty(false);
-
-    // World image
-    private final WritableImage[] worldImg = new WritableImage[2];
-    private int nextWorldImgToWrite = 0;
 
     /**
      * Details for a new actor being added to the world, after you have made it
@@ -1535,7 +1524,7 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         else if (project != null)
         {
             fullScreenView = new FullScreenView(this);
-            fullScreenView.setImage(lastWorldImage);
+            fullScreenView.setImage(controller.getLastWorldImage());
             fullScreenView.updateState(controller.getState(), controller.isAtBreakpoint());
             fullScreenView.setSpeed(controller.getLastUserSetSpeed());
             fullScreenView.setPixelPerfect(fsPixelPerfect);
@@ -1681,91 +1670,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         return fullScreenView != null;
     }
 
-    /**
-     * A world image has been received from the remote VM.
-     * 
-     * @param width   The image width
-     * @param height  The image height
-     * @param buffer  The buffer containing the pixel data
-     */
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void receivedWorldImage(int width, int height, IntBuffer buffer)
-    {
-        // If we are closing a project but receive an image late on, ignore it:
-        if (project == null)
-        {
-            return;
-        }
-        
-        if (worldImg[nextWorldImgToWrite] == null || worldImg[nextWorldImgToWrite].getWidth() != width || worldImg[nextWorldImgToWrite].getHeight() != height)
-        {
-            worldImg[nextWorldImgToWrite] = new WritableImage(width == 0 ? 1 : width, height == 0 ? 1 : height);
-
-            if (worldViewScroll.getWidth() < worldImg[nextWorldImgToWrite].getWidth() ||
-                    worldViewScroll.getHeight() < worldImg[nextWorldImgToWrite].getHeight())
-            {
-                // We don't call sizeToScene() directly while holding the file lock because it can
-                // cause us to re-enter the animation timer (see commit comment).  So we set this
-                // flag to true as a way of queueing up the request:
-                JavaFXUtil.runAfterCurrent(() -> sizeToScene());
-            }
-        }
-        try
-        {
-            worldImg[nextWorldImgToWrite].getPixelWriter().setPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(),
-                    buffer, width);
-            worldDisplay.setImage(worldImg[nextWorldImgToWrite]);
-            lastWorldImage = worldImg[nextWorldImgToWrite];
-            if (fullScreenView != null)
-            {
-                fullScreenView.setImage(lastWorldImage);
-            }
-            nextWorldImgToWrite = (nextWorldImgToWrite + 1) % worldImg.length;
-            controller.setWorldInstantiationError(false);
-            worldVisible.set(true);
-        }
-        catch (IndexOutOfBoundsException ex)
-        {
-            Debug.reportError("Error receiving world (world image probably too large)");
-            controller.setWorldInstantiationError(true);
-            worldVisible.set(false);
-        }
-        
-        controller.worldImageShown();
-    }
-    
-    /**
-     * An "ask" request has been received from the remote VM.
-     * 
-     * @param askId The identification number of the ask request
-     * @param promptCodepoints   the codepoints making up the prompt string.
-     */
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void receivedAsk(int askId, int[] promptCodepoints)
-    {
-        // The ask pane lives in the main window, so leave full screen first:
-        exitFullScreenView();
-        // Tell worldDisplay to ask:
-        worldDisplay.ensureAsking(new String(promptCodepoints, 0, promptCodepoints.length), (String s) -> {
-            debugHandler.getVmComms().sendAnswer(askId, s);
-        });
-        // Make sure world is visible so that the ask pane is actually visible;
-        // the world may not be visible if the ask is during world construction and there was not previously a world:
-        worldVisible.set(true);
-    }
-
-    /**
-     * Cancel any currently showing ask request; hide the ask pane.
-     */
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void cancelAsk()
-    {
-        worldDisplay.cancelAsk();
-    }
-    
     /**
      * Performs a pick request on the debug VM at given coordinates.
      */
@@ -2025,16 +1929,56 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
 
     @Override
     @OnThread(Tag.FXPlatform)
-    public boolean isWorldAsking()
+    public void worldImageSizeChanged(double width, double height)
     {
-        return worldDisplay.isAsking();
+        if (worldViewScroll.getWidth() < width || worldViewScroll.getHeight() < height)
+        {
+            // We don't call sizeToScene() directly while holding the file lock because it can
+            // cause us to re-enter the animation timer (see commit comment).  So we set this
+            // flag to true as a way of queueing up the request:
+            JavaFXUtil.runAfterCurrent(() -> sizeToScene());
+        }
     }
 
     @Override
     @OnThread(Tag.FXPlatform)
-    public boolean isWorldGreyedOut()
+    public void showWorldImage(Image image)
     {
-        return worldDisplay.isGreyedOut();
+        worldDisplay.setImage(image);
+        if (fullScreenView != null)
+        {
+            fullScreenView.setImage(image);
+        }
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void showAsk(String prompt, FXPlatformConsumer<String> onAnswer)
+    {
+        // The ask pane lives in the main window, so leave full screen first:
+        exitFullScreenView();
+        worldDisplay.ensureAsking(prompt, onAnswer);
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void hideAsk()
+    {
+        worldDisplay.cancelAsk();
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void setExecutionTwirling(boolean twirling)
+    {
+        if (twirling)
+        {
+            executionTwirler.startTwirling();
+        }
+        else
+        {
+            executionTwirler.stopTwirling();
+        }
     }
 
     @Override
@@ -2075,7 +2019,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     {
         // We must reset the debug VM related state ready for the new debug VM:
         exitFullScreenView();
-        lastWorldImage = null;
         worldDisplay.setImage(null);
         worldDisplay.cancelAsk();
         nextPickId = 1;
@@ -2529,17 +2472,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
                 image, translatorNames, previousTeamMembers).showAndWait();
     }
 
-    /**
-     * Shows the terminal for this project, and brings it to the front.
-     */
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void bringTerminalToFront()
-    {
-        project.getTerminal().showHide(true);
-        project.getTerminal().getWindow().toFront();
-    }
-    
     /*
      * PackageUI getStage() implementation.
      * @see bluej.pkgmgr.PackageUI#getStage()
@@ -2769,41 +2701,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         
         DialogManager.showErrorFX(this, "cannot-create-project");
         return false;
-    }
-
-    /**
-     * Record the last time (from System.currentTimeMillis) that the user code started executing.
-     * If enough time has passed then show the execution twirler.
-     * @param lastExecStartTime The last time the user code started executing, or zero if it has now finished executing.
-     * @param delayLoop The true or false value to indicate whether there is a delay loop or not
-     */
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void setLastUserExecutionStartTime(long lastExecStartTime, boolean delayLoop)
-    {
-        this.lastExecStartTime = lastExecStartTime;
-        if (lastExecStartTime == 0L)
-        {
-            executionTwirler.stopTwirling();
-        }
-        else
-        {
-            long duration = System.currentTimeMillis() - lastExecStartTime;
-            if (duration < 4000L)
-            {
-                executionTwirler.stopTwirling();
-                JavaFXUtil.runAfter(Duration.millis(4000L - duration), () -> {
-                    if (this.lastExecStartTime == lastExecStartTime && !delayLoop)
-                    {
-                        executionTwirler.startTwirling();
-                    }
-                });
-            }
-            else if (!delayLoop)
-            {
-                executionTwirler.startTwirling();
-            }
-        }
     }
 
     /**

@@ -21,36 +21,25 @@
  */
 package greenfoot.guifx.controller;
 
+import bluej.utility.javafx.FXPlatformConsumer;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import threadchecker.OnThread;
 import threadchecker.Tag;
-
-import java.nio.IntBuffer;
 
 /**
  * A window that shows one open project, driven by that project's
  * {@link GreenfootProjectController}.  The Classic Greenfoot IDE window
  * (GreenfootStage) is one; the new SuperGreenfoot IDE window will be another.
  *
- * <p>Some of the debug VM's callbacks still reach the view unchanged, through
- * the controller; they are replaced by view-level operations as the rest of
- * the window's logic moves into the controller.
+ * <p>The full-screen display callbacks still reach the view unchanged, through
+ * the controller, until full screen moves into the controller.
  */
 @OnThread(Tag.FXPlatform)
 public interface ProjectView
 {
     // Debug VM callbacks, passed on unchanged by the controller for now
     // (see VMCommsMain.CommsListener):
-
-    void receivedWorldImage(int width, int height, IntBuffer buffer);
-
-    void bringTerminalToFront();
-
-    void receivedAsk(int askId, int[] promptCodepoints);
-
-    void cancelAsk();
-
-    void setLastUserExecutionStartTime(long lastExecStartTime, boolean delayLoop);
 
     void sendDisplayState();
 
@@ -85,18 +74,37 @@ public interface ProjectView
 
     /**
      * Grey out the world while it is out of date (compiling, or being replaced).
+     * Showing the next world image removes the grey-out.
      */
     void greyOutWorld();
 
     /**
-     * Whether a Greenfoot.ask prompt is showing.
+     * A world image of a new size is about to be shown: make room for it if need be.
      */
-    boolean isWorldAsking();
+    void worldImageSizeChanged(double width, double height);
 
     /**
-     * Whether the world is greyed out.
+     * Show a world image (this also removes any grey-out).
      */
-    boolean isWorldGreyedOut();
+    void showWorldImage(Image image);
+
+    /**
+     * Show a Greenfoot.ask prompt over the (greyed-out) world, and call onAnswer once the
+     * user answers, after hiding the prompt.  This is called repeatedly while the prompt is
+     * pending, and must not disturb a prompt that is already showing.
+     */
+    void showAsk(String prompt, FXPlatformConsumer<String> onAnswer);
+
+    /**
+     * Hide any ask prompt (and remove the grey-out that came with it).  This is called
+     * often, whether or not a prompt is showing.
+     */
+    void hideAsk();
+
+    /**
+     * Show or hide the execution twirler (user code has been running a long time).
+     */
+    void setExecutionTwirling(boolean twirling);
 
     /**
      * Give the world keyboard focus.

@@ -33,6 +33,7 @@ import bluej.debugger.gentype.Reflective;
 import bluej.pkgmgr.Project;
 import bluej.pkgmgr.target.ClassTarget;
 import bluej.prefmgr.PrefMgr;
+import bluej.utility.Debug;
 import bluej.utility.DialogManager;
 import bluej.utility.javafx.FXPlatformRunnable;
 import bluej.utility.javafx.JavaFXUtil;
@@ -47,6 +48,10 @@ import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.scene.image.Image;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.WritableImage;
+import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -60,8 +65,10 @@ import java.util.Queue;
  * Everything about one open project that is not part of the window showing it:
  * the link to the debug VM, the simulation state (no world, paused, running and
  * so on) and what drives it (act, run, pause, reset, speed, compiling), the
- * save-the-world recorder, the scenario details, and the work waiting for the
- * debug VM to be ready.
+ * latest world image and whether it is greyed out, any Greenfoot.ask prompt,
+ * whether user code has been running long enough to show the execution twirler,
+ * the save-the-world recorder, the scenario details, and the work waiting for
+ * the debug VM to be ready.
  *
  * <p>One controller exists per open project, for as long as the project is open.
  * A window ({@link ProjectView}) attaches to it to show the project.  This is
@@ -112,6 +119,26 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     private int lastUserSetSpeed;
     // Used to stop an infinite loop if we set the speed slider in response to a programmatic change:
     private boolean settingSpeedFromSimulation = false;
+
+    // The world image, double-buffered (the one not showing is written next):
+    private final WritableImage[] worldImg = new WritableImage[2];
+    private int nextWorldImgToWrite = 0;
+    // The most recently received world image (null if none since the debug VM started):
+    private Image lastWorldImage;
+    // Whether the world is showing (if not, the window shows a message in its place):
+    private boolean worldVisible = false;
+    // Whether the world is greyed out (out of date, or behind an ask prompt).  This mirrors
+    // the window's display: set by greying out and by asking, cleared by a new image and
+    // by the end of an ask:
+    private boolean greyedOut = false;
+    // The Greenfoot.ask prompt showing, if asking:
+    private boolean asking = false;
+    private int currentAskId;
+    private String currentAskPrompt;
+    // When did the user code last start executing (zero if it is not executing)?
+    private long lastExecStartTime;
+    // Whether the execution twirler is showing:
+    private boolean twirling = false;
 
     private final ChangeListener<String> playerNameListener = new ChangeListener<String>()
     {
@@ -347,7 +374,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 currentWorld = curWorld;
             });
         }
-        else if (constructingWorld && view.isWorldAsking())
+        else if (constructingWorld && asking)
         {
             // Could be that we haven't got a world yet, but there is one being constructed
             // and waiting for an ask response: we should offer to terminate, but then
@@ -398,7 +425,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     public void suggestTerminateIfAskingThenRun(FXPlatformRunnable runAfterward)
     {
-        if (view.isWorldAsking())
+        if (asking)
         {
             if (0 == DialogManager.askQuestionFX(view.getWindow(), "terminate-for-reset"))
             {
@@ -459,7 +486,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             project.scheduleCompilation(true, CompileReason.USER,
                 CompileType.INDIRECT_USER_COMPILE, project.getUnnamedPackage());
         }
-        else if (view.isWorldGreyedOut() && !view.isWorldAsking())
+        else if (greyedOut && !asking)
         {
             doReset();
         }
@@ -485,7 +512,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         if (classTarget.equals(currentWorld))
         {
             currentWorld = null;
-            view.setWorldVisible(false);
+            setWorldVisible(false);
             doReset();
         }
         else
@@ -516,7 +543,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         project.getTerminal().activate(false);
         if (!worldPresent)
         {
-            view.greyOutWorld();
+            greyOutWorld();
             stateProperty.set(SimulationState.NO_WORLD);
         }
     }
@@ -524,7 +551,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     /**
      * A world image has been shown: if we were waiting for a world, it is here.
      */
-    public void worldImageShown()
+    private void worldImageShown()
     {
         if (stateProperty.get() == SimulationState.NO_WORLD && ! waitingForDiscard)
         {
@@ -544,7 +571,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         }
         // Grey out the world display until compilation finishes:
         discardWorld();
-        view.greyOutWorld();
+        greyOutWorld();
         view.worldStatusChanged();
     }
 
@@ -664,7 +691,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             constructingWorld = false;
             project.getTerminal().activate(false);
             // This will update the background message:
-            view.setWorldVisible(false);
+            setWorldVisible(false);
         });
     }
 
@@ -679,13 +706,17 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             }
             // We must reset the debug VM related state ready for the new debug VM:
             view.vmTerminated();
+            lastWorldImage = null;
+            asking = false;
+            greyedOut = false;
+            currentAskPrompt = null;
             worldInstantiationError = false;
             settingSpeedFromSimulation = false;
             constructingWorld = false;
-            view.setLastUserExecutionStartTime(0L, false);
+            setLastUserExecutionStartTime(0L, false);
             atBreakpoint = false;
             currentWorld = null;
-            view.setWorldVisible(false);
+            setWorldVisible(false);
             stateProperty.set(SimulationState.NO_WORLD);
             // This will set up pendingCommands, ready for when
             // the new debug VM can process data:
@@ -727,14 +758,6 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         return worldInstantiationError;
     }
 
-    /**
-     * Note whether the latest world image could be shown.
-     */
-    public void setWorldInstantiationError(boolean worldInstantiationError)
-    {
-        this.worldInstantiationError = worldInstantiationError;
-    }
-
     public ClassTarget getCurrentWorld()
     {
         return currentWorld;
@@ -770,42 +793,214 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         return scenarioInfo;
     }
 
-    // ---- Other debug VM callbacks, passed on to the view ----
+    /**
+     * The most recently received world image, or null if there has been none since the
+     * debug VM started.
+     */
+    public Image getLastWorldImage()
+    {
+        return lastWorldImage;
+    }
 
+    /**
+     * Whether a Greenfoot.ask prompt is showing.
+     */
+    public boolean isAsking()
+    {
+        return asking;
+    }
+
+    /**
+     * Whether the world is greyed out (out of date, or behind an ask prompt).
+     */
+    public boolean isWorldGreyedOut()
+    {
+        return greyedOut;
+    }
+
+    /**
+     * Whether the world is showing (if not, a message is shown in its place).
+     */
+    public boolean isWorldVisible()
+    {
+        return worldVisible;
+    }
+
+    // ---- The world display: image, grey-out, visibility ----
+
+    /**
+     * Grey out the world until it is up to date again.
+     */
+    private void greyOutWorld()
+    {
+        greyedOut = true;
+        view.greyOutWorld();
+    }
+
+    /**
+     * Show or hide the world (when hidden, the window shows a message in its place).
+     */
+    private void setWorldVisible(boolean visible)
+    {
+        worldVisible = visible;
+        view.setWorldVisible(visible);
+    }
+
+    /**
+     * A world image has been received from the remote VM.
+     *
+     * @param width   The image width
+     * @param height  The image height
+     * @param buffer  The buffer containing the pixel data (only valid during this call)
+     */
     @Override
     @OnThread(Tag.FXPlatform)
     public void receivedWorldImage(int width, int height, IntBuffer buffer)
     {
-        view.receivedWorldImage(width, height, buffer);
+        // If we are closing a project but receive an image late on, ignore it:
+        if (disposed)
+        {
+            return;
+        }
+
+        if (worldImg[nextWorldImgToWrite] == null || worldImg[nextWorldImgToWrite].getWidth() != width || worldImg[nextWorldImgToWrite].getHeight() != height)
+        {
+            worldImg[nextWorldImgToWrite] = new WritableImage(width == 0 ? 1 : width, height == 0 ? 1 : height);
+            view.worldImageSizeChanged(worldImg[nextWorldImgToWrite].getWidth(), worldImg[nextWorldImgToWrite].getHeight());
+        }
+        try
+        {
+            worldImg[nextWorldImgToWrite].getPixelWriter().setPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(),
+                    buffer, width);
+            lastWorldImage = worldImg[nextWorldImgToWrite];
+            // Showing a new image turns off any greying effect:
+            greyedOut = false;
+            view.showWorldImage(lastWorldImage);
+            nextWorldImgToWrite = (nextWorldImgToWrite + 1) % worldImg.length;
+            worldInstantiationError = false;
+            setWorldVisible(true);
+        }
+        catch (IndexOutOfBoundsException ex)
+        {
+            Debug.reportError("Error receiving world (world image probably too large)");
+            worldInstantiationError = true;
+            setWorldVisible(false);
+        }
+
+        worldImageShown();
     }
 
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void bringTerminalToFront()
-    {
-        view.bringTerminalToFront();
-    }
+    // ---- Greenfoot.ask ----
 
+    /**
+     * An "ask" request has been received from the remote VM (this is repeated while the
+     * request is pending).
+     *
+     * @param askId The identification number of the ask request
+     * @param promptCodepoints   the codepoints making up the prompt string.
+     */
     @Override
     @OnThread(Tag.FXPlatform)
     public void receivedAsk(int askId, int[] promptCodepoints)
     {
-        view.receivedAsk(askId, promptCodepoints);
+        String prompt = new String(promptCodepoints, 0, promptCodepoints.length);
+        asking = true;
+        // Asking greys out the world behind the prompt:
+        greyedOut = true;
+        currentAskId = askId;
+        currentAskPrompt = prompt;
+        view.showAsk(prompt, answer -> answerAsk(askId, answer));
+        // Make sure world is visible so that the ask pane is actually visible;
+        // the world may not be visible if the ask is during world construction and there was not previously a world:
+        setWorldVisible(true);
     }
 
+    /**
+     * The user answered an ask prompt (the window has already hidden it).
+     */
+    private void answerAsk(int askId, String answer)
+    {
+        asking = false;
+        greyedOut = false;
+        currentAskPrompt = null;
+        debugHandler.getVmComms().sendAnswer(askId, answer);
+    }
+
+    /**
+     * There is no pending ask request (called on every check of the debug VM without
+     * a fresh ask prompt): hide any ask prompt.
+     */
     @Override
     @OnThread(Tag.FXPlatform)
     public void cancelAsk()
     {
-        view.cancelAsk();
+        if (asking)
+        {
+            // Hiding the prompt also removes the grey-out:
+            asking = false;
+            greyedOut = false;
+            currentAskPrompt = null;
+        }
+        view.hideAsk();
     }
 
+    // ---- Execution twirler ----
+
+    /**
+     * Record the last time (from System.currentTimeMillis) that the user code started executing.
+     * If enough time has passed then show the execution twirler.
+     * @param lastExecStartTime The last time the user code started executing, or zero if it has now finished executing.
+     * @param delayLoop The true or false value to indicate whether there is a delay loop or not
+     */
     @Override
     @OnThread(Tag.FXPlatform)
     public void setLastUserExecutionStartTime(long lastExecStartTime, boolean delayLoop)
     {
-        view.setLastUserExecutionStartTime(lastExecStartTime, delayLoop);
+        this.lastExecStartTime = lastExecStartTime;
+        if (lastExecStartTime == 0L)
+        {
+            setTwirling(false);
+        }
+        else
+        {
+            long duration = System.currentTimeMillis() - lastExecStartTime;
+            if (duration < 4000L)
+            {
+                setTwirling(false);
+                JavaFXUtil.runAfter(Duration.millis(4000L - duration), () -> {
+                    if (this.lastExecStartTime == lastExecStartTime && !delayLoop)
+                    {
+                        setTwirling(true);
+                    }
+                });
+            }
+            else if (!delayLoop)
+            {
+                setTwirling(true);
+            }
+        }
     }
+
+    private void setTwirling(boolean twirling)
+    {
+        this.twirling = twirling;
+        view.setExecutionTwirling(twirling);
+    }
+
+    // ---- Other debug VM callbacks ----
+
+    /**
+     * The error count went up: show the terminal and bring it to the front.
+     */
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void bringTerminalToFront()
+    {
+        project.getTerminal().showHide(true);
+        project.getTerminal().getWindow().toFront();
+    }
+
+    // The full-screen display state is still handled by the window:
 
     @Override
     @OnThread(Tag.FXPlatform)
