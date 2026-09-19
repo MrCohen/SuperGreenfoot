@@ -731,12 +731,23 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         greyOutWorld();
         view.worldStatusChanged();
         view.compileStarted();
+        List<File> files = new ArrayList<>();
+        for (CompileInputFile source : sources)
+        {
+            files.add(source.getUserSourceFile());
+        }
+        view.compilingFiles(files);
     }
 
     @Override
     @OnThread(Tag.FXPlatform)
     public boolean compilerMessage(Diagnostic diagnostic, CompileType type)
     {
+        if (!disposed)
+        {
+            view.compilerMessage(diagnostic, type);
+        }
+        // Not shown to the user by us (the editor shows it):
         return false;
     }
 
@@ -1642,13 +1653,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
 
                             MenuItem removeItem = new MenuItem(Config.getString("world.handlerDelegate.remove"));
                             JavaFXUtil.addStyleClass(removeItem, MENU_STYLE_INBUILT);
-                            removeItem.setOnAction(e -> {
-                                project.getDebugger().instantiateClass(
-                                    "greenfoot.core.RemoveFromWorldHelper",
-                                    new String[]{"java.lang.Object"},
-                                    new DebuggerObject[]{actor});
-                                saveTheWorldRecorder.removeActor(actor);
-                            });
+                            removeItem.setOnAction(e -> removeActor(actor));
                             menu.getItems().add(removeItem);
                             actorMenus.add(menu);
                         }
@@ -1702,6 +1707,12 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             else if (curPickType == PickType.LEFT_CLICK && !actors.isEmpty())
             {
                 debugHandler.addSelectedObjects(actors, view.worldToScreen(curPickPoint));
+                view.actorClicked(actors.get(0));
+            }
+            else if (curPickType == PickType.LEFT_CLICK)
+            {
+                // A click on the world's background:
+                view.actorClicked(null);
             }
         });
     }
@@ -1713,11 +1724,59 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     {
         MenuItem inspectItem = new MenuItem(Config.getString("debugger.objectwrapper.inspect"));
         JavaFXUtil.addStyleClass(inspectItem, MENU_STYLE_INBUILT);
-        inspectItem.setOnAction(e -> {
-            InvokerRecord ir = new ObjectInspectInvokerRecord(debuggerObject.getClassName());
-            project.getInspectorInstance(debuggerObject, name, project.getUnnamedPackage(), ir, view.getWindow(), null);  // shows the inspector
-        });
+        inspectItem.setOnAction(e -> inspectObject(debuggerObject, name));
         return inspectItem;
+    }
+
+    /**
+     * Show the object inspector for the given actor or world.
+     */
+    @OnThread(Tag.FXPlatform)
+    public void inspectObject(DebuggerObject debuggerObject, String name)
+    {
+        InvokerRecord ir = new ObjectInspectInvokerRecord(debuggerObject.getClassName());
+        project.getInspectorInstance(debuggerObject, name, project.getUnnamedPackage(), ir, view.getWindow(), null);  // shows the inspector
+    }
+
+    /**
+     * Remove the given actor from its world (as the actor's "Remove" menu item does).
+     */
+    @OnThread(Tag.FXPlatform)
+    public void removeActor(DebuggerObject actor)
+    {
+        project.getDebugger().instantiateClass(
+            "greenfoot.core.RemoveFromWorldHelper",
+            new String[]{"java.lang.Object"},
+            new DebuggerObject[]{actor});
+        saveTheWorldRecorder.removeActor(actor);
+    }
+
+    /**
+     * The name the IDE uses for an object in the world (e.g. "walker1"), putting it on
+     * the object bench so its methods can be called.
+     */
+    @OnThread(Tag.FXPlatform)
+    public String nameObject(DebuggerObject object)
+    {
+        return debugHandler.nameObjects(List.of(object))[0].getName();
+    }
+
+    /**
+     * The method menu items for an actor (or the world), as its context menu offers them:
+     * its own methods first, then a submenu per class it inherits from.  Choosing one
+     * calls the method (asking for any parameters) and records it for Save the World.
+     */
+    @OnThread(Tag.FXPlatform)
+    public List<MenuItem> makeMethodItems(DebuggerObject object)
+    {
+        ObservableList<MenuItem> items = FXCollections.observableArrayList();
+        Target target = project.getTarget(object.getClassName());
+        if (target instanceof ClassTarget)
+        {
+            ObjectWrapper.createMethodMenuItems(items, project.loadClass(object.getClassName()),
+                    new RecordInvoke(object), "", true);
+        }
+        return items;
     }
 
     // ---- Adding actors to the world by hand ----

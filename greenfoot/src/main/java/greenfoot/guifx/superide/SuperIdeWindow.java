@@ -25,11 +25,14 @@ package greenfoot.guifx.superide;
 import bluej.Boot;
 import bluej.Config;
 import bluej.Main;
+import bluej.compiler.CompileType;
+import bluej.compiler.Diagnostic;
 import bluej.debugger.DebuggerObject;
 import bluej.debugger.gentype.JavaType;
 import bluej.debugger.gentype.Reflective;
 import bluej.editor.Editor;
 import bluej.extensions2.SourceType;
+import bluej.parser.SourceLocation;
 import bluej.pkgmgr.Package;
 import bluej.pkgmgr.Project;
 import bluej.pkgmgr.target.ClassTarget;
@@ -42,6 +45,7 @@ import bluej.pkgmgr.target.actions.ConvertToStrideAction;
 import bluej.pkgmgr.target.actions.InspectAction;
 import bluej.pkgmgr.target.role.UnitTestClassRole;
 import bluej.prefmgr.PrefMgr;
+import bluej.terminal.Terminal;
 import bluej.testmgr.record.InvokerRecord;
 import bluej.utility.Debug;
 import bluej.utility.DialogManager;
@@ -62,6 +66,7 @@ import greenfoot.guifx.NewClassDialog;
 import greenfoot.guifx.SetPlayerDialog;
 import greenfoot.guifx.WorldDisplay;
 import greenfoot.guifx.classes.ImportClassDialog;
+import greenfoot.guifx.controller.ActorFields;
 import greenfoot.guifx.controller.ClassImages;
 import greenfoot.guifx.controller.GreenfootProjectController;
 import greenfoot.guifx.controller.IdeWindow;
@@ -76,6 +81,8 @@ import greenfoot.guifx.soundrecorder.SoundRecorderControls;
 import greenfoot.guifx.superide.folders.ClassFolders;
 import greenfoot.guifx.superide.folders.ProjectSettingsFile;
 import greenfoot.util.GreenfootUtil;
+import javafx.animation.PauseTransition;
+import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -111,6 +118,7 @@ import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -191,6 +199,13 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     private Point2D lastMousePosInScene = new Point2D(0, 0);
     private PlacingActor placingActor;
     private boolean compiling = false;
+    /** The actor shown in the Inspector (clicked in the world), or null. */
+    private DebuggerObject selectedActor;
+    private String selectedActorName;
+    /** Re-reads the selected actor shortly after the world changes while paused. */
+    private final PauseTransition actorRefreshDelay = new PauseTransition(Duration.millis(120));
+    /** The compiler's errors and warnings from each class's latest compile, by class name. */
+    private final Map<String, List<Diagnostic>> diagnostics = new HashMap<>();
     // Flag indicating Greenfoot is being exited by the user
     private boolean isQuittingRequest = false;
 
@@ -329,10 +344,21 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         browser.setOnShowClassMenu(this::showClassMenu);
         browser.setOnShowBuiltInMenu(this::showBuiltInMenu);
         browser.setOnNewClass(this::showNewClassMenu);
-        JavaFXUtil.addChangeListenerPlatform(browser.selectedClassProperty(), this::showClassInInspector);
+        JavaFXUtil.addChangeListenerPlatform(browser.selectedClassProperty(), name -> {
+            if (name != null)
+            {
+                clearActorSelection();
+                showClassInInspector(name);
+            }
+            else if (selectedActor == null)
+            {
+                clearInspector();
+            }
+        });
+        actorRefreshDelay.setOnFinished(e -> refreshSelectedActor());
 
-        // Printed output still goes to the Terminal window (routing it here comes next):
-        getOutput().setPlaceholderText("Printed output (System.out.println) appears in the Terminal window for now.");
+        getOutput().setPlaceholderText("Nothing printed yet. System.out.println shows up here.");
+        getOutput().setOnOpenTerminal(this::showTerminal);
         welcomePanel = makeWelcomePanel();
         setupWorldDisplay();
         setupPlacingActor();
@@ -413,6 +439,12 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         }
         setWelcome(null);
         setScenarioName(project.getProjectName());
+        // Printed output comes to the Output panel instead of popping up the terminal
+        // window (which still appears when the scenario reads keyboard input):
+        getOutput().clear();
+        Terminal terminal = project.getTerminal();
+        terminal.setOutputListener(terminalListener);
+        terminal.setShowOnOutput(false);
         showingDebugger.bindBidirectional(project.debuggerShowing());
         soundRecorder.setProject(project);
         executionTwirler.setProject(project, controller.getDebugHandler());
@@ -460,6 +492,13 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         if (project != null)
         {
             showingDebugger.unbindBidirectional(project.debuggerShowing());
+            // Hand the terminal back (the Classic IDE shows output in the terminal window):
+            Terminal terminal = project.getTerminal();
+            if (terminal.getOutputListener() == terminalListener)
+            {
+                terminal.setOutputListener(null);
+                terminal.setShowOnOutput(true);
+            }
         }
         for (Map.Entry<ClassTarget, TargetListener> entry : targetListeners.entrySet())
         {
@@ -469,6 +508,8 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         classTargets.clear();
         classKinds.clear();
         superclasses.clear();
+        diagnostics.clear();
+        clearActorSelection();
         folders.removeListener(foldersSaver);
         folders = new ClassFolders();
         settings = null;
@@ -488,6 +529,45 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         setScenarioName("No scenario");
         setTitle("Super Greenfoot");
         setWelcome(welcomePanel);
+    }
+
+    /**
+     * Shows the scenario's printed output (and interactive calls) in the Output panel.
+     */
+    private final Terminal.OutputListener terminalListener = new Terminal.OutputListener()
+    {
+        @Override
+        @OnThread(Tag.FXPlatform)
+        public void output(String text, boolean isError)
+        {
+            getOutput().appendPrinted(text, isError);
+        }
+
+        @Override
+        @OnThread(Tag.FXPlatform)
+        public void cleared()
+        {
+            getOutput().clear();
+        }
+
+        @Override
+        @OnThread(Tag.FXPlatform)
+        public void interactiveCall(String callString)
+        {
+            getOutput().appendCall(callString.endsWith(";")
+                    ? callString.substring(0, callString.length() - 1) : callString);
+        }
+    };
+
+    /**
+     * Open the project's terminal window (for keyboard input, or its own options).
+     */
+    private void showTerminal()
+    {
+        if (project != null)
+        {
+            project.getTerminal().showHide(true);
+        }
     }
 
     private SimulationState getState()
@@ -752,6 +832,11 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
             updateWorldNode();
         }
         worldDisplay.setImage(image);
+        if (selectedActor != null && getState() == SimulationState.PAUSED)
+        {
+            // Something may have moved (act, a drag, a method call): look again shortly.
+            actorRefreshDelay.playFromStart();
+        }
     }
 
     @Override
@@ -851,6 +936,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     public void vmTerminated()
     {
         // Reset the debug VM related state ready for the new debug VM:
+        clearActorSelection();
         worldDisplay.setImage(null);
         worldDisplay.cancelAsk();
     }
@@ -979,6 +1065,182 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         runningProperty().set(state == SimulationState.RUNNING || state == SimulationState.RUNNING_REQUESTED_PAUSE);
         updateWorldMessage();
         setWorldName(currentWorldName());
+        if (state == SimulationState.NO_WORLD || noProject)
+        {
+            // The world has gone (reset, compile, closed), and its actors with it:
+            clearActorSelection();
+        }
+        else if (selectedActor != null)
+        {
+            if (state == SimulationState.PAUSED)
+            {
+                actorRefreshDelay.playFromStart();
+            }
+            else
+            {
+                // The actor moves while running; the ring comes back once paused:
+                worldDisplay.clearSelectionRing();
+            }
+        }
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void actorClicked(DebuggerObject actor)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+        if (actor == null)
+        {
+            clearActorSelection();
+            return;
+        }
+        selectedActor = actor;
+        selectedActorName = controller.nameObject(actor);
+        // The Inspector now shows the actor rather than a class:
+        getClassBrowser().selectedClassProperty().set(null);
+        refreshSelectedActor();
+    }
+
+    /**
+     * Stop showing an actor in the Inspector (and its ring in the world).
+     */
+    private void clearActorSelection()
+    {
+        actorRefreshDelay.stop();
+        worldDisplay.clearSelectionRing();
+        if (selectedActor != null)
+        {
+            selectedActor = null;
+            selectedActorName = null;
+            if (getClassBrowser().selectedClassProperty().get() == null)
+            {
+                clearInspector();
+            }
+        }
+    }
+
+    /**
+     * Read the selected actor's fields (off the FX thread) and show them in the
+     * Inspector, with the ring around it in the world.  If it has left the world, the
+     * selection is cleared.
+     */
+    private void refreshSelectedActor()
+    {
+        DebuggerObject actor = selectedActor;
+        if (actor == null || controller == null)
+        {
+            return;
+        }
+        Utility.runBackground(() -> {
+            ActorFields fields = ActorFields.read(actor);
+            Platform.runLater(() -> {
+                if (selectedActor != actor)
+                {
+                    return; // Selection changed while we were reading
+                }
+                if (fields == null)
+                {
+                    clearActorSelection();
+                    return;
+                }
+                showActorDetails(actor, fields);
+            });
+        });
+    }
+
+    private void showActorDetails(DebuggerObject actor, ActorFields fields)
+    {
+        String qualified = actor.getClassName();
+        String className = qualified.substring(qualified.lastIndexOf('.') + 1);
+        InspectorPane.ActorDetails details = new InspectorPane.ActorDetails();
+        details.variableName = selectedActorName;
+        details.className = className;
+        details.image = classImage(className);
+        details.worldName = currentWorldName();
+        details.location = "(" + fields.x + ", " + fields.y + ")";
+        details.preciseLocation = Double.isNaN(fields.preciseX) ? "-"
+                : String.format("(%.2f, %.2f)", fields.preciseX, fields.preciseY);
+        details.rotation = Double.isNaN(fields.preciseRotation) ? fields.rotation + "°"
+                : String.format("%.1f°", fields.preciseRotation);
+        details.z = Double.isNaN(fields.z) ? "-" : String.format("%.1f", fields.z);
+
+        List<String> inheritedFrom = new ArrayList<>();
+        for (MenuItem item : controller.makeMethodItems(actor))
+        {
+            if (item instanceof Menu)
+            {
+                // A submenu of methods inherited from one class ("inherited from Actor"):
+                String text = item.getText() == null ? "" : item.getText().trim();
+                String from = text.substring(text.lastIndexOf(' ') + 1);
+                if (from.equals("Object"))
+                {
+                    continue; // equals, hashCode... are no use here
+                }
+                inheritedFrom.add(from);
+                for (MenuItem inherited : ((Menu) item).getItems())
+                {
+                    InspectorPane.MethodEntry entry = methodEntry(inherited);
+                    if (entry != null)
+                    {
+                        details.inheritedMethods.add(entry);
+                    }
+                }
+            }
+            else
+            {
+                InspectorPane.MethodEntry entry = methodEntry(item);
+                if (entry != null)
+                {
+                    details.ownMethods.add(entry);
+                }
+            }
+        }
+        details.inheritedFrom = String.join(", ", inheritedFrom);
+        details.onInspect = () -> {
+            if (controller != null)
+            {
+                controller.inspectObject(actor, selectedActorName);
+            }
+        };
+        details.onRemove = () -> {
+            if (controller != null)
+            {
+                controller.removeActor(actor);
+                actorRefreshDelay.playFromStart();
+            }
+        };
+        showActor(details);
+
+        double w = Math.max(fields.imageWidth, 8);
+        double h = Math.max(fields.imageHeight, 8);
+        if (getState() == SimulationState.PAUSED)
+        {
+            worldDisplay.setSelectionRing(fields.pixelX(), fields.pixelY(), w, h, fields.drawnRotation());
+        }
+    }
+
+    /**
+     * A button for the Inspector from one of the actor's method menu items
+     * (e.g. "void move(double)"); choosing it calls the method as the menu would.
+     */
+    private InspectorPane.MethodEntry methodEntry(MenuItem item)
+    {
+        if (item instanceof SeparatorMenuItem || item instanceof Menu || item.getText() == null)
+        {
+            return null;
+        }
+        String text = item.getText().trim();
+        int paren = text.indexOf('(');
+        int space = paren < 0 ? -1 : text.lastIndexOf(' ', paren);
+        String returnType = space > 0 ? text.substring(0, space) : "";
+        String signature = space > 0 ? text.substring(space + 1) : text;
+        return new InspectorPane.MethodEntry(signature, returnType, () -> {
+            item.fire();
+            actorRefreshDelay.playFromStart();
+        });
     }
 
     @Override
@@ -1024,28 +1286,55 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
      */
     private void updateCompileState()
     {
-        List<String> problems = new ArrayList<>();
+        List<OutputPane.Problem> problems = new ArrayList<>();
+        int errors = 0;
         boolean needsCompile = false;
-        for (Map.Entry<String, ClassTarget> entry : classTargets.entrySet())
+        List<String> names = new ArrayList<>(classTargets.keySet());
+        names.sort(null);
+        for (String name : names)
         {
-            State state = entry.getValue().getState();
+            ClassTarget target = classTargets.get(name);
+            State state = target.getState();
+            List<Diagnostic> reported = diagnostics.getOrDefault(name, List.of());
             if (state == State.HAS_ERROR)
             {
-                problems.add(entry.getKey() + " has compile errors. Open it to see them.");
+                boolean listed = false;
+                for (Diagnostic d : reported)
+                {
+                    if (d.getType() == Diagnostic.ERROR)
+                    {
+                        problems.add(problemFor(target, d));
+                        errors++;
+                        listed = true;
+                    }
+                }
+                if (!listed)
+                {
+                    // Compiled before this window was watching, so we don't have the details:
+                    problems.add(new OutputPane.Problem(name, "has compile errors. Open it to see them.",
+                            true, target::open));
+                    errors++;
+                }
             }
             else if (state == State.NEEDS_COMPILE)
             {
                 needsCompile = true;
             }
+            for (Diagnostic d : reported)
+            {
+                if (d.getType() == Diagnostic.WARNING)
+                {
+                    problems.add(problemFor(target, d));
+                }
+            }
         }
-        problems.sort(null);
         if (compiling)
         {
             setCompileState(CompileState.COMPILING, 0);
         }
-        else if (!problems.isEmpty())
+        else if (errors > 0)
         {
-            setCompileState(CompileState.ERRORS, problems.size());
+            setCompileState(CompileState.ERRORS, errors);
         }
         else if (needsCompile)
         {
@@ -1055,7 +1344,70 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         {
             setCompileState(CompileState.COMPILED, 0);
         }
-        getOutput().setProblems(problems, classTargets.size());
+        getOutput().setProblemList(problems, classTargets.size());
+    }
+
+    /**
+     * A row for the Problems tab; clicking it opens the class at the problem.
+     */
+    private OutputPane.Problem problemFor(ClassTarget target, Diagnostic d)
+    {
+        boolean isJava = target.getSourceType() == SourceType.Java;
+        String location = target.getBaseName() + (isJava ? ".java" : "")
+                + (isJava && d.getStartLine() > 0 ? ":" + d.getStartLine() : "");
+        String message = d.getMessage() == null ? "" : d.getMessage().trim();
+        return new OutputPane.Problem(location, message, d.getType() == Diagnostic.ERROR, () -> {
+            target.open();
+            Editor editor = target.getEditor();
+            if (editor != null && isJava && d.getStartLine() > 0)
+            {
+                int line = (int) d.getStartLine();
+                int column = (int) Math.max(1, d.getStartColumn());
+                int endLine = d.getEndLine() >= line ? (int) d.getEndLine() : line;
+                int endColumn = endLine == line ? (int) Math.max(column, d.getEndColumn()) : (int) Math.max(1, d.getEndColumn());
+                try
+                {
+                    editor.assumeText().setSelection(new SourceLocation(line, column),
+                            new SourceLocation(endLine, endColumn));
+                }
+                catch (RuntimeException e)
+                {
+                    // The position is no longer in the file (it has been edited since); the
+                    // editor is open, which is the main thing.
+                }
+            }
+        });
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void compilingFiles(List<File> sourceFiles)
+    {
+        for (File file : sourceFiles)
+        {
+            diagnostics.remove(baseName(file));
+        }
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void compilerMessage(Diagnostic diagnostic, CompileType type)
+    {
+        if (diagnostic.getType() == Diagnostic.NOTE || diagnostic.getFileName() == null)
+        {
+            return;
+        }
+        diagnostics.computeIfAbsent(baseName(new File(diagnostic.getFileName())), k -> new ArrayList<>())
+                .add(diagnostic);
+        updateCompileState();
+    }
+
+    /** "Player" for .../Player.java (or Player.stride). */
+    private static String baseName(File file)
+    {
+        String name = file.getName();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
     }
 
     // ------------------------------------------------------------- the classes
@@ -2055,6 +2407,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                 JavaFXUtil.makeMenuItem("menu.tools.generateDoc", new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN),
                         this::generateDocumentation, hasNoProject),
                 soundRecorderItem,
+                JavaFXUtil.makeMenuItem("Show Terminal", this::showTerminal, null),
                 JavaFXUtil.makeCheckMenuItem(Config.getString("menu.debugger"), showingDebugger,
                         new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN)),
                 JavaFXUtil.makeMenuItem("set.player", Config.GREENFOOT_SET_PLAYER_NAME_SHORTCUT, this::setPlayer, hasNoProject),

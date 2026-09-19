@@ -21,6 +21,8 @@
  */
 package greenfoot.guifx.controller;
 
+import bluej.compiler.CompileType;
+import bluej.compiler.Diagnostic;
 import bluej.debugger.DebuggerObject;
 import bluej.debugger.gentype.JavaType;
 import bluej.debugger.gentype.Reflective;
@@ -33,6 +35,7 @@ import javafx.stage.Stage;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
+import java.io.File;
 import java.util.List;
 import java.util.Properties;
 
@@ -197,6 +200,31 @@ public interface ProjectView
      * @param successful  whether the compilation succeeded
      */
     default void compileFinished(boolean successful)
+    {
+    }
+
+    /**
+     * These source files are about to be compiled, so any problems reported for them
+     * earlier are out of date.  (The Classic window shows problems in the editors, so
+     * it does nothing here.)
+     */
+    default void compilingFiles(List<File> sourceFiles)
+    {
+    }
+
+    /**
+     * The compiler reported an error or warning.
+     */
+    default void compilerMessage(Diagnostic diagnostic, CompileType type)
+    {
+    }
+
+    /**
+     * The user left-clicked an actor in the world while the scenario was paused, or
+     * the world's background (actor is null).  The Classic window does nothing here
+     * (the controller passes clicked actors to the debugger's object selection).
+     */
+    default void actorClicked(DebuggerObject actor)
     {
     }
 }

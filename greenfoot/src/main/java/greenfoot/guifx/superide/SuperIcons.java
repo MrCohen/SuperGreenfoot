@@ -63,6 +63,7 @@ public final class SuperIcons
             + "a1.6 1.6 0 0 1-1.6-1.6V4.8a1.6 1.6 0 0 1 1.6-1.6z M1.8 10l3.4-3 3 2.4 2.3-1.8 3.7 2.9";
     public static final String FILE = "M4 1.8h5.2L12.5 5v9.2H4z M9 1.8V5h3.5";
     public static final String CLOSE = "M4 4l8 8 M12 4l-8 8";
+    public static final String TERMINAL = "M2.2 3h11.6v10H2.2z M4.6 6.4l2 1.6-2 1.6 M8 10.2h3.2";
     public static final String CLEAR = "M2.5 8a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0 M4.2 11.8l7.6-7.6";
 
     private SuperIcons()

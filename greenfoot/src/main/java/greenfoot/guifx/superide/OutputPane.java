@@ -26,14 +26,18 @@ import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.scene.Node;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import threadchecker.OnThread;
@@ -57,7 +61,7 @@ public class OutputPane extends VBox
     public enum Kind { PRINTED, CALL, ERROR }
 
     @OnThread(Tag.Any)
-    private static final class Line
+    static final class Line
     {
         final String text;
         final Kind kind;
@@ -69,9 +73,30 @@ public class OutputPane extends VBox
         }
     }
 
+    /** A compile error or warning shown in the Problems tab. */
+    @OnThread(Tag.FXPlatform)
+    public static final class Problem
+    {
+        /** e.g. "Player.java:12" */
+        public final String location;
+        public final String message;
+        public final boolean isError;
+        /** Opens the class at the problem; may be null. */
+        public final Runnable onOpen;
+
+        public Problem(String location, String message, boolean isError, Runnable onOpen)
+        {
+            this.location = location;
+            this.message = message;
+            this.isError = isError;
+            this.onOpen = onOpen;
+        }
+    }
+
     private final ObservableList<Line> lines = FXCollections.observableArrayList();
     private final ListView<Line> listView = new ListView<>(lines);
     private final VBox problemsBox = new VBox();
+    private final ScrollPane problemsScroll;
     private final Label badge = new Label("0");
     private final ToggleButton outputTab = new ToggleButton("Output");
     private final ToggleButton problemsTab = new ToggleButton("Problems");
@@ -79,6 +104,10 @@ public class OutputPane extends VBox
     private final Label placeholder = new Label("Nothing printed yet. System.out.println shows up here.");
     private final ReadOnlyStringWrapper problemSummary = new ReadOnlyStringWrapper("Problems 0");
     private Runnable onCollapse = () -> {};
+    private Runnable onOpenTerminal = null;
+    private final Button terminalButton;
+    /** Whether the newest line has not ended yet (printed output arrives in chunks). */
+    private boolean lastLineOpen = false;
 
     public OutputPane()
     {
@@ -105,7 +134,16 @@ public class OutputPane extends VBox
         outputTab.setSelected(true);
         JavaFXUtil.addChangeListenerPlatform(tabs.selectedToggleProperty(), now -> showTab());
 
-        HBox header = new HBox(outputTab, problemsTab, Widgets.spacer(),
+        terminalButton = Widgets.iconButton(SuperIcons.TERMINAL,
+                "Open the terminal window (for keyboard input with System.in)", 15, () -> {
+                    if (onOpenTerminal != null)
+                    {
+                        onOpenTerminal.run();
+                    }
+                });
+        terminalButton.setVisible(false);
+        terminalButton.managedProperty().bind(terminalButton.visibleProperty());
+        HBox header = new HBox(outputTab, problemsTab, Widgets.spacer(), terminalButton,
                 Widgets.iconButton(SuperIcons.CLEAR, "Clear the output", 15, this::clear),
                 Widgets.iconButton(SuperIcons.CHEVRON_DOWN, "Collapse the output panel", 16, () -> onCollapse.run()));
         header.getStyleClass().add("sg-bottom-header");
@@ -140,7 +178,12 @@ public class OutputPane extends VBox
             }
         });
         problemsBox.getStyleClass().add("sg-problems");
-        StackPane content = new StackPane(listView, problemsBox);
+        problemsBox.setFillWidth(true);
+        problemsScroll = new ScrollPane(problemsBox);
+        problemsScroll.getStyleClass().add("sg-scroll");
+        problemsScroll.setFitToWidth(true);
+        problemsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        StackPane content = new StackPane(listView, problemsScroll);
         VBox.setVgrow(content, Priority.ALWAYS);
         getChildren().addAll(header, content);
         setProblems(List.of(), 0);
@@ -150,6 +193,13 @@ public class OutputPane extends VBox
     public void setOnCollapse(Runnable action)
     {
         onCollapse = action;
+    }
+
+    /** What the "open the terminal window" button does; null hides the button. */
+    public void setOnOpenTerminal(Runnable action)
+    {
+        onOpenTerminal = action;
+        terminalButton.setVisible(action != null);
     }
 
     /** A line the scenario printed. */
@@ -166,6 +216,58 @@ public class OutputPane extends VBox
         append(text, Kind.PRINTED);
     }
 
+    /**
+     * Text the scenario printed (System.out, or System.err when isError). It arrives
+     * in chunks that need not end at a line break, so an unfinished line is continued
+     * by the next chunk of the same kind.
+     */
+    public void appendPrinted(String chunk, boolean isError)
+    {
+        lastLineOpen = addChunk(lines, lastLineOpen, chunk, isError ? Kind.ERROR : Kind.PRINTED);
+        if (lines.size() > MAX_LINES)
+        {
+            lines.remove(0, lines.size() - MAX_LINES);
+        }
+        if (!lines.isEmpty())
+        {
+            lastLine.set(lines.get(lines.size() - 1).text);
+            listView.scrollTo(lines.size() - 1);
+        }
+    }
+
+    /**
+     * Add a chunk of printed text to the lines.  If the last line is unfinished (open)
+     * and of the same kind, the chunk's first part continues it.  Returns whether the
+     * last line is unfinished afterwards (the chunk did not end with a line break).
+     */
+    @OnThread(Tag.Any)
+    static boolean addChunk(List<Line> into, boolean wasOpen, String chunk, Kind kind)
+    {
+        String[] parts = chunk.split("\n", -1);
+        boolean open = wasOpen;
+        for (int i = 0; i < parts.length; i++)
+        {
+            String part = parts[i].replace("\r", "");
+            boolean last = i == parts.length - 1;
+            if (last && part.isEmpty())
+            {
+                // The chunk ended with a line break:
+                return false;
+            }
+            if (i == 0 && open && !into.isEmpty() && into.get(into.size() - 1).kind == kind)
+            {
+                Line old = into.get(into.size() - 1);
+                into.set(into.size() - 1, new Line(old.text + part, kind));
+            }
+            else
+            {
+                into.add(new Line(part, kind));
+            }
+            open = last;
+        }
+        return open;
+    }
+
     /** A method call the user made from the IDE, e.g. "player.move(10.0)". */
     public void appendCall(String text)
     {
@@ -180,6 +282,7 @@ public class OutputPane extends VBox
 
     private void append(String text, Kind kind)
     {
+        lastLineOpen = false;
         lines.add(new Line(text, kind));
         if (lines.size() > MAX_LINES)
         {
@@ -191,6 +294,7 @@ public class OutputPane extends VBox
 
     public void clear()
     {
+        lastLineOpen = false;
         lines.clear();
         lastLine.set("Nothing printed yet");
     }
@@ -201,7 +305,22 @@ public class OutputPane extends VBox
      */
     public void setProblems(List<String> problems, int classCount)
     {
+        List<Problem> list = new java.util.ArrayList<>();
+        for (String problem : problems)
+        {
+            list.add(new Problem(null, problem, true, null));
+        }
+        setProblemList(list, classCount);
+    }
+
+    /**
+     * Show compile problems (errors and warnings); an empty list shows "No problems.
+     * All N classes compiled."  The badge counts the errors.
+     */
+    public void setProblemList(List<Problem> problems, int classCount)
+    {
         problemsBox.getChildren().clear();
+        int errors = (int) problems.stream().filter(p -> p.isError).count();
         if (problems.isEmpty())
         {
             HBox ok = new HBox(8, SuperIcons.icon(SuperIcons.CHECK, 14),
@@ -213,21 +332,48 @@ public class OutputPane extends VBox
         }
         else
         {
-            for (String problem : problems)
+            for (Problem problem : problems)
             {
-                Label label = new Label(problem);
-                label.getStyleClass().add("sg-problem");
-                label.setWrapText(true);
-                problemsBox.getChildren().add(label);
+                problemsBox.getChildren().add(problemRow(problem));
             }
         }
-        badge.setText(Integer.toString(problems.size()));
+        badge.setText(Integer.toString(errors));
         badge.getStyleClass().remove("sg-error");
-        if (!problems.isEmpty())
+        if (errors > 0)
         {
             badge.getStyleClass().add("sg-error");
         }
-        problemSummary.set("Problems " + problems.size());
+        problemSummary.set("Problems " + errors);
+    }
+
+    private Node problemRow(Problem problem)
+    {
+        Label message = new Label(problem.message);
+        message.getStyleClass().add(problem.isError ? "sg-problem" : "sg-problem-warning");
+        message.setWrapText(true);
+        message.setMinHeight(Region.USE_PREF_SIZE);
+        if (problem.location == null && problem.onOpen == null)
+        {
+            return message;
+        }
+        Label location = new Label(problem.location == null ? "" : problem.location);
+        location.getStyleClass().add("sg-problem-location");
+        location.setMinWidth(Region.USE_PREF_SIZE);
+        HBox row = new HBox(10, location, message);
+        row.setAlignment(javafx.geometry.Pos.TOP_LEFT);
+        HBox.setHgrow(message, Priority.ALWAYS);
+        Button button = new Button();
+        button.setGraphic(row);
+        button.getStyleClass().add("sg-problem-row");
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        button.setFocusTraversable(true);
+        if (problem.onOpen != null)
+        {
+            button.setOnAction(e -> problem.onOpen.run());
+            button.setTooltip(new javafx.scene.control.Tooltip("Open the class at this line"));
+        }
+        return button;
     }
 
     public void showProblems()
@@ -244,7 +390,7 @@ public class OutputPane extends VBox
     {
         boolean output = outputTab.isSelected();
         listView.setVisible(output);
-        problemsBox.setVisible(!output);
+        problemsScroll.setVisible(!output);
     }
 
     /** The newest line, for the collapsed bar. */

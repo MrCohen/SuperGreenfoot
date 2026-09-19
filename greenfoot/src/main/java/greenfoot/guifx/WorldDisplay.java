@@ -52,10 +52,23 @@ public class WorldDisplay extends StackPane
     private final AskPaneFX askPane = new AskPaneFX();
     private final Rectangle actorHighlight = new Rectangle();
     private final Animation actorHighlightAnimation;
+    // SuperGreenfoot: the ring the new IDE draws around the actor shown in its Inspector
+    // (a halo under an accent ring; never shown by the Classic IDE):
+    private final Rectangle selectionHalo = new Rectangle();
+    private final Rectangle selectionRing = new Rectangle();
     
     public WorldDisplay()
     {
-        Pane highlightPane = new Pane(actorHighlight);
+        for (Rectangle r : new Rectangle[] {selectionHalo, selectionRing})
+        {
+            r.setVisible(false);
+            r.setFill(null);
+            r.setArcWidth(12);
+            r.setArcHeight(12);
+        }
+        selectionHalo.getStyleClass().add("sg-selection-halo");
+        selectionRing.getStyleClass().add("sg-selection-ring");
+        Pane highlightPane = new Pane(selectionHalo, selectionRing, actorHighlight);
         highlightPane.setMouseTransparent(true);
         // Need a stack pane to be able to provide border around image and Greenfoot.ask() :
         StackPane stackPane = new StackPane(imageView, askPane, highlightPane);
@@ -235,6 +248,33 @@ public class WorldDisplay extends StackPane
         actorHighlight.getTransforms().setAll(new Rotate(rotation, x, y));
         actorHighlight.setVisible(true);
         actorHighlightAnimation.playFromStart();
+    }
+
+    /**
+     * SuperGreenfoot: show the selection ring around an actor whose image (width x height)
+     * is centred at (x, y) in world pixels and drawn at the given rotation.
+     */
+    public void setSelectionRing(double x, double y, double width, double height, double rotation)
+    {
+        double pad = 4;
+        for (Rectangle r : new Rectangle[] {selectionHalo, selectionRing})
+        {
+            r.setX(x - width / 2.0 - pad);
+            r.setY(y - height / 2.0 - pad);
+            r.setWidth(width + 2 * pad);
+            r.setHeight(height + 2 * pad);
+            r.getTransforms().setAll(new Rotate(rotation, x, y));
+            r.setVisible(true);
+        }
+    }
+
+    /**
+     * SuperGreenfoot: hide the selection ring.
+     */
+    public void clearSelectionRing()
+    {
+        selectionHalo.setVisible(false);
+        selectionRing.setVisible(false);
     }
 
     /**

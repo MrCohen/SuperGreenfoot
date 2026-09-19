@@ -508,6 +508,17 @@
 .sg-problems { -fx-padding: 8 14 8 14; -fx-spacing: 6; }
 .sg-problem-ok { -fx-text-fill: -sg-muted; }
 .sg-problem { -fx-text-fill: -sg-danger; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12.5px; }
+.sg-problem-warning { -fx-text-fill: -sg-muted; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12.5px; }
+.sg-problem-location { -fx-text-fill: -sg-text; -fx-font-family: "IBM Plex Mono Medm"; -fx-font-size: 12.5px; }
+.button.sg-problem-row {
+    -fx-background-color: transparent;
+    -fx-background-radius: 6;
+    -fx-border-color: transparent;
+    -fx-padding: 4 8 4 8;
+    -fx-cursor: hand;
+}
+.button.sg-problem-row:hover { -fx-background-color: -sg-hover; }
+.button.sg-problem-row:focused { -fx-background-color: -sg-hover; }
 .sg-last-line { -fx-text-fill: -sg-faint; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; }
 
 /* ---------- inspector ---------- */
@@ -618,3 +629,7 @@
 }
 .sg-welcome-title { -fx-font-family: "IBM Plex Sans SmBld"; -fx-font-size: 18px; }
 .sg-welcome .button, .sg-welcome .menu-button { -fx-pref-width: 240; }
+
+/* The ring around the actor shown in the Inspector (drawn in world pixels). */
+.sg-selection-halo { -fx-stroke: rgba(255, 255, 255, 0.9); -fx-stroke-width: 5; }
+.sg-selection-ring { -fx-stroke: -sg-accent; -fx-stroke-width: 2.5; }
