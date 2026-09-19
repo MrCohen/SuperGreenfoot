@@ -29,9 +29,11 @@ import bluej.utility.javafx.JavaFXUtil;
 import javafx.application.Application;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.collections.ListChangeListener;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.text.Font;
+import javafx.stage.Window;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -108,13 +110,64 @@ public final class SuperTheme
     {
         active = true;
         applyUserAgentStylesheet();
+        Window.getWindows().removeListener(windowListener);
+        Window.getWindows().addListener(windowListener);
+        for (Window window : new ArrayList<>(Window.getWindows()))
+        {
+            adopt(window);
+        }
     }
 
     /** Go back to JavaFX's default look, as the Classic IDE expects. */
     public static void deactivate()
     {
         active = false;
+        Window.getWindows().removeListener(windowListener);
         Application.setUserAgentStylesheet(null);
+    }
+
+    /**
+     * Dialogs copy their owner's stylesheets, so a dialog owned by a new IDE window
+     * gets our stylesheet; it also needs the palette class on its root, or the
+     * -sg-* colours cannot be resolved (and would not follow light/dark).
+     */
+    private static final ListChangeListener<Window> windowListener = new ListChangeListener<Window>()
+    {
+        @Override
+        @OnThread(value = Tag.FXPlatform, ignoreParent = true)
+        public void onChanged(Change<? extends Window> change)
+        {
+            while (change.next())
+            {
+                for (Window window : change.getAddedSubList())
+                {
+                    adopt(window);
+                }
+            }
+        }
+    };
+
+    private static void adopt(Window window)
+    {
+        Scene scene = window.getScene();
+        String url = libDir == null ? null : stylesheetURL();
+        if (scene == null || url == null || !scene.getStylesheets().contains(url) || isTracked(scene))
+        {
+            return;
+        }
+        install(scene);
+    }
+
+    private static boolean isTracked(Scene scene)
+    {
+        for (WeakReference<Scene> ref : scenes)
+        {
+            if (ref.get() == scene)
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static boolean isActive()

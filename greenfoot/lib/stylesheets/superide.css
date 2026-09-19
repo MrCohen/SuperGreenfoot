@@ -8,7 +8,9 @@
  * BlueJ's own stylesheets keep resolving under AtlantaFX.
  */
 
-.root.sg-light {
+/* Light is also the fallback for a scene that has this stylesheet but not yet its
+   palette class (a dialog is sized, and styled, just before it is shown). */
+.root, .root.sg-light {
     -sg-bg: #EFEEE8;
     -sg-panel: #FAF9F5;
     -sg-panel2: #F3F2EC;
