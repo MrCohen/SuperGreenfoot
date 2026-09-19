@@ -35,6 +35,8 @@ before any public release.
 |---|---|---|---|
 | TeaVM | Apache 2.0 | 5 | yes |
 | (server) Node runtime on Vercel, `pg` or KV client | MIT | 6 | yes, separate deployable |
+| AtlantaFX base 2.1.0 (`io.github.mkpaz:atlantafx-base`, non-transitive), the new IDE's theme | MIT | 4c | yes; licence text shipped as `lib/superide/LICENSE-AtlantaFX.txt` (the jar has none) |
+| IBM Plex Sans (Regular, Medium, SemiBold) and IBM Plex Mono (Regular, Medium), from github.com/IBM/plex, unmodified | SIL OFL 1.1, Reserved Font Name "Plex" | 4c | yes; licence shipped as `lib/superide/fonts/OFL.txt`; loaded only by the new IDE |
 
 ## Bundled assets
 
