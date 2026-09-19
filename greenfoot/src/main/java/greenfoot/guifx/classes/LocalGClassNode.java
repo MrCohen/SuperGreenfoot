@@ -40,6 +40,7 @@ import bluej.utility.javafx.AbstractOperation;
 import bluej.utility.javafx.JavaFXUtil;
 import greenfoot.guifx.GreenfootStage;
 import greenfoot.guifx.classes.GClassDiagram.GClassType;
+import greenfoot.guifx.controller.ClassImages;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
@@ -69,8 +70,8 @@ public class LocalGClassNode extends GClassNode implements TargetListener, Abstr
     private String imageFilename;
     
     /**
-     * Make an instance for the given ClassTarget. The image will be retrieved from the project
-     * properties.
+     * Make an instance for the given ClassTarget. The image will be retrieved from the project's
+     * class images.
      * 
      * @param classTarget The ClassTarget to make an instance for
      * @param subClasses The sub-classes of this GClassNode
@@ -79,9 +80,8 @@ public class LocalGClassNode extends GClassNode implements TargetListener, Abstr
     public LocalGClassNode(GClassDiagram classDiagram, ClassTarget classTarget,
             List<GClassNode> subClasses, GClassType type)
     {
-        super(getImageForClass(classTarget, type), subClasses, classDiagram.getSelectionManager());
-        this.imageFilename = classTarget.getPackage().getLastSavedProperties()
-                .getProperty("class." + classTarget.getQualifiedName() + ".image");
+        super(getImageForClass(classTarget, type, classDiagram.getClassImages()), subClasses, classDiagram.getSelectionManager());
+        this.imageFilename = classDiagram.getClassImages().get(classTarget.getQualifiedName());
         this.classDiagram = classDiagram;
         this.classTarget = classTarget;
         this.type = type;
@@ -105,30 +105,30 @@ public class LocalGClassNode extends GClassNode implements TargetListener, Abstr
      * have a specific image set. May return null.
      * @param classTarget The ClassTarget to get image for.
      * @param type The source type of this class node.
+     * @param classImages The image chosen for each class in the project.
      * @return The image for the class or null if it has no image.
      */
-    private static Image getImageForClass(ClassTarget classTarget, GClassType type)
+    private static Image getImageForClass(ClassTarget classTarget, GClassType type, ClassImages classImages)
     {
         if (type == GClassType.OTHER)
         {
             return null;
         }
-        return JavaFXUtil.loadImage(getImageFilename(classTarget));
+        return JavaFXUtil.loadImage(getImageFilename(classTarget, classImages));
     }
     
     /**
      * Returns a file name for the image of the first class in the given class' class hierarchy
      * that has an image set.
      */
-    private static File getImageFilename(ClassTarget ct)
+    private static File getImageFilename(ClassTarget ct, ClassImages classImages)
     {
         String className = ct.getQualifiedName();
         Reflective type = ct.getTypeReflective();
         Package pkg = ct.getPackage();
         
         do {
-            String imageFileName = pkg.getLastSavedProperties()
-                    .getProperty("class." + className + ".image");
+            String imageFileName = classImages.get(className);
             
             if (imageFileName != null)
             {
@@ -380,6 +380,7 @@ public class LocalGClassNode extends GClassNode implements TargetListener, Abstr
     public void setImageFilename(String newImageFilename)
     {
         this.imageFilename = newImageFilename;
+        classDiagram.getClassImages().set(getQualifiedName(), newImageFilename);
 
         if (newImageFilename != null)
         {

@@ -699,7 +699,6 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Proje
         p.put("height", Integer.toString((int) this.getHeight()));
         p.put("xPosition", Integer.toString((int) Math.max(this.getX(), 0)));
         p.put("yPosition", Integer.toString((int) Math.max(this.getY(), 0)));
-        classDiagram.save(p);
     }
 
     /**

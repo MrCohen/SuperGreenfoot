@@ -152,6 +152,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     // This change is needed as we now wipe the properties file each time
     // before saving to avoid stacking unneeded properties hanging forever.
     private final ScenarioInfo scenarioInfo;
+    // The image chosen for each class (saved in the project file):
+    private final ClassImages classImages;
 
     // The window showing the project:
     private ProjectView view;
@@ -263,6 +265,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         this.debugHandler = debugHandler;
         this.saveTheWorldRecorder = debugHandler.getRecorder();
         this.scenarioInfo = new ScenarioInfo(project.getUnnamedPackage().getLastSavedProperties());
+        this.classImages = new ClassImages(project.getUnnamedPackage().getLastSavedProperties());
         JavaFXUtil.addChangeListenerPlatform(stateProperty, s -> showState());
     }
 
@@ -947,6 +950,14 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     public ScenarioInfo getScenarioInfo()
     {
         return scenarioInfo;
+    }
+
+    /**
+     * The image chosen for each class in the project.
+     */
+    public ClassImages getClassImages()
+    {
+        return classImages;
     }
 
     /**
@@ -2201,6 +2212,12 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 p.put("world.lastInstantiated", currentWorld.getQualifiedName());
             }
             project.saveEditorLocations(p);
+            List<String> classNames = new ArrayList<>();
+            for (ClassTarget classTarget : project.getUnnamedPackage().getClassTargets())
+            {
+                classNames.add(classTarget.getQualifiedName());
+            }
+            classImages.save(p, classNames);
             scenarioInfo.store(p);
 
             // Actually write out the properties to disk:
@@ -2288,6 +2305,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     public void saveAndMirrorClassImageFilename(String qualifiedName, String imageFileName)
     {
+        classImages.set(qualifiedName, imageFileName);
         doSave();
         sendPropertyToDebugVM("class." + qualifiedName + ".image", imageFileName);
     }

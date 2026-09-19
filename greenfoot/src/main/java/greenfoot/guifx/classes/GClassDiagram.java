@@ -38,6 +38,8 @@ import bluej.views.View;
 import bluej.views.ViewFilter;
 import bluej.views.ViewFilter.StaticOrInstance;
 import greenfoot.guifx.GreenfootStage;
+import greenfoot.guifx.controller.ClassImages;
+import greenfoot.guifx.controller.GreenfootProjectController;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -471,6 +473,15 @@ public class GClassDiagram extends BorderPane
         return greenfootStage;
     }
     
+    /**
+     * The image chosen for each class in the project shown (null if there is no project).
+     */
+    public ClassImages getClassImages()
+    {
+        GreenfootProjectController controller = greenfootStage.getController();
+        return controller == null ? null : controller.getClassImages();
+    }
+
     /**
      * Save class-related properties to the given property map.
      */
