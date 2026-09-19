@@ -348,10 +348,11 @@ public class OutputPane extends VBox
 
     private Node problemRow(Problem problem)
     {
-        Label message = new Label(problem.message);
+        // Compiler messages may span lines ("cannot find symbol -\n  variable x"):
+        Label message = new Label(problem.message.replaceAll("\\s+", " "));
         message.getStyleClass().add(problem.isError ? "sg-problem" : "sg-problem-warning");
         message.setWrapText(true);
-        message.setMinHeight(Region.USE_PREF_SIZE);
+        message.setMaxWidth(Double.MAX_VALUE);
         if (problem.location == null && problem.onOpen == null)
         {
             return message;
@@ -360,20 +361,23 @@ public class OutputPane extends VBox
         location.getStyleClass().add("sg-problem-location");
         location.setMinWidth(Region.USE_PREF_SIZE);
         HBox row = new HBox(10, location, message);
+        row.getStyleClass().add("sg-problem-row");
         row.setAlignment(javafx.geometry.Pos.TOP_LEFT);
         HBox.setHgrow(message, Priority.ALWAYS);
-        Button button = new Button();
-        button.setGraphic(row);
-        button.getStyleClass().add("sg-problem-row");
-        button.setMaxWidth(Double.MAX_VALUE);
-        button.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        button.setFocusTraversable(true);
         if (problem.onOpen != null)
         {
-            button.setOnAction(e -> problem.onOpen.run());
-            button.setTooltip(new javafx.scene.control.Tooltip("Open the class at this line"));
+            row.setFocusTraversable(true);
+            row.setOnMouseClicked(e -> problem.onOpen.run());
+            row.setOnKeyPressed(e -> {
+                if (e.getCode() == javafx.scene.input.KeyCode.ENTER || e.getCode() == javafx.scene.input.KeyCode.SPACE)
+                {
+                    problem.onOpen.run();
+                    e.consume();
+                }
+            });
+            javafx.scene.control.Tooltip.install(row, new javafx.scene.control.Tooltip("Open the class at this line"));
         }
-        return button;
+        return row;
     }
 
     public void showProblems()

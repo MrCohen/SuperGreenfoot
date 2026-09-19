@@ -227,4 +227,12 @@ public interface ProjectView
     default void actorClicked(DebuggerObject actor)
     {
     }
+
+    /**
+     * The user has started an interactive call on an actor or the world, e.g.
+     * "printer1.jump(50);" (the Classic window shows nothing for this).
+     */
+    default void interactiveCallStarted(String callString)
+    {
+    }
 }

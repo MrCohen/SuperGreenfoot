@@ -206,6 +206,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     private final PauseTransition actorRefreshDelay = new PauseTransition(Duration.millis(120));
     /** The compiler's errors and warnings from each class's latest compile, by class name. */
     private final Map<String, List<Diagnostic>> diagnostics = new HashMap<>();
+    private boolean showProblemsAfterCompile = false;
     // Flag indicating Greenfoot is being exited by the user
     private boolean isQuittingRequest = false;
 
@@ -1104,6 +1105,14 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         refreshSelectedActor();
     }
 
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void interactiveCallStarted(String callString)
+    {
+        getOutput().appendCall(callString.endsWith(";")
+                ? callString.substring(0, callString.length() - 1) : callString);
+    }
+
     /**
      * Stop showing an actor in the Inspector (and its ring in the world).
      */
@@ -1228,8 +1237,10 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
      */
     private InspectorPane.MethodEntry methodEntry(MenuItem item)
     {
-        if (item instanceof SeparatorMenuItem || item instanceof Menu || item.getText() == null)
+        if (item instanceof SeparatorMenuItem || item instanceof Menu || item.getText() == null
+                || item.getText().contains("   [ " + Config.getString("debugger.objectwrapper.redefined")))
         {
+            // (An inherited method the class redefines is already among its own methods.)
             return null;
         }
         String text = item.getText().trim();
@@ -1278,6 +1289,12 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     {
         compiling = false;
         updateCompileState();
+        if (showProblemsAfterCompile)
+        {
+            showProblemsAfterCompile = false;
+            bottomOpenProperty().set(true);
+            getOutput().showProblems();
+        }
     }
 
     /**
@@ -1399,6 +1416,12 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         }
         diagnostics.computeIfAbsent(baseName(new File(diagnostic.getFileName())), k -> new ArrayList<>())
                 .add(diagnostic);
+        if (diagnostic.getType() == Diagnostic.ERROR && type.showEditorOnError())
+        {
+            // A compile the user asked for (not the editor's checking as they type)
+            // found errors: show them once it finishes.
+            showProblemsAfterCompile = true;
+        }
         updateCompileState();
     }
 

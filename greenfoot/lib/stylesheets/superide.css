@@ -510,15 +510,12 @@
 .sg-problem { -fx-text-fill: -sg-danger; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12.5px; }
 .sg-problem-warning { -fx-text-fill: -sg-muted; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12.5px; }
 .sg-problem-location { -fx-text-fill: -sg-text; -fx-font-family: "IBM Plex Mono Medm"; -fx-font-size: 12.5px; }
-.button.sg-problem-row {
-    -fx-background-color: transparent;
+.sg-problem-row {
     -fx-background-radius: 6;
-    -fx-border-color: transparent;
     -fx-padding: 4 8 4 8;
     -fx-cursor: hand;
 }
-.button.sg-problem-row:hover { -fx-background-color: -sg-hover; }
-.button.sg-problem-row:focused { -fx-background-color: -sg-hover; }
+.sg-problem-row:hover, .sg-problem-row:focused { -fx-background-color: -sg-hover; }
 .sg-last-line { -fx-text-fill: -sg-faint; -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; }
 
 /* ---------- inspector ---------- */

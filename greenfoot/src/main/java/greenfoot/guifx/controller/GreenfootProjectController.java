@@ -1974,6 +1974,14 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             ResultWatcher watcher = new ResultWatcherBase(target, objInstanceName,
                     project.getUnnamedPackage(), window, mv) {
                 @Override
+                @OnThread(Tag.FXPlatform)
+                public void beginExecution(InvokerRecord ir)
+                {
+                    super.beginExecution(ir);
+                    view.interactiveCallStarted(ir.hasVoidResult() ? ir.toStatement() : ir.toExpression());
+                }
+
+                @Override
                 protected void addInteraction(InvokerRecord ir)
                 {
                     saveTheWorldRecorder.callActorOrWorldMethod(target, mv.getMethod(),
