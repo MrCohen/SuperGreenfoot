@@ -51,12 +51,16 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
+import javafx.collections.FXCollections;
+import javafx.event.EventHandler;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
+import javafx.geometry.BoundingBox;
 import javafx.geometry.Bounds;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -66,11 +70,14 @@ import javafx.scene.control.ScrollPane.ScrollBarPolicy;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TabPane.TabClosingPolicy;
+import javafx.scene.control.TabPane.TabDragPolicy;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -155,6 +162,14 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     private final SimpleStringProperty hostTitle = new SimpleStringProperty("");
     /** The selected tab's title with the project name, e.g. "Player - CoinQuest" */
     private StringExpression editorTitle;
+    /** While the project has an embedded host: the tab whose header the mouse was pressed on */
+    private FXTab tearOffTab;
+    /** Where that press happened, on screen */
+    private double tearOffStartX, tearOffStartY;
+    /** Whether the mouse has moved far enough since that press to be dragging the tab */
+    private boolean tearOffDragging;
+    /** When this host's window (or, embedded, the window it is in) last gained focus */
+    private long lastFocusedTime;
 
 
     // Neither the constructor nor any initialisers should do any JavaFX work until
@@ -290,6 +305,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         }
 
         tabPane.getStyleClass().add("tabbed-editor");
+        installTearOff();
 
         tabPane.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Tab>()
         {
@@ -350,50 +366,60 @@ public @OnThread(Tag.FX) class FXTabbedEditor
                 return;
             }
 
-            // We only listen for Ctrl/Cmd shortcuts, but we avoid the case when
-            // Alt is held down, because AltGr on Windows maps to Ctrl-Alt, and we
-            // don't want AltGr-6 to move to tab 6 (only Ctrl-6)
-            if (!e.isShortcutDown() || e.isAltDown())
-                return;
-            
-            int tab = tabPane.getSelectionModel().getSelectedIndex();
-            switch (e.getCode())
-            {
-            // First tab is index 0, but selected with Ctrl+1
-            case DIGIT1: tab = 0; break;
-            case DIGIT2: tab = 1; break;
-            case DIGIT3: tab = 2; break;
-            case DIGIT4: tab = 3; break;
-            case DIGIT5: tab = 4; break;
-            case DIGIT6: tab = 5; break;
-            case DIGIT7: tab = 6; break;
-            case DIGIT8: tab = 7; break;
-            case DIGIT9: tab = 8; break;
-            // We don't handle 0
-            // Ctrl-Tab is done by default by TabPane, but only when the tab has focus.
-            // So we must do it here:
-            case TAB:
-                if (e.isShiftDown())
-                {
-                    tab = tab - 1;
-                    if (tab < 0)
-                        tab = tabPane.getTabs().size() - 1;
-                }
-                else
-                {
-                    tab = (tab + 1) % tabPane.getTabs().size();
-                }
-                break;
-            // For all other keys, return and do not process event:
-            default: return;
-            }
-            
-            if (tab < tabPane.getTabs().size())
-            {
-                tabPane.getSelectionModel().select(tabPane.getTabs().get(tab));
-            }
-            e.consume();
+            switchTabForKey(e);
         });
+    }
+
+    /**
+     * Ctrl/Cmd+1..9 selects that tab, and Ctrl/Cmd+Tab (with Shift: backwards) the next
+     * one.  The key event is consumed if it did so.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void switchTabForKey(KeyEvent e)
+    {
+        // We only listen for Ctrl/Cmd shortcuts, but we avoid the case when
+        // Alt is held down, because AltGr on Windows maps to Ctrl-Alt, and we
+        // don't want AltGr-6 to move to tab 6 (only Ctrl-6)
+        if (!e.isShortcutDown() || e.isAltDown())
+            return;
+        
+        int tab = tabPane.getSelectionModel().getSelectedIndex();
+        switch (e.getCode())
+        {
+        // First tab is index 0, but selected with Ctrl+1
+        case DIGIT1: tab = 0; break;
+        case DIGIT2: tab = 1; break;
+        case DIGIT3: tab = 2; break;
+        case DIGIT4: tab = 3; break;
+        case DIGIT5: tab = 4; break;
+        case DIGIT6: tab = 5; break;
+        case DIGIT7: tab = 6; break;
+        case DIGIT8: tab = 7; break;
+        case DIGIT9: tab = 8; break;
+        // We don't handle 0
+        // Ctrl-Tab is done by default by TabPane, but only when the tab has focus.
+        // So we must do it here:
+        case TAB:
+            if (e.isShiftDown())
+            {
+                tab = tab - 1;
+                if (tab < 0)
+                    tab = tabPane.getTabs().size() - 1;
+            }
+            else
+            {
+                tab = (tab + 1) % tabPane.getTabs().size();
+            }
+            break;
+        // For all other keys, return and do not process event:
+        default: return;
+        }
+        
+        if (tab < tabPane.getTabs().size())
+        {
+            tabPane.getSelectionModel().select(tabPane.getTabs().get(tab));
+        }
+        e.consume();
     }
 
     /**
@@ -466,6 +492,20 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         Stage siteStage = site.getStage();
         siteListenerRemovers.add(JavaFXUtil.addChangeListenerPlatform(siteStage.focusedProperty(), this::hostFocusChanged));
         siteListenerRemovers.add(JavaFXUtil.addChangeListenerPlatform(siteStage.iconifiedProperty(), this::hostIconifiedChanged));
+        // The tab keys (Ctrl/Cmd+1..9, Ctrl/Cmd+Tab) work wherever the focus is in the
+        // window, not only inside the tabs (events inside the tabs are handled there):
+        Scene siteScene = siteStage.getScene();
+        if (siteScene != null)
+        {
+            EventHandler<KeyEvent> tabKeys = e -> {
+                if (!(e.getTarget() instanceof Node && isInsideTabPane((Node) e.getTarget())))
+                {
+                    switchTabForKey(e);
+                }
+            };
+            siteScene.addEventFilter(KeyEvent.KEY_PRESSED, tabKeys);
+            siteListenerRemovers.add(() -> siteScene.removeEventFilter(KeyEvent.KEY_PRESSED, tabKeys));
+        }
         Tab selected = tabPane.getSelectionModel().getSelectedItem();
         if (selected != null)
         {
@@ -532,6 +572,10 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.FXPlatform)
     private void hostFocusChanged(boolean focused)
     {
+        if (focused)
+        {
+            lastFocusedTime = System.nanoTime();
+        }
         Tab selectedItem = tabPane.getSelectionModel().getSelectedItem();
         // It is possible during shutdown that the window becomes focused while no tabs are present, so guard against that:
         if (selectedItem != null && selectedItem instanceof FXTab)
@@ -1225,6 +1269,193 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     public static enum CodeCompletionState
     {
         NOT_POSSIBLE, SHOWING, POSSIBLE;
+    }
+
+    /**
+     * Moves the tab into a new window whose top-left corner is near the given screen
+     * position (where a torn-off tab was dropped).
+     */
+    @OnThread(Tag.FXPlatform)
+    void moveToNewWindowAt(FXTab tab, double screenX, double screenY)
+    {
+        FXTabbedEditor newWindow = project.createNewFXTabbedEditor();
+        Rectangle recalled = newWindow.startSize;
+        double width = recalled != null && recalled.getWidth() > 0 ? recalled.getWidth() : 800;
+        double height = recalled != null && recalled.getHeight() > 0 ? recalled.getHeight() : 700;
+        newWindow.startSize = new Rectangle(screenX - 60, screenY - 16, width, height);
+        moveTabTo(tab, newWindow);
+    }
+
+    /**
+     * When this host's window last gained focus (System.nanoTime), or 0 if never.
+     */
+    @OnThread(Tag.FXPlatform)
+    public long getLastFocusedTime()
+    {
+        return lastFocusedTime;
+    }
+
+    /**
+     * The tab selected in this host (or window), or null.
+     */
+    @OnThread(Tag.FXPlatform)
+    public Tab getSelectedTab()
+    {
+        return tabPane.getSelectionModel().getSelectedItem();
+    }
+
+    /**
+     * The host (or window) an editor tab is in, or null if it is in none.
+     */
+    @OnThread(Tag.FXPlatform)
+    public static FXTabbedEditor hostOf(Tab tab)
+    {
+        return tab instanceof FXTab ? ((FXTab) tab).getParent() : null;
+    }
+
+    /**
+     * Whether the given screen position is on (or just around) this host's strip of tab
+     * headers, while the host is showing.
+     */
+    @OnThread(Tag.FXPlatform)
+    public boolean isTabStripAt(double screenX, double screenY)
+    {
+        if (!isWindowVisible())
+        {
+            return false;
+        }
+        Node strip = tabPane.lookup(".tab-header-area");
+        if (strip == null || strip.getScene() == null)
+        {
+            return false;
+        }
+        Bounds bounds = strip.localToScreen(strip.getBoundsInLocal());
+        if (bounds == null)
+        {
+            return false;
+        }
+        double margin = 12;
+        return new BoundingBox(bounds.getMinX() - margin, bounds.getMinY() - margin,
+                bounds.getWidth() + 2 * margin, bounds.getHeight() + 2 * margin).contains(screenX, screenY);
+    }
+
+    /**
+     * While the project docks editors in the new IDE's main window (it has an embedded
+     * host), a tab can be dragged out of its strip: dropped on another host's strip, it
+     * moves there; dropped anywhere else, it opens in a new window of its own.  In an
+     * embedded host the tabs can also be reordered by dragging, but the pinned (World)
+     * tab stays first and cannot be dragged.  Without an embedded host (the Classic IDE,
+     * and BlueJ) nothing here does anything.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void installTearOff()
+    {
+        if (embedded)
+        {
+            tabPane.setTabDragPolicy(TabDragPolicy.REORDER);
+            tabPane.getTabs().addListener((ListChangeListener<? super Tab>) c -> {
+                if (!tabPane.getTabs().isEmpty() && !(tabPane.getTabs().get(0) instanceof PinnedTab)
+                        && tabPane.getTabs().stream().anyMatch(t -> t instanceof PinnedTab))
+                {
+                    JavaFXUtil.runAfterCurrent(() -> FXCollections.sort(tabPane.getTabs(),
+                            (a, b) -> Boolean.compare(!(a instanceof PinnedTab), !(b instanceof PinnedTab))));
+                }
+            });
+        }
+        tabPane.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+            tearOffTab = null;
+            tearOffDragging = false;
+            if (project.getEmbeddedFXTabbedEditor() == null || e.getButton() != MouseButton.PRIMARY)
+            {
+                return;
+            }
+            Tab pressed = tabForHeaderNode(e.getPickResult().getIntersectedNode());
+            if (pressed instanceof FXTab)
+            {
+                tearOffTab = (FXTab) pressed;
+                tearOffStartX = e.getScreenX();
+                tearOffStartY = e.getScreenY();
+            }
+        });
+        tabPane.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> {
+            if (tearOffTab == null)
+            {
+                return;
+            }
+            if (tearOffTab instanceof PinnedTab)
+            {
+                // The World tab stays where it is:
+                e.consume();
+                return;
+            }
+            if (Math.abs(e.getScreenX() - tearOffStartX) > 6 || Math.abs(e.getScreenY() - tearOffStartY) > 6)
+            {
+                tearOffDragging = true;
+            }
+        });
+        tabPane.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> {
+            FXTab tab = tearOffTab;
+            boolean dragged = tearOffDragging;
+            tearOffTab = null;
+            tearOffDragging = false;
+            if (tab == null || !dragged || tab instanceof PinnedTab || project.getEmbeddedFXTabbedEditor() == null)
+            {
+                return;
+            }
+            double x = e.getScreenX();
+            double y = e.getScreenY();
+            if (isTabStripAt(x, y))
+            {
+                // Dropped back on its own strip: a reorder (or nothing), done by the tab pane
+                return;
+            }
+            for (FXTabbedEditor other : project.getAllFXTabbedEditorWindows())
+            {
+                if (other != this && other.isTabStripAt(x, y))
+                {
+                    JavaFXUtil.runAfterCurrent(() -> moveTabTo(tab, other));
+                    return;
+                }
+            }
+            // Dropped elsewhere: into a window of its own (unless it is already alone in one)
+            if (embedded || tabPane.getTabs().size() > 1)
+            {
+                JavaFXUtil.runAfterCurrent(() -> moveToNewWindowAt(tab, x, y));
+            }
+        });
+    }
+
+    /**
+     * Whether the node is inside this host's tab pane.
+     */
+    @OnThread(Tag.FXPlatform)
+    private boolean isInsideTabPane(Node node)
+    {
+        for (Node n = node; n != null; n = n.getParent())
+        {
+            if (n == tabPane)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The tab whose header the given node is part of, or null.
+     */
+    @OnThread(Tag.FXPlatform)
+    private Tab tabForHeaderNode(Node node)
+    {
+        for (Node n = node; n != null && n != tabPane; n = n.getParent())
+        {
+            Object tab = n.getProperties().get(Tab.class);
+            if (tab instanceof Tab && tabPane.getTabs().contains(tab))
+            {
+                return (Tab) tab;
+            }
+        }
+        return null;
     }
 
     @OnThread(Tag.FXPlatform)

@@ -23,12 +23,16 @@ package bluej.editor.stride;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import javafx.beans.binding.StringExpression;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 
 import bluej.compiler.CompileReason;
 import bluej.compiler.CompileType;
@@ -47,6 +51,11 @@ public abstract class TabMenuManager
     private final Menu contextMoveMenu;
     protected final Menu mainMoveMenu;
     private final MenuItem mainMoveNew;
+    /** While the project docks editors in the new IDE: move a torn-off tab back into the main window */
+    private final MenuItem contextDock;
+    private final MenuItem mainDock;
+    /** Shift+Shortcut+D: dock a torn-off tab, or tear a docked one off (new IDE only) */
+    private static final KeyCombination DOCK_KEY = new KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN);
 
     @OnThread(Tag.FXPlatform)
     public TabMenuManager(FXTab tab)
@@ -56,6 +65,8 @@ public abstract class TabMenuManager
         contextMoveNew = JavaFXUtil.makeMenuItem(Config.getString("frame.classmenu.move.new"), () -> tab.getParent().moveToNewLater(tab), null);
         mainMoveNew = JavaFXUtil.makeMenuItem(Config.getString("frame.classmenu.move.new"), () -> tab.getParent().moveToNewLater(tab), null);
         mainMoveMenu = JavaFXUtil.makeMenu(Config.getString("frame.classmenu.move"));
+        contextDock = JavaFXUtil.makeMenuItem(Config.getString("frame.classmenu.move.dock", "Dock in Main Window"), () -> dock(), null);
+        mainDock = JavaFXUtil.makeMenuItem(Config.getString("frame.classmenu.move.dock", "Dock in Main Window"), () -> dock(), null);
 
         // We may not have a parent yet, so use runLater:
         JavaFXUtil.runAfterCurrent(() -> {
@@ -87,16 +98,32 @@ public abstract class TabMenuManager
         // Have to do everything double because the menus don't share:
         ArrayList<MenuItem> classMoveItems = new ArrayList<>();
         ArrayList<MenuItem> contextMoveItems = new ArrayList<>();
+        // While the project docks editors in the new IDE's main window, a torn-off tab
+        // offers to dock, and Shift+Shortcut+D docks it or (for a docked tab) tears it off:
+        FXTabbedEditor dockHost = tab.getParent().getProject().getEmbeddedFXTabbedEditor();
+        boolean docked = dockHost != null && dockHost == tab.getParent();
+        if (dockHost != null && !docked)
+        {
+            classMoveItems.add(mainDock);
+            contextMoveItems.add(contextDock);
+        }
+        mainDock.setAccelerator(dockHost != null && !docked ? DOCK_KEY : null);
+        mainMoveNew.setAccelerator(docked ? DOCK_KEY : null);
         classMoveItems.add(mainMoveNew);
         contextMoveItems.add(contextMoveNew);
         mainMoveNew.setDisable(tab.getParent().hasOneTab());
         contextMoveNew.setDisable(tab.getParent().hasOneTab());
         List<FXTabbedEditor> allWindows = tab.getParent().getProject().getAllFXTabbedEditorWindows();
-        if (allWindows.size() > 1)
+        // (While docking, the main window is offered above, and hidden, empty editor
+        // windows are not offered:)
+        List<FXTabbedEditor> otherWindows = allWindows.stream()
+                .filter(w -> w != tab.getParent() && (dockHost == null || (w != dockHost && w.isWindowVisible())))
+                .collect(Collectors.toList());
+        if (!otherWindows.isEmpty())
         {
             classMoveItems.add(new SeparatorMenuItem());
             contextMoveItems.add(new SeparatorMenuItem());
-            allWindows.stream().filter(w -> w != tab.getParent()).forEach(w -> {
+            otherWindows.forEach(w -> {
                 StringExpression itemText = new ReadOnlyStringWrapper(Config.getString("frame.classmenu.move.existing") + ": ").concat(w.titleProperty());
                 contextMoveItems.add(JavaFXUtil.makeMenuItem(itemText, () -> tab.getParent().moveTabTo(tab, w), null));
                 classMoveItems.add(JavaFXUtil.makeMenuItem(itemText, () -> tab.getParent().moveTabTo(tab, w), null));
@@ -110,6 +137,19 @@ public abstract class TabMenuManager
         if (contextMoveMenu != null)
         {
             contextMoveMenu.getItems().setAll(contextMoveItems);
+        }
+    }
+
+    /**
+     * Move this tab into the new IDE's main window (if the project has one).
+     */
+    @OnThread(Tag.FXPlatform)
+    private void dock()
+    {
+        FXTabbedEditor dockHost = tab.getParent().getProject().getEmbeddedFXTabbedEditor();
+        if (dockHost != null && dockHost != tab.getParent())
+        {
+            tab.getParent().moveTabTo(tab, dockHost);
         }
     }
 
