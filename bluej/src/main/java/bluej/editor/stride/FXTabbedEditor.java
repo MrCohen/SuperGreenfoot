@@ -115,6 +115,8 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     private Stage stage;
     /** The scene within the stage */
     private Scene scene;
+    /** Everything the window shows (menu, tabs, catalogue and the drag and overlay panes) */
+    private StackPane hostRoot;
     /** The tabs container */
     private TabPane tabPane;
     /** The Pane used for frames being dragged */
@@ -236,10 +238,8 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         JavaFXUtil.addStyleClass(collapsibleCatalogueScrollPane, "catalogue-scroll-collapsible");
         menuAndTabPane.setRight(collapsibleCatalogueScrollPane);
 
-        scene = new Scene(new StackPane(menuAndTabPane, dragPane, dragCursorPane, overlayPane.getNode()), 800, 700);
-        stage.setScene(scene);
-        Config.addEditorStylesheets(scene);
-        JavaFXUtil.addMacMinimiseShortcutHandler(stage);
+        hostRoot = new StackPane(menuAndTabPane, dragPane, dragCursorPane, overlayPane.getNode());
+        initialiseWindowFrame();
 
         tabPane.getStyleClass().add("tabbed-editor");
 
@@ -255,7 +255,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
                 if (prevSel != null && prevSel != selTab)
                     ((FXTab) prevSel).notifyUnselected();
 
-                if (selTab != null && stage.isFocused())
+                if (selTab != null && isHostFocused())
                     ((FXTab) selTab).notifySelected();
 
                 if (selTab != null && ((FXTab) selTab).shouldShowCatalogue())
@@ -279,45 +279,6 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             }
         });
         
-        tabPane.getTabs().addListener((ListChangeListener<? super Tab>) e -> {
-            if (tabPane.getTabs().isEmpty())
-            {
-                startSize = new Rectangle((int)stage.getX(), (int)stage.getY(), (int)stage.getWidth(), (int)stage.getHeight());
-                stage.close();
-                project.removeFXTabbedEditor(this);
-            }
-        });
-
-        stage.setOnHidden(e -> {
-            // Close all tabs, which also trigger above code to call removeFXTabbedEditor on us
-            // Must take a copy to avoid concurrent modification:
-            List<Tab> tabs = new ArrayList<>(tabPane.getTabs());
-            tabs.forEach(t -> close((FXTab)t));
-        });
-
-        JavaFXUtil.addChangeListenerPlatform(stage.focusedProperty(), focused -> {
-            Tab selectedItem = tabPane.getSelectionModel().getSelectedItem();
-            // It is possible during shutdown that the window becomes focused while no tabs are present, so guard against that:
-            if (selectedItem != null && selectedItem instanceof FXTab)
-            {
-                if (focused)
-                {
-                    ((FXTab) selectedItem).notifySelected();
-                }
-                else
-                {
-                    // if 'selectedItem' is null, that mean it has been already notified unselected
-                    // by the selectedItemProperty Listener added above.
-                    ((FXTab) selectedItem).notifyUnselected();
-                }
-            }
-        });
-
-        JavaFXUtil.addChangeListenerPlatform(stage.iconifiedProperty(), minimised -> {
-            if (minimised)
-                ((FXTab)tabPane.getSelectionModel().getSelectedItem()).notifyUnselected();
-        });
-
         // Add shortcuts for Ctrl-1, Ctrl-2 etc and Ctrl-Tab and Ctrl-Shift-Tab to move between tabs
         // On Mac, it should still be Ctrl-Tab (not Cmd-Tab), but should it be Cmd-1?
         tabPane.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -385,10 +346,94 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             }
             e.consume();
         });
+    }
+
+    /**
+     * Puts the editor into its own window: the stage, its scene, and the stage's
+     * listeners (closing the window when the last tab goes, telling the selected tab
+     * when the window gains or loses focus, and the window title).
+     */
+    @OnThread(Tag.FXPlatform)
+    private void initialiseWindowFrame()
+    {
+        scene = new Scene(hostRoot, 800, 700);
+        stage.setScene(scene);
+        Config.addEditorStylesheets(scene);
+        JavaFXUtil.addMacMinimiseShortcutHandler(stage);
+
+        tabPane.getTabs().addListener((ListChangeListener<? super Tab>) e -> {
+            if (tabPane.getTabs().isEmpty())
+            {
+                startSize = new Rectangle((int)stage.getX(), (int)stage.getY(), (int)stage.getWidth(), (int)stage.getHeight());
+                stage.close();
+                project.removeFXTabbedEditor(this);
+            }
+        });
+
+        stage.setOnHidden(e -> {
+            // Close all tabs, which also trigger above code to call removeFXTabbedEditor on us
+            // Must take a copy to avoid concurrent modification:
+            List<Tab> tabs = new ArrayList<>(tabPane.getTabs());
+            tabs.forEach(t -> close((FXTab)t));
+        });
+
+        JavaFXUtil.addChangeListenerPlatform(stage.focusedProperty(), this::hostFocusChanged);
+
+        JavaFXUtil.addChangeListenerPlatform(stage.iconifiedProperty(), this::hostIconifiedChanged);
 
         stage.titleProperty().bind(Bindings.concat(
             JavaFXUtil.applyPlatform(tabPane.getSelectionModel().selectedItemProperty(), t -> ((FXTab)t).windowTitleProperty(), "Unknown")
                 ," - ", projectTitle, titleStatus));
+    }
+
+    /**
+     * The window showing the editors gained or lost focus: tell the selected tab.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void hostFocusChanged(boolean focused)
+    {
+        Tab selectedItem = tabPane.getSelectionModel().getSelectedItem();
+        // It is possible during shutdown that the window becomes focused while no tabs are present, so guard against that:
+        if (selectedItem != null && selectedItem instanceof FXTab)
+        {
+            if (focused)
+            {
+                ((FXTab) selectedItem).notifySelected();
+            }
+            else
+            {
+                // if 'selectedItem' is null, that mean it has been already notified unselected
+                // by the selectedItemProperty Listener added above.
+                ((FXTab) selectedItem).notifyUnselected();
+            }
+        }
+    }
+
+    /**
+     * The window showing the editors was minimised or restored.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void hostIconifiedChanged(boolean minimised)
+    {
+        if (minimised)
+            ((FXTab)tabPane.getSelectionModel().getSelectedItem()).notifyUnselected();
+    }
+
+    /**
+     * Whether the window showing the editors has the focus.
+     */
+    @OnThread(Tag.FXPlatform)
+    private boolean isHostFocused()
+    {
+        return stage.isFocused();
+    }
+
+    /**
+     * Sets the mouse cursor over the window showing the editors.
+     */
+    private void setHostCursor(Cursor cursor)
+    {
+        scene.setCursor(cursor);
     }
 
     /**
@@ -735,7 +780,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             getDragPane().getChildren().add(icon);
             dragIcon = icon;
             dragFromShelf = fromShelf;
-            scene.setCursor(Cursor.CLOSED_HAND);
+            setHostCursor(Cursor.CLOSED_HAND);
         }
         else
         {
@@ -862,7 +907,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             }
             shelf.dragEnd(dragSourceFrames, dragFromShelf, calcDragCopy(dragType, true));
             dragSourceFrames.clear();
-            scene.setCursor(Cursor.DEFAULT);
+            setHostCursor(Cursor.DEFAULT);
         }
     }
 
