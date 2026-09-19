@@ -1,0 +1,381 @@
+/*
+ * SuperGreenfoot IDE theme for the windows the new IDE shares with BlueJ:
+ * the Java and Stride editors, the terminal, the debugger, inspectors, code
+ * completion and other popups.
+ *
+ * SuperTheme adds this sheet (after BlueJ's own sheets) and the sg-theme plus
+ * sg-light or sg-dark classes to every window's root while the new IDE is
+ * active, and removes them again for the Classic IDE, so nothing here can
+ * change Classic or BlueJ. The -sg-* palette comes from superide.css; the
+ * -sgx-* colours below are the shared windows' own light and dark values.
+ */
+
+.root.sg-light {
+    /* Java syntax colours (the approved mockup's) */
+    -sgx-keyword: #8A2E7A;
+    -sgx-keyword3: #1F5F99;
+    -sgx-comment: #5F625A;
+    -sgx-javadoc: #3C5F85;
+    -sgx-special: #A34B06;
+    -sgx-string: #2B7148;
+    -sgx-invalid: #B0301C;
+    -sgx-default: #1D1E1B;
+
+    /* scope boxes: fill and edge */
+    -sgx-scope-bg: #FFFFFF;
+    -sgx-scope-class: #F2F8F2;
+    -sgx-scope-class-outer: #A9D1B2;
+    -sgx-scope-class-inner: #E3EFE5;
+    -sgx-scope-method: #FCF7E7;
+    -sgx-scope-method-outer: #E2CD85;
+    -sgx-scope-if: #EEF3FA;
+    -sgx-scope-if-outer: #AFC3E2;
+    -sgx-scope-loop: #F7F0F8;
+    -sgx-scope-loop-outer: #D2B6D9;
+
+    -sgx-selection: #D6E5F8;
+    -sgx-find: #FBEFC4;
+    -sgx-bracket: #D9D8D1;
+    -sgx-margin-uncompiled: #E4E2DA;
+    -sgx-margin-error: #C0352B;
+    -sgx-terminal-input: #1F5F99;
+    -sgx-link: #B42318;
+
+    /* AtlantaFX palette steps it uses directly (hover, selected cells, a focused default button) */
+    -color-base-1: -sg-hover;
+    -color-base-2: -sg-line;
+    -color-accent-6: #25693F;
+}
+
+.root.sg-dark {
+    -sgx-keyword: #E391D4;
+    -sgx-keyword3: #86BDEE;
+    -sgx-comment: #9A9E94;
+    -sgx-javadoc: #9DBAD3;
+    -sgx-special: #F2A965;
+    -sgx-string: #93D3A8;
+    -sgx-invalid: #FF8A7A;
+    -sgx-default: #E6E8E1;
+
+    -sgx-scope-bg: #161915;
+    -sgx-scope-class: #1B231D;
+    -sgx-scope-class-outer: #3A5E42;
+    -sgx-scope-class-inner: #20291F;
+    -sgx-scope-method: #25241A;
+    -sgx-scope-method-outer: #6A5E2F;
+    -sgx-scope-if: #1B2029;
+    -sgx-scope-if-outer: #3A4C6A;
+    -sgx-scope-loop: #241C27;
+    -sgx-scope-loop-outer: #5E4468;
+
+    -sgx-selection: #22354C;
+    -sgx-find: #4A4122;
+    -sgx-bracket: #3A3F37;
+    -sgx-margin-uncompiled: #2A2E28;
+    -sgx-margin-error: #8E2B24;
+    -sgx-terminal-input: #86BDEE;
+    -sgx-link: #F08A7E;
+
+    -color-base-1: -sg-hover;
+    -color-base-2: -sg-line;
+    -color-accent-6: #85D0A2;
+}
+
+/* Modena colour names that BlueJ's own sheets look up and AtlantaFX does not define: */
+.root.sg-theme {
+    -fx-background: -sg-panel;
+    -fx-box-border: -sg-line;
+    -fx-text-box-border: -sg-line;
+    -fx-outer-border: -sg-line;
+}
+
+/* A see-through window (BlueJ's rounded object inspector) keeps no background: */
+.root.sg-theme.sg-transparent-root { -fx-background-color: transparent; }
+
+/* ================= Java editor ================= */
+
+.sg-theme .token-keyword1,
+.sg-theme .token-keyword2,
+.sg-theme .token-primitive { -fx-fill: -sgx-keyword; }
+.sg-theme .token-keyword3 { -fx-fill: -sgx-keyword3; }
+.sg-theme .token-comment-normal,
+.sg-theme .token-label { -fx-fill: -sgx-comment; }
+.sg-theme .token-comment-javadoc { -fx-fill: -sgx-javadoc; }
+.sg-theme .token-comment-special { -fx-fill: -sgx-special; }
+.sg-theme .token-string-literal { -fx-fill: -sgx-string; }
+.sg-theme .token-invalid { -fx-fill: -sgx-invalid; }
+.sg-theme .token-default { -fx-fill: -sgx-default; }
+
+.sg-theme .scope-colors {
+    -bj-background-color: -sgx-scope-bg;
+    -bj-class-color: -sgx-scope-class;
+    -bj-class-outer-color: -sgx-scope-class-outer;
+    -bj-class-inner-color: -sgx-scope-class-inner;
+    -bj-method-color: -sgx-scope-method;
+    -bj-method-outer-color: -sgx-scope-method-outer;
+    -bj-selection-color: -sgx-scope-if;
+    -bj-selection-outer-color: -sgx-scope-if-outer;
+    -bj-iteration-color: -sgx-scope-loop;
+    -bj-iteration-outer-color: -sgx-scope-loop-outer;
+}
+
+.sg-theme .flow-top-bar,
+.sg-theme .moe-top-bar {
+    -fx-background-color: -sg-line, -sg-panel;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+.sg-theme .moe-bottom-bar {
+    -fx-background-color: -sg-line, -sg-panel;
+    -fx-background-insets: 0, 1 0 0 0;
+}
+.sg-theme .moe-status-label-wrapper {
+    -fx-border-color: -sg-line;
+}
+.sg-theme .moe-status-label-wrapper .label {
+    -fx-font-family: "IBM Plex Sans";
+    -fx-text-fill: -sg-faint;
+}
+.sg-theme .moe-status-label-wrapper .error-count-label {
+    -fx-text-fill: -sg-danger;
+}
+.sg-theme .moe-info { -fx-font-family: "IBM Plex Sans"; }
+.sg-theme .moe-info-text { -fx-fill: -sg-muted; }
+.sg-theme .moe-find-panel { -fx-border-color: -sg-line; }
+.sg-theme .moe-find-field:bj-no-find-result { -fx-text-fill: -sg-danger; }
+
+.sg-theme .moe-editor-pane,
+.sg-theme .margin-and-text-line,
+.sg-theme .line-container,
+.sg-theme .flow-margin-background {
+    -fx-background-color: -sg-code-bg;
+}
+.sg-theme .margin-and-text-line:bj-margin-uncompiled .flow-margin-background {
+    -fx-background-color: -sgx-margin-uncompiled;
+}
+.sg-theme .margin-and-text-line:bj-margin-error .flow-margin-background {
+    -fx-background-color: -sgx-margin-error;
+}
+.sg-theme .flow-margin-line { -fx-stroke: -sg-line; }
+.sg-theme .flow-line-label { -fx-text-fill: -sg-faint; }
+.sg-theme .margin-and-text-line:bj-margin-error .flow-line-label { -fx-text-fill: #FFFFFF; }
+.sg-theme .text-line .flow-selection { -fx-fill: -sgx-selection; }
+.sg-theme .text-line .flow-find-result { -fx-fill: -sgx-find; }
+.sg-theme .text-line .flow-bracket-match { -fx-fill: -sgx-bracket; }
+.sg-theme .flow-caret { -fx-stroke: -sg-accent; }
+.sg-theme .moe-step-mark-icon { -fx-stroke: -sg-code-bg; }
+
+/* The tab strip above the editors */
+.sg-theme .tabbed-editor > .tab-header-area > .tab-header-background {
+    -fx-background-color: -sg-panel2;
+}
+.sg-theme .tabbed-editor > .tab-header-area .tab {
+    -fx-background-color: -sg-panel2;
+    -fx-border-color: -sg-line;
+}
+.sg-theme .tabbed-editor > .tab-header-area .moe-tab:selected {
+    -fx-background-color: -sg-panel !important;
+    -fx-border-color: transparent !important;
+}
+.sg-theme .tabbed-editor > .tab-header-area .tab .tab-label { -fx-text-fill: -sg-muted; }
+.sg-theme .tabbed-editor > .tab-header-area .tab:selected .tab-label { -fx-text-fill: -sg-text; }
+.sg-theme .tabbed-editor > .tab-header-area .bj-tab-error .tab-label { -fx-border-color: -sg-danger; }
+
+/* Code completion */
+.root.sg-dark {
+    suggestion-background: -sg-panel;
+}
+.sg-dark .suggestion-list,
+.sg-dark .suggestion-javadoc,
+.sg-dark .suggestion-file-preview,
+.sg-dark .suggestion-more-label-pane { -fx-border-color: -sg-line; }
+.sg-dark .suggestion:bj-suggestion-highlight { -fx-background-color: -sg-sel; }
+.sg-dark .suggestion-similar-heading { -fx-background-color: -sg-panel2; -fx-text-fill: -sg-muted; }
+.sg-dark .suggestion:bj-suggestion-similar .label,
+.sg-dark .suggestion-none,
+.sg-dark .suggestion-more-label { -fx-text-fill: -sg-muted; }
+.sg-dark .suggestion-javadoc,
+.sg-dark .suggestion-file-preview { -fx-background-color: -sg-panel2; }
+.sg-dark .suggestion-more-label-pane { -fx-background-color: -sg-panel; }
+
+/* Error overview bar at the side of the editor */
+.sg-theme .error-overview-bar-pane,
+.sg-theme .error-overview-bar-status { -fx-border-color: -sg-line; }
+.sg-theme .error-overview-bar-status:bj-success { -fx-text-fill: -sg-accent; }
+.sg-theme .error-overview-bar-status:bj-failure { -fx-text-fill: -sg-danger; }
+
+.sg-dark .banner-undo-delete { -fx-text-fill: -sg-text; -fx-border-color: -sg-text; }
+.sg-dark .selection-highlight, .sg-dark .birdseye-selection { -fx-stroke: -sg-text; }
+
+/* ================= Terminal ================= */
+
+.sg-theme .terminal,
+.sg-theme .terminal-output,
+.sg-theme .terminal-error {
+    -fx-background-color: -sg-code-bg;
+}
+.sg-theme .terminal-output { -fx-fill: -sg-text; }
+.sg-theme .terminal-input { -fx-fill: -sgx-terminal-input; }
+.sg-theme .terminal-error { -fx-fill: -sg-danger; }
+.sg-theme .terminal-output .flow-selection,
+.sg-theme .terminal-error .flow-selection { -fx-fill: -sgx-selection; }
+.sg-theme .terminal-stack-link { -fx-fill: -sgx-link; }
+.sg-theme .terminal-stack-foreign { -fx-fill: -sg-faint; }
+.sg-theme .terminal-input-field { -fx-prompt-text-fill: -sg-faint; }
+
+/* ================= Debugger ================= */
+
+.sg-theme .debugger-stack, .sg-theme .debugger-var-cell { -fx-font-family: "IBM Plex Sans"; }
+.sg-dark .debugger .terminate-icon,
+.sg-dark .debugger .step-icon-arrow,
+.sg-dark .debugger .step-icon-bar,
+.sg-dark .debugger .continue-icon-arrow,
+.sg-dark .debugger .step-into-icon { -fx-stroke: -sg-text; }
+.sg-dark .debugger .terminate-icon { -fx-fill: #D05A4E; }
+.sg-dark .debugger .step-icon-arrow,
+.sg-dark .debugger .step-icon-bar,
+.sg-dark .debugger .continue-icon-arrow,
+.sg-dark .debugger .step-into-icon { -fx-fill: -sg-accent; }
+.sg-theme .debugger .debugger-buttons { -fx-border-color: -sg-line; }
+
+/* ================= Inspectors ================= */
+
+.sg-dark .field-list .inspector-field-description { -fx-text-fill: -sg-text !important; }
+.sg-dark .field-list .inspector-field-value-label {
+    -fx-background-color: transparent, -sg-code-bg;
+    -fx-text-fill: -sg-text !important;
+}
+.sg-dark .field-list .inspector-field-value-wrapper { -fx-background-color: transparent, -sg-line, -sg-code-bg; }
+.sg-dark .inspector-class { -fx-background-color: #3A3226; -fx-border-color: -sg-line; }
+.sg-dark .inspector-object-header .label { -fx-text-fill: -sg-text; }
+.sg-dark .inspector-class-header .label { -fx-text-fill: -sg-text; }
+.sg-dark .inspector-object .field-list { -fx-background-color: #3A2526; }
+.sg-dark .inspector-class .field-list { -fx-background-color: #332C22; }
+.sg-dark .inspector-result .inspector-result-details { -fx-background-color: -sg-panel2; }
+.sg-dark .inspector-object .field-list-content .inspector-field-value-wrapper:bj-selected,
+.sg-dark .inspector-result .field-list-content .inspector-field-value-wrapper:bj-selected { -fx-background-color: #6B5F12, -sg-line, -sg-code-bg; }
+.sg-dark .inspector-object .field-list-content .inspector-field-description:bj-selected,
+.sg-dark .inspector-result .field-list-content .inspector-field-description:bj-selected { -fx-background-color: #6B5F12; }
+.sg-dark .inspector-class .field-list-content .inspector-field-value-wrapper:bj-selected { -fx-background-color: #22354C, -sg-line, -sg-code-bg; }
+.sg-dark .inspector-class .field-list-content .inspector-field-description:bj-selected { -fx-background-color: #22354C; }
+
+/* The object inspector's rounded shape: BlueJ's object red, deeper in dark */
+.sg-dark .object-background { -bj-object-fill: #A13B3B; }
+
+/* ================= Sound recorder ================= */
+
+.sg-theme .sound-recorder-panel {
+    -fx-background-color: -sg-panel2;
+    -fx-background-radius: 5;
+}
+
+/* ================= Stride editor (dark) ================= */
+
+/* frame-style.css names its colours on .root; these win over it in dark. */
+.root.sg-dark {
+    class-frame: #26302A;
+    class-frame-java: #1F2622;
+    class-comment-focus: #2C3830;
+    class-comment-text: #8FCB95;
+    interface-frame: class-frame;
+    interface-frame-java: class-frame-java;
+    interface-comment-focus: class-comment-focus;
+    interface-comment-text: class-comment-text;
+    triangle-label: #9AD48A;
+    class-var-frame: #2D3831;
+    interface-var-frame: #2D3831;
+
+    if-frame: #23252E;
+    if-frame-java: #1D1F26;
+    if-border: #3A3F52;
+    if-border-java: #2E3240;
+    if-sidelabel: #6E7898;
+
+    while-frame: #2D2425;
+    while-frame-java: #251E1F;
+    while-border: #4E3B3D;
+    while-border-java: #3D3031;
+    while-sidelabel: #9A7478;
+
+    foreach-frame: #2E2621;
+    foreach-frame-java: #26201C;
+    foreach-border: #4F4034;
+    foreach-border-java: #3E332A;
+    foreach-sidelabel: #A0826A;
+
+    try-frame: #202C2E;
+    try-frame-java: #1B2426;
+    try-border: #34494D;
+    try-border-java: #2A3A3D;
+    try-sidelabel: #6F9499;
+
+    switch-frame: #2D2C1F;
+    switch-frame-java: #25241B;
+    switch-border: #4D4A30;
+    switch-border-java: #3D3B27;
+    switch-sidelabel: #A09A62;
+
+    method-frame: #2B2B21;
+    method-frame-java: #24241C;
+    method-border: #4A4930;
+    method-border-java: #3A3926;
+    method-comment-focus: #33332A;
+    method-comment-text: #D9CF6A;
+    method-comment-prompt: #6A6848;
+    method-header: method-frame;
+    method-header-pinned: method-frame;
+
+    frame-canvas-empty: -sg-code-bg;
+    frame-canvas-non-empty: #1C1F1B;
+    frame: #1F221E;
+    frame-border: #1F221E;
+    frame-canvas-border: #3A3F38;
+    frame-canvas-border-java: #2D312B;
+    frame-stack-border: #D0634A;
+    frame-drag-border: #8C9087;
+
+    focused-slot: #10130F;
+    text-slot-prompt-text: -sg-faint;
+}
+.sg-dark .frame:bj-java-preview,
+.sg-dark .break-frame:bj-break-while:bj-java-preview,
+.sg-dark .break-frame:bj-break-foreach:bj-java-preview,
+.sg-dark .break-frame:bj-break-switch:bj-java-preview,
+.sg-dark .interface-frame .inherited-method-frame:bj-java-preview,
+.sg-dark .interface-frame .import-frame:bj-java-preview,
+.sg-dark .interface-frame .import-field:bj-java-preview {
+    -fx-background-color: -sg-code-bg;
+    -fx-border-color: -sg-code-bg;
+}
+.sg-dark .frame-canvas:bj-empty:bj-java-preview,
+.sg-dark .frame-canvas:bj-non-empty:bj-java-preview { -bj-background-color: -sg-code-bg; }
+.sg-dark .interface-inherited-frame-canvas:bj-java-preview,
+.sg-dark .interface-import-frame-canvas:bj-java-preview { -bj-background-color: -sg-code-bg !important; }
+.sg-dark .class-comment-frame:bj-java-preview,
+.sg-dark .interface-comment-frame:bj-java-preview { -fx-background-color: -sg-code-bg !important; }
+.sg-dark .method-frame:bj-java-preview .constructor-call-header-row { -fx-background-color: -sg-code-bg; }
+.sg-dark .inherited-method-caption, .sg-dark .inherited-method-slot { -fx-text-fill: #8FA88A; }
+.sg-dark .comment-documentation-text:focused, .sg-dark .import-field:focused { -fx-background-color: -sg-panel2; }
+.sg-dark .text-slot, .sg-dark .text-slot:disabled,
+.sg-dark .expression-slot-field, .sg-dark .expression-slot-field:disabled { -fx-text-fill: -sg-text; }
+.sg-dark .text-slot, .sg-dark .choice-slot, .sg-dark .expression-slot-field,
+.sg-dark .choice-slot:focused { -fx-border-color: rgba(230, 232, 225, 0.05); }
+.sg-dark .expression-string-literal, .sg-dark .expression-string-literal-quote { -fx-text-fill: -sgx-string; }
+.sg-dark .expression-slot-field { -fx-prompt-text-fill: -sg-faint; }
+.sg-dark .var-caption { -fx-text-fill: -sg-text; }
+.sg-dark .var-caption:bj-transparent { -fx-text-fill: transparent; }
+.sg-dark .finder-tile { -fx-background-color: -sg-panel; }
+.sg-dark .override-button { -fx-background-color: #33332A; -fx-border-color: -sg-line; }
+.sg-dark .choice-empty { -fx-background-color: -sg-code-bg; }
+.sg-dark .text-field, .sg-dark .text-area { -fx-highlight-text-fill: -sg-text; }
+.sg-dark .debugger-buttons { -fx-background-color: -sg-panel2; -fx-border-color: -sg-line; }
+
+/* The frame catalogue at the side of the Stride editor */
+.sg-dark .catalogue-background, .sg-dark .catalogue, .sg-dark .catalogue-collapse { -fx-background-color: -sg-panel2; }
+.sg-dark .catalogue-background .label { -fx-text-fill: -sg-faint; }
+.sg-dark .catalogue-collapse:bj-hover-long,
+.sg-dark .catalogue-item:bj-catalogue-clickable:hover { -fx-background-color: -sg-hover; }
+.sg-dark .catalogue-item:bj-catalogue-clickable,
+.sg-dark .catalogue-item:bj-catalogue-special,
+.sg-dark .catalogue-item:bj-catalogue-header { -fx-border-color: transparent transparent -sg-line transparent; }
+.sg-dark .catalogue-key { -fx-border-color: -sg-muted; -fx-background-color: -sg-panel; -fx-text-fill: -sg-text; }
+.sg-dark .catalogue-scroll-collapsible { -fx-border-color: -sg-line; }
