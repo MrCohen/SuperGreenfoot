@@ -17,6 +17,9 @@ dependencies {
     implementation 'javazoom:jlayer:1.0.1'
     implementation 'org.glavo:simple-png:0.2.0'
     implementation 'org.glavo:simple-png-javafx:0.2.0'
+    // SuperGreenfoot IDE theme (MIT). Not transitive: its POM pulls a newer
+    // JavaFX than the one this build uses.
+    implementation('io.github.mkpaz:atlantafx-base:2.1.0') { transitive = false }
 
     testCompileOnly project(':anns-threadchecker')
     testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
