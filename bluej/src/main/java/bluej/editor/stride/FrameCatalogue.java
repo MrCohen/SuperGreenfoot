@@ -479,7 +479,9 @@ public class FrameCatalogue extends VBox
         
         cancelUpdateCatalogue = JavaFXUtil.runAfter(Duration.millis(500), () -> {
             // If the whole window has lost focus, for reasons other than code-competlion, just leave catalogue as-is until focus returns:
-            if (getScene().getWindow().isFocused() || codeCompletion == CodeCompletionState.SHOWING)
+            // (The catalogue may have left its window meanwhile, e.g. an editor host being put away.)
+            javafx.stage.Window window = getScene() == null ? null : getScene().getWindow();
+            if ((window != null && window.isFocused()) || codeCompletion == CodeCompletionState.SHOWING)
             {
                 fillCatalogue(editor);
                 catalogueUpdate.forEach(updater -> updater.update(c, codeCompletion, selection, viewMode));

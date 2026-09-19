@@ -1675,6 +1675,22 @@ public final class Config
     @OnThread(Tag.FX)
     public static void addEditorStylesheets(Scene scene)
     {
+        addEditorStylesheets(scene.getStylesheets());
+    }
+
+    /**
+     * Adds the editor stylesheets to a node (for editors shown inside another window,
+     * rather than in a window of their own).
+     */
+    @OnThread(Tag.FX)
+    public static void addEditorStylesheets(Parent parent)
+    {
+        addEditorStylesheets(parent.getStylesheets());
+    }
+
+    @OnThread(Tag.FX)
+    private static void addEditorStylesheets(ObservableList<String> stylesheets)
+    {
         String[] stylesheetStems = new String[] {
                 "frame-style",
                 "editor-banners",
@@ -1694,9 +1710,9 @@ public final class Config
         
         for (String stem : stylesheetStems)
         {
-            addStylesheet(scene.getStylesheets(), stem);
+            addStylesheet(stylesheets, stem);
         }
-        addJavaColorsStylesheet(scene.getStylesheets());
+        addJavaColorsStylesheet(stylesheets);
     }
 
     @OnThread(Tag.FX)

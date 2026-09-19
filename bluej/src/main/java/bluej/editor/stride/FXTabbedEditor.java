@@ -59,6 +59,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Label;
+import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ScrollPane.ScrollBarPolicy;
@@ -143,6 +144,17 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     private UntitledCollapsiblePane collapsibleCatalogueScrollPane;
     private FrameShelf shelf;
     private boolean dragFromShelf;
+    /** True for a host shown inside another window (the SuperGreenfoot IDE's main window)
+     *  rather than in a window of its own.  Such a host has no stage or menu bar of its own. */
+    private final boolean embedded;
+    /** For an embedded host: the window it is shown in, or null while it is shown nowhere */
+    private EditorHostSite site;
+    /** For an embedded host: how to stop listening to the site's window */
+    private final List<FXPlatformRunnable> siteListenerRemovers = new ArrayList<>();
+    /** For an embedded host: its name when tabs offer to move to it */
+    private final SimpleStringProperty hostTitle = new SimpleStringProperty("");
+    /** The selected tab's title with the project name, e.g. "Player - CoinQuest" */
+    private StringExpression editorTitle;
 
 
     // Neither the constructor nor any initialisers should do any JavaFX work until
@@ -150,8 +162,28 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.Any)
     public FXTabbedEditor(Project project, Rectangle startSize)
     {
+        this(project, startSize, false);
+    }
+
+    @OnThread(Tag.Any)
+    private FXTabbedEditor(Project project, Rectangle startSize, boolean embedded)
+    {
         this.project = project;
         this.startSize = startSize;
+        this.embedded = embedded;
+    }
+
+    /**
+     * Makes an editor host to be shown inside another window (the SuperGreenfoot IDE's
+     * main window) rather than in a window of its own.  Put {@link #getHostNode()} in
+     * that window and call {@link #attach(EditorHostSite)}.
+     */
+    @OnThread(Tag.FXPlatform)
+    public static FXTabbedEditor createEmbedded(Project project)
+    {
+        FXTabbedEditor host = new FXTabbedEditor(project, null, true);
+        host.initialise();
+        return host;
     }
 
     static boolean isUselessDrag(FrameCursor dragTarget, List<Frame> dragging, boolean copying)
@@ -166,9 +198,12 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     public void initialise()
     {
         projectTitle = project.getProjectName();
-        stage = new Stage();
-        //add the greenfoot icon to the Stride editor.
-        BlueJTheme.setWindowIconFX(stage);
+        if (!embedded)
+        {
+            stage = new Stage();
+            //add the greenfoot icon to the Stride editor.
+            BlueJTheme.setWindowIconFX(stage);
+        }
 
         initialiseFX();
     }
@@ -189,9 +224,12 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
         tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabClosingPolicy.ALL_TABS);
-        menuBar = new MenuBar();
-        JavaFXUtil.addStyleClass(menuBar, "editor-menubar");
-        menuBar.setUseSystemMenuBar(true);
+        if (!embedded)
+        {
+            menuBar = new MenuBar();
+            JavaFXUtil.addStyleClass(menuBar, "editor-menubar");
+            menuBar.setUseSystemMenuBar(true);
+        }
         dragPane = new Pane();
         dragPane.setMouseTransparent(true);
         dragCursorPane = new Pane();
@@ -200,7 +238,10 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
 
         BorderPane menuAndTabPane = new BorderPane();
-        menuAndTabPane.setTop(menuBar);
+        if (!embedded)
+        {
+            menuAndTabPane.setTop(menuBar);
+        }
         overlayPane = new WindowOverlayPane();
         menuAndTabPane.setCenter(new StackPane(tabPane));
         shelf = new FrameShelf(this, project.getShelfStorage());
@@ -239,7 +280,14 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         menuAndTabPane.setRight(collapsibleCatalogueScrollPane);
 
         hostRoot = new StackPane(menuAndTabPane, dragPane, dragCursorPane, overlayPane.getNode());
-        initialiseWindowFrame();
+        if (embedded)
+        {
+            initialiseEmbeddedFrame();
+        }
+        else
+        {
+            initialiseWindowFrame();
+        }
 
         tabPane.getStyleClass().add("tabbed-editor");
 
@@ -286,7 +334,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             // Consume presses of AltGr key on Windows to stop it focusing the menu
             // (the user may just be inserting a foreign character, in which case
             // they don't want to trigger the menu)
-            if (Config.isWinOS() && (e.getCode() == KeyCode.ALT_GRAPH || (e.getCode() == KeyCode.ALT && e.isControlDown())))
+            if (Config.isWinOS() && !isPinnedTabSelected() && (e.getCode() == KeyCode.ALT_GRAPH || (e.getCode() == KeyCode.ALT && e.isControlDown())))
             {
                 e.consume();
                 return;
@@ -296,7 +344,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
             // an AltGr shortcut (which maps to Ctrl+Alt on Windows).  This will break
             // any menu accelerators involving Ctrl+Alt, but we shouldn't have any anyway,
             // because they will conflict with AltGr behaviour on Windows.
-            if (Config.isWinOS() && e.isAltDown() && e.isControlDown())
+            if (Config.isWinOS() && !isPinnedTabSelected() && e.isAltDown() && e.isControlDown())
             {
                 e.consume();
                 return;
@@ -381,9 +429,101 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
         JavaFXUtil.addChangeListenerPlatform(stage.iconifiedProperty(), this::hostIconifiedChanged);
 
-        stage.titleProperty().bind(Bindings.concat(
+        editorTitle = Bindings.concat(
             JavaFXUtil.applyPlatform(tabPane.getSelectionModel().selectedItemProperty(), t -> ((FXTab)t).windowTitleProperty(), "Unknown")
-                ," - ", projectTitle, titleStatus));
+                ," - ", projectTitle, titleStatus);
+        stage.titleProperty().bind(editorTitle);
+    }
+
+    /**
+     * Sets up a host shown inside another window: it has no stage, scene or menu bar of
+     * its own (the window supplies those through {@link #attach(EditorHostSite)}), and it
+     * stays in use when its last editor closes.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void initialiseEmbeddedFrame()
+    {
+        Config.addEditorStylesheets(hostRoot);
+        editorTitle = Bindings.concat(
+            JavaFXUtil.applyPlatform(tabPane.getSelectionModel().selectedItemProperty(), t -> ((FXTab)t).windowTitleProperty(), "Unknown")
+                ," - ", projectTitle, titleStatus);
+    }
+
+    /**
+     * Show an embedded host in the given window.  (Put {@link #getHostNode()} into the
+     * window first.)
+     */
+    @OnThread(Tag.FXPlatform)
+    public void attach(EditorHostSite site)
+    {
+        if (!embedded)
+        {
+            throw new IllegalStateException("Only an embedded editor host can be attached to a window");
+        }
+        detach();
+        this.site = site;
+        hostTitle.bind(site.hostTitle());
+        Stage siteStage = site.getStage();
+        siteListenerRemovers.add(JavaFXUtil.addChangeListenerPlatform(siteStage.focusedProperty(), this::hostFocusChanged));
+        siteListenerRemovers.add(JavaFXUtil.addChangeListenerPlatform(siteStage.iconifiedProperty(), this::hostIconifiedChanged));
+        Tab selected = tabPane.getSelectionModel().getSelectedItem();
+        if (selected != null)
+        {
+            site.showEditorMenus(((FXTab) selected).getMenus());
+        }
+    }
+
+    /**
+     * Stop showing an embedded host in its window (if any).  The window is left with
+     * no editor menus.
+     */
+    @OnThread(Tag.FXPlatform)
+    public void detach()
+    {
+        siteListenerRemovers.forEach(FXPlatformRunnable::run);
+        siteListenerRemovers.clear();
+        if (site != null)
+        {
+            site.showEditorMenus(Collections.emptyList());
+        }
+        hostTitle.unbind();
+        site = null;
+    }
+
+    /**
+     * Whether this host is shown inside another window rather than in its own.
+     */
+    @OnThread(Tag.Any)
+    public boolean isEmbedded()
+    {
+        return embedded;
+    }
+
+    /**
+     * For an embedded host, the node to show in the window it is embedded in.
+     */
+    public StackPane getHostNode()
+    {
+        return hostRoot;
+    }
+
+    /**
+     * The title of the selected tab together with the project, e.g. "Player - CoinQuest"
+     * (the title a stand-alone editor window shows).
+     */
+    public StringExpression editorTitleProperty()
+    {
+        return editorTitle;
+    }
+
+    /**
+     * Whether the selected tab is an embedded host's pinned tab (the World tab),
+     * whose content should get keys that the editors would otherwise swallow.
+     */
+    @OnThread(Tag.FXPlatform)
+    private boolean isPinnedTabSelected()
+    {
+        return embedded && tabPane.getSelectionModel().getSelectedItem() instanceof PinnedTab;
     }
 
     /**
@@ -425,7 +565,8 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.FXPlatform)
     private boolean isHostFocused()
     {
-        return stage.isFocused();
+        Stage hostStage = getStage();
+        return hostStage != null && hostStage.isFocused();
     }
 
     /**
@@ -433,7 +574,11 @@ public @OnThread(Tag.FX) class FXTabbedEditor
      */
     private void setHostCursor(Cursor cursor)
     {
-        scene.setCursor(cursor);
+        Scene hostScene = embedded ? hostRoot.getScene() : scene;
+        if (hostScene != null)
+        {
+            hostScene.setCursor(cursor);
+        }
     }
 
     /**
@@ -461,7 +606,18 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.FXPlatform)
     private void updateMenusForTab(FXTab selTab)
     {
-        menuBar.getMenus().setAll(selTab.getMenus());
+        if (embedded)
+        {
+            // The window shows the selected tab's menus:
+            if (site != null && selTab == tabPane.getSelectionModel().getSelectedItem())
+            {
+                site.showEditorMenus(selTab.getMenus());
+            }
+        }
+        else
+        {
+            menuBar.getMenus().setAll(selTab.getMenus());
+        }
     }
 
     /**
@@ -584,6 +740,20 @@ public @OnThread(Tag.FX) class FXTabbedEditor
      */
     public boolean setWindowVisible(boolean visible, Tab tab)
     {
+        if (embedded)
+        {
+            // The window it is in is shown by others; only the tab is added or removed:
+            if (visible)
+            {
+                if (!tabPane.getTabs().contains(tab))
+                {
+                    tabPane.getTabs().add(tab);
+                    return true;
+                }
+                return false;
+            }
+            return tabPane.getTabs().remove(tab);
+        }
         if (visible)
         {
             boolean wasAlreadyShowing = stage.isShowing();
@@ -635,7 +805,8 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     /** Returns whether the window is currently shown */
     public boolean isWindowVisible()
     {
-        return stage.isShowing();
+        Stage hostStage = getStage();
+        return hostStage != null && hostStage.isShowing();
     }
 
     /**
@@ -644,8 +815,18 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.FXPlatform)
     public void bringToFront(Tab tab)
     {
-        stage.setIconified(false);
-        Utility.bringToFrontFX(stage);
+        if (embedded)
+        {
+            if (site != null)
+            {
+                site.bringHostToFront();
+            }
+        }
+        else
+        {
+            stage.setIconified(false);
+            Utility.bringToFrontFX(stage);
+        }
         tabPane.getSelectionModel().select(tab);
     }
 
@@ -942,7 +1123,8 @@ public @OnThread(Tag.FX) class FXTabbedEditor
      */
     public boolean hasOneTab()
     {
-        return tabPane.getTabs().size() == 1;
+        // An embedded host always has its pinned tab, and a tab can always leave it:
+        return !embedded && tabPane.getTabs().size() == 1;
     }
 
     public boolean containsTab(Tab tab)
@@ -952,7 +1134,7 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
     public StringExpression titleProperty()
     {
-        return stage.titleProperty();
+        return embedded ? hostTitle : stage.titleProperty();
     }
 
     private List<FXTab> getFXTabs()
@@ -967,6 +1149,10 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
     public Stage getStage()
     {
+        if (embedded)
+        {
+            return site == null ? null : site.getStage();
+        }
         return stage;
     }
 
@@ -1026,12 +1212,14 @@ public @OnThread(Tag.FX) class FXTabbedEditor
 
     public double getRenderScaleX()
     {
-        return stage.getRenderScaleX();
+        Stage hostStage = getStage();
+        return hostStage == null ? 1.0 : hostStage.getRenderScaleX();
     }
 
     public double getRenderScaleY()
     {
-        return stage.getRenderScaleY();
+        Stage hostStage = getStage();
+        return hostStage == null ? 1.0 : hostStage.getRenderScaleY();
     }
 
     public static enum CodeCompletionState
@@ -1056,30 +1244,55 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     @OnThread(Tag.FXPlatform)
     public void updateMoveMenus()
     {
-        tabPane.getTabs().forEach(t -> updateMenusForTab((FXTab)t));
+        if (embedded)
+        {
+            // Every tab refreshes its move menus, and the window shows the selected tab's menus:
+            Tab selected = tabPane.getSelectionModel().getSelectedItem();
+            List<Menu> selectedMenus = null;
+            for (Tab t : tabPane.getTabs())
+            {
+                List<Menu> menus = ((FXTab) t).getMenus();
+                if (t == selected)
+                {
+                    selectedMenus = menus;
+                }
+            }
+            if (site != null && selectedMenus != null)
+            {
+                site.showEditorMenus(selectedMenus);
+            }
+        }
+        else
+        {
+            tabPane.getTabs().forEach(t -> updateMenusForTab((FXTab)t));
+        }
     }
 
     @OnThread(Tag.FX)
     public int getX()
     {
-        return (int)stage.getX();
+        Stage hostStage = getStage();
+        return hostStage == null ? 0 : (int)hostStage.getX();
     }
 
     @OnThread(Tag.FX)
     public int getY()
     {
-        return (int)stage.getY();
+        Stage hostStage = getStage();
+        return hostStage == null ? 0 : (int)hostStage.getY();
     }
 
     @OnThread(Tag.FX)
     public int getWidth()
     {
-        return (int)stage.getWidth();
+        Stage hostStage = getStage();
+        return hostStage == null ? 0 : (int)hostStage.getWidth();
     }
 
     @OnThread(Tag.FX)
     public int getHeight()
     {
-        return (int)stage.getHeight();
+        Stage hostStage = getStage();
+        return hostStage == null ? 0 : (int)hostStage.getHeight();
     }
 }

@@ -185,6 +185,11 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
     private Charset characterSet;
 
     @OnThread(Tag.FX) private final List<FXTabbedEditor> fXTabbedEditors = new ArrayList<>();
+    /** An editor host shown inside another window (the SuperGreenfoot IDE's main window), or null.
+     *  It is not one of fXTabbedEditors: it is not a window, and its position is not saved. */
+    @OnThread(Tag.FX) private FXTabbedEditor embeddedFXTabbedEditor;
+    /** Whether editors open in the embedded host (if there is one) rather than in a window */
+    @OnThread(Tag.FX) private boolean openEditorsEmbedded = true;
     @OnThread(Tag.FX) private final List<Rectangle> fxCachedEditorSizes = new ArrayList<>();
 
     /** 1 second timer before starting auto-compile */
@@ -2340,7 +2345,47 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
     @OnThread(Tag.FX)
     public FXTabbedEditor getDefaultFXTabbedEditor()
     {
+        if (embeddedFXTabbedEditor != null && openEditorsEmbedded)
+        {
+            return embeddedFXTabbedEditor;
+        }
         return fXTabbedEditors.get(0);
+    }
+
+    /**
+     * Sets (or, with null, removes) the editor host shown inside another window (the
+     * SuperGreenfoot IDE's main window).  While there is one, editors open there, unless
+     * {@link #setOpenEditorsEmbedded(boolean)} says otherwise, and editors in windows can
+     * move to it.
+     */
+    @OnThread(Tag.FXPlatform)
+    public void setEmbeddedFXTabbedEditor(FXTabbedEditor host)
+    {
+        embeddedFXTabbedEditor = host;
+        // Update the move menus to add or remove the host as a move target:
+        fXTabbedEditors.forEach(FXTabbedEditor::updateMoveMenus);
+        if (host != null)
+        {
+            host.updateMoveMenus();
+        }
+    }
+
+    /**
+     * The editor host shown inside another window, or null if there is none.
+     */
+    @OnThread(Tag.FX)
+    public FXTabbedEditor getEmbeddedFXTabbedEditor()
+    {
+        return embeddedFXTabbedEditor;
+    }
+
+    /**
+     * Whether editors open in the embedded host (when there is one) rather than in a window.
+     */
+    @OnThread(Tag.FX)
+    public void setOpenEditorsEmbedded(boolean embedded)
+    {
+        openEditorsEmbedded = embedded;
     }
 
     public boolean isClosing()
@@ -2466,6 +2511,13 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
     @OnThread(Tag.FX)
     public List<FXTabbedEditor> getAllFXTabbedEditorWindows()
     {
+        if (embeddedFXTabbedEditor != null)
+        {
+            List<FXTabbedEditor> all = new ArrayList<>();
+            all.add(embeddedFXTabbedEditor);
+            all.addAll(fXTabbedEditors);
+            return Collections.unmodifiableList(all);
+        }
         return Collections.unmodifiableList(fXTabbedEditors);
     }
 
@@ -2528,6 +2580,10 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
     public void setAllEditorStatus(String status)
     {
         fXTabbedEditors.forEach(fte -> fte.setTitleStatus(status));
+        if (embeddedFXTabbedEditor != null)
+        {
+            embeddedFXTabbedEditor.setTitleStatus(status);
+        }
     }
 
     @OnThread(Tag.FX)
