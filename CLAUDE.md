@@ -29,7 +29,9 @@ for the upstream base and every upstream file we change.
 - Public API changes: keep `getX()/getY()/getRotation()` returning `int`;
   add new methods rather than changing signatures; regenerate the user
   Javadoc (`./gradlew :greenfoot:userJavadoc`) when the nine API classes change.
-- Commit messages end with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Commit messages end with a `Co-Authored-By:` line naming the Claude model
+  that actually did the work in that session, for example
+  `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
 
 ## Build
 
