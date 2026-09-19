@@ -139,6 +139,10 @@ public final class Terminal
             Config.getPropBooleanProperty(UNLIMITEDBUFFERINGCALLPROPNAME);
     private boolean newMethodCall = true;
     private boolean errorShown = false;
+    // SuperGreenfoot: an IDE window that shows this terminal's output in its own pane
+    // (null when none), and whether output may pop the terminal window up.
+    private OutputListener outputListener = null;
+    private boolean showOnOutput = true;
     private final InputBuffer buffer;
     private final BooleanProperty showingProperty = new SimpleBooleanProperty(false);
 
@@ -355,6 +359,10 @@ public final class Terminal
      */
     public void clear()
     {
+        if (outputListener != null)
+        {
+            outputListener.cleared();
+        }
         text.clear();
         if (errorText!=null) {
             errorText.clear();
@@ -437,6 +445,49 @@ public final class Terminal
     }
 
     // Rerenders the stdout pane.
+    /**
+     * SuperGreenfoot: receives what is written to a terminal, so that an IDE window
+     * can show it in its own output pane. Called on the FX thread.
+     */
+    @OnThread(Tag.FXPlatform)
+    public static interface OutputListener
+    {
+        /** Text written by the program (a chunk, not necessarily whole lines). */
+        void output(String text, boolean isError);
+
+        /** The terminal was cleared (by the user, a form feed, or a new method call). */
+        void cleared();
+
+        /** The user made an interactive call, e.g. "player.act();". */
+        void interactiveCall(String callString);
+    }
+
+    /**
+     * SuperGreenfoot: set (or, with null, remove) the listener told about output.
+     */
+    public void setOutputListener(OutputListener listener)
+    {
+        outputListener = listener;
+    }
+
+    /**
+     * SuperGreenfoot: the listener told about output, if any.
+     */
+    public OutputListener getOutputListener()
+    {
+        return outputListener;
+    }
+
+    /**
+     * SuperGreenfoot: whether new output shows the terminal window (the default).
+     * An IDE that shows output itself turns this off; the window still appears
+     * when the program reads input.
+     */
+    public void setShowOnOutput(boolean show)
+    {
+        showOnOutput = show;
+    }
+
     public void rerenderStdout()
     {
         text.updateRender(false);
@@ -469,6 +520,10 @@ public final class Terminal
                 return;
             s = String.join("\n", lines);
         }
+        if (outputListener != null)
+        {
+            outputListener.output(s, paneType == PaneType.STDERR);
+        }
         // Only show the error pane once we know there's something to add:
         if (paneType == PaneType.STDERR)
         {
@@ -495,6 +550,10 @@ public final class Terminal
      */
     private void prepare()
     {
+        if (!showOnOutput) {
+            newMethodCall = false;
+            return;
+        }
         if (newMethodCall) {   // prepare only once per method call
             showHide(true);
             newMethodCall = false;
@@ -522,6 +581,10 @@ public final class Terminal
         if(recordMethodCalls.get()) {
             text.append(new StyledSegment(STDOUT_METHOD_RECORDING, callString + "\n"));
         }
+        if (outputListener != null)
+        {
+            outputListener.interactiveCall(callString);
+        }
         newMethodCall = true;
     }
 
@@ -545,6 +608,10 @@ public final class Terminal
             errorText.clear();
         if(recordMethodCalls.get()) {
             text.append(new StyledSegment(STDOUT_METHOD_RECORDING, callString + "\n"));
+        }
+        if (outputListener != null)
+        {
+            outputListener.interactiveCall(callString);
         }
         newMethodCall = true;
     }
