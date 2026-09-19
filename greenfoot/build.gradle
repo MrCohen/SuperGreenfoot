@@ -61,6 +61,11 @@ task copyImagelibToBuild(type: Copy) {
     from 'imagelib'
     into new File(sourceSets.main.output.resourcesDir, 'lib/greenfoot/imagelib')
 }
+// The classes offered by Edit > Import Class (the installers copy them too):
+task copyCommonToBuild(type: Copy) {
+    from 'common'
+    into new File(sourceSets.main.output.resourcesDir, 'lib/greenfoot/common')
+}
 task copyGreenfootIcon1(type: Copy) {
     from file('resources/images/greenfoot-icon-16.png')
     into new File(sourceSets.main.output.resourcesDir, 'lib/greenfoot/imagelib/other')
@@ -74,14 +79,17 @@ task copyGreenfootIcon2(type: Copy) {
 
 assemble.dependsOn copyLibToBuild
 assemble.dependsOn copyImagelibToBuild
+assemble.dependsOn copyCommonToBuild
 assemble.dependsOn copyGreenfootIcon1
 assemble.dependsOn copyGreenfootIcon2
 jar.dependsOn copyLibToBuild
 jar.dependsOn copyImagelibToBuild
+jar.dependsOn copyCommonToBuild
 jar.dependsOn copyGreenfootIcon1
 jar.dependsOn copyGreenfootIcon2
 compileTestJava.dependsOn copyLibToBuild
 compileTestJava.dependsOn copyImagelibToBuild
+compileTestJava.dependsOn copyCommonToBuild
 compileTestJava.dependsOn copyGreenfootIcon1
 compileTestJava.dependsOn copyGreenfootIcon2
 
