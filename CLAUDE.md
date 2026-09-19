@@ -10,8 +10,15 @@ for the upstream base and every upstream file we change.
   log, assessments, drafts) are private and live outside the repo. Never
   create, copy or commit them here.
 
-- Keep diffs to upstream files small and isolated; log each one in
-  `docs/provenance.md` so upstream merges stay reviewable.
+- Upstream merges matter for the engine (the `greenfoot` runtime, debug-VM
+  and player side) and for the Classic Greenfoot IDE, which stays close to
+  upstream: keep diffs to those files small and isolated. The new
+  SuperGreenfoot IDE, built beside Classic and switchable with it, is our own
+  code and need not track upstream. Log every change to an upstream file in
+  `docs/provenance.md`.
+- IDE threading: methods that implement an interface on a JavaFX class (for
+  example `GreenfootStage`) need their own `@OnThread(Tag.FXPlatform)`; the
+  interface-level tag is not enough for the thread checker.
 - Keep upstream copyright headers; new files get the same GPLv2+CPE header
   with "SuperGreenfoot contributors" added.
 - `super-scenarios/MrCohenLibrary150/` must compile and run after every
