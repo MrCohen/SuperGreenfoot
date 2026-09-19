@@ -21,7 +21,12 @@
  */
 package bluej.debugmgr.inspector;
 
+import java.util.List;
+
 import javafx.beans.value.ObservableDoubleValue;
+import javafx.css.CssMetaData;
+import javafx.css.SimpleStyleableObjectProperty;
+import javafx.css.Styleable;
 import javafx.beans.value.ObservableValue;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
@@ -45,10 +50,20 @@ public class ObjectBackground extends ResizableCanvas
     private final double cornerSize;
     private final ObservableDoubleValue lineWidth;
 
+    // The object's fill colour; a stylesheet can change it (-bj-object-fill), BlueJ's red by default:
+    private final CssMetaData<ObjectBackground, Color> FILL_META_DATA =
+            JavaFXUtil.cssColor("-bj-object-fill", ObjectBackground::objectFillProperty);
+    private final SimpleStyleableObjectProperty<Color> objectFill =
+            new SimpleStyleableObjectProperty<>(FILL_META_DATA, new Color(227.0 / 255.0, 71.0 / 255.0, 71.0 / 255.0, 1.0));
+    private final List<CssMetaData<? extends Styleable, ?>> cssMetaDataList =
+            JavaFXUtil.extendCss(ResizableCanvas.getClassCssMetaData()).add(FILL_META_DATA).build();
+
     public ObjectBackground(double cornerSize, ObservableDoubleValue lineWidth)
     {
         this.cornerSize = cornerSize;
         this.lineWidth = lineWidth;
+        JavaFXUtil.addStyleClass(this, "object-background");
+        JavaFXUtil.addChangeListenerPlatform(objectFill, c -> redrawContent());
         JavaFXUtil.addChangeListenerPlatform(widthProperty(), w -> redrawContent());
         JavaFXUtil.addChangeListenerPlatform(heightProperty(), h -> redrawContent());
         JavaFXUtil.addChangeListenerPlatform(lineWidth, d -> redrawContent());
@@ -62,7 +77,7 @@ public class ObjectBackground extends ResizableCanvas
 
         gc.clearRect(0, 0, w, h);
         
-        final Paint fill = new javafx.scene.paint.Color(227.0 / 255.0, 71.0 / 255.0, 71.0 / 255.0, 1.0);
+        final Paint fill = objectFill.get();
         gc.setFill(fill);
         double l = lineWidth.get();
         // To make sure the line is visible on the canvas and not truncated, we move the coordinates by the
@@ -75,5 +90,17 @@ public class ObjectBackground extends ResizableCanvas
         gc.setStroke(Color.BLACK);
         gc.setLineWidth(l);
         gc.strokeRoundRect(l, l, w-2*l, h-2*l, cornerSize, cornerSize);
+    }
+
+    private SimpleStyleableObjectProperty<Color> objectFillProperty()
+    {
+        return objectFill;
+    }
+
+    @Override
+    @OnThread(value = Tag.FXPlatform, ignoreParent = true)
+    public List<CssMetaData<? extends Styleable, ?>> getCssMetaData()
+    {
+        return cssMetaDataList;
     }
 }

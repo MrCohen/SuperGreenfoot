@@ -139,6 +139,8 @@ public class SoundRecorderControls extends Stage
         soundAndControls.setPadding(new Insets(12));
         BorderPane.setMargin(soundPanel, new Insets(12,12,12,12));
         soundAndControls.setBackground(new Background(new BackgroundFill(Color.LIGHTGRAY, new CornerRadii(5, 5, 5, 5, false), null)));//new Insets(12)
+        // Lets a stylesheet (the SuperGreenfoot IDE's) restyle the grey panel:
+        soundAndControls.getStyleClass().add("sound-recorder-panel");
         VBox.setVgrow(soundAndControls, Priority.ALWAYS);
 
         Button closeButton = new Button(Config.getString("soundRecorder.close"));
