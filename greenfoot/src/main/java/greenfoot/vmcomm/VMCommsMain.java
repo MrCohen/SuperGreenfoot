@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import bluej.pkgmgr.Project;
 import bluej.utility.Debug;
-import greenfoot.guifx.GreenfootStage;
 import javafx.scene.input.KeyCode;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -134,9 +133,9 @@ public class VMCommsMain implements Closeable
 
     private boolean delayLoop;
     private boolean vmReadyForInvocations = false;
-    /** SuperGreenfoot: the stage is told once when a new VM becomes ready (to send the display state). */
+    /** SuperGreenfoot: the listener is told once when a new VM becomes ready (to send the display state). */
     private boolean vmReadyNotified = false;
-    /** SuperGreenfoot: latest display request read from the debug VM, and the last one handed to the stage. */
+    /** SuperGreenfoot: latest display request read from the debug VM, and the last one handed to the listener. */
     private int displayRequestSeq = 0;
     private int displayRequestFlags = 0;
     private int lastDisplayRequestSeen = 0;
@@ -280,10 +279,59 @@ public class VMCommsMain implements Closeable
     }
 
     /**
-     * Check for input / send output, and apply received data to the stage.
+     * SuperGreenfoot: receives what checkIO reads from the debug VM.  The IDE
+     * window used to be passed in directly; this interface lets a controller
+     * that outlives any one window take the calls instead.
+     */
+    public static interface CommsListener
+    {
+        /**
+         * The world was changed (added or removed).
+         * @param worldPresent True if a world is present after the change.
+         */
+        @OnThread(Tag.FXPlatform)
+        void worldChanged(boolean worldPresent);
+
+        /**
+         * A new world image is available.  The buffer is only valid during the call.
+         */
+        @OnThread(Tag.FXPlatform)
+        void receivedWorldImage(int width, int height, IntBuffer buffer);
+
+        /** The error count went up: show the terminal. */
+        @OnThread(Tag.FXPlatform)
+        void bringTerminalToFront();
+
+        /** The simulation speed was changed by the debug VM. */
+        @OnThread(Tag.FXPlatform)
+        void notifySimulationSpeed(int simSpeed);
+
+        /** An ask() request arrived (sent on each check until answered). */
+        @OnThread(Tag.FXPlatform)
+        void receivedAsk(int askId, int[] promptCodepoints);
+
+        /** There is no pending ask() request (called on every other check). */
+        @OnThread(Tag.FXPlatform)
+        void cancelAsk();
+
+        /** When user code last started executing (zero if it is not executing), and whether it is in a delay loop. */
+        @OnThread(Tag.FXPlatform)
+        void setLastUserExecutionStartTime(long lastExecStartTime, boolean delayLoop);
+
+        /** A new debug VM became ready: send it the current display state. */
+        @OnThread(Tag.FXPlatform)
+        void sendDisplayState();
+
+        /** Scenario code asked for a display change; see DisplayState. */
+        @OnThread(Tag.FXPlatform)
+        void receivedDisplayRequest(int seq, int flags);
+    }
+
+    /**
+     * Check for input / send output, and apply received data to the listener.
      */
     @OnThread(Tag.FXPlatform)
-    public synchronized boolean checkIO(GreenfootStage stage)
+    public synchronized boolean checkIO(CommsListener listener)
     {
         if (checkingIO)
         {
@@ -297,7 +345,7 @@ public class VMCommsMain implements Closeable
         boolean shouldDraw = !worldChanged || worldPresentAfterChange;
         if (worldChanged)
         {
-            stage.worldChanged(worldPresentAfterChange);
+            listener.worldChanged(worldPresentAfterChange);
             worldChanged = false;
         }
         
@@ -308,45 +356,45 @@ public class VMCommsMain implements Closeable
             copy.position(USER_AREA_OFFSET + 2);
             int width = copy.get();
             int height = copy.get();
-            stage.receivedWorldImage(width, height, copy);
+            listener.receivedWorldImage(width, height, copy);
             haveUpdatedImage = false;
             lastConsumedImg = lastPaintSeq;
         }
         
         if (haveUpdatedErrorCount)
         {
-            stage.bringTerminalToFront();
+            listener.bringTerminalToFront();
             haveUpdatedErrorCount = false;
         }
         
         if (updatedSimulationSpeed != -1)
         {
-            stage.notifySimulationSpeed(updatedSimulationSpeed);
+            listener.notifySimulationSpeed(updatedSimulationSpeed);
             updatedSimulationSpeed = -1;
         }        
         
         if (promptCodepoints != null && askId > lastAnswer)
         {
-            stage.receivedAsk(askId, promptCodepoints);
+            listener.receivedAsk(askId, promptCodepoints);
             promptCodepoints = null;
         }
         else
         {
-            stage.cancelAsk();
+            listener.cancelAsk();
         }
 
-        stage.setLastUserExecutionStartTime(lastExecStartTime, delayLoop);
+        listener.setLastUserExecutionStartTime(lastExecStartTime, delayLoop);
 
         // SuperGreenfoot: display requests from scenario code, and the initial state for a new VM
         if (vmReadyForInvocations && !vmReadyNotified)
         {
             vmReadyNotified = true;
-            stage.sendDisplayState();
+            listener.sendDisplayState();
         }
         if (displayRequestSeq > lastDisplayRequestSeen)
         {
             lastDisplayRequestSeen = displayRequestSeq;
-            stage.receivedDisplayRequest(displayRequestSeq, displayRequestFlags);
+            listener.receivedDisplayRequest(displayRequestSeq, displayRequestFlags);
         }
             
         checkingIO = false;

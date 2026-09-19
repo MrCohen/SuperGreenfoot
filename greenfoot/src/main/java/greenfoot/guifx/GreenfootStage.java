@@ -163,7 +163,8 @@ import static greenfoot.vmcomm.Command.*;
  */
 @OnThread(Tag.FXPlatform)
 public class GreenfootStage extends Stage implements FXCompileObserver,
-        SimulationStateListener, PackageUI, ControlPanelListener, ScenarioSaver
+        SimulationStateListener, PackageUI, ControlPanelListener, ScenarioSaver,
+        VMCommsMain.CommsListener
 {
     private static final String STAGE_TITLE = "Greenfoot";
 
@@ -1790,6 +1791,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * @param seq    the request's sequence number (echoed back in the state)
      * @param flags  values and mask, see DisplayState
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void receivedDisplayRequest(int seq, int flags)
     {
         lastAppliedDisplayRequest = seq;
@@ -1848,6 +1851,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * SuperGreenfoot: send the debug VM the current display state, so that
      * Greenfoot.isFullScreen(), getScreenWidth() and the rest answer truthfully.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void sendDisplayState()
     {
         if (debugHandler == null || debugHandler.getVmComms() == null)
@@ -1905,6 +1910,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * @param height  The image height
      * @param buffer  The buffer containing the pixel data
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void receivedWorldImage(int width, int height, IntBuffer buffer)
     {
         // If we are closing a project but receive an image late on, ignore it:
@@ -1958,6 +1965,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * 
      * @param worldPresent True if a world is present after the change.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void worldChanged(boolean worldPresent)
     {
         // We assume that a world change after issuing a discard is in
@@ -1981,6 +1990,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * @param askId The identification number of the ask request
      * @param promptCodepoints   the codepoints making up the prompt string.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void receivedAsk(int askId, int[] promptCodepoints)
     {
         // The ask pane lives in the main window, so leave full screen first:
@@ -1997,6 +2008,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     /**
      * Cancel any currently showing ask request; hide the ask pane.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void cancelAsk()
     {
         worldDisplay.cancelAsk();
@@ -2854,6 +2867,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     /**
      * Shows the terminal for this project, and brings it to the front.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void bringTerminalToFront()
     {
         project.getTerminal().showHide(true);
@@ -3123,6 +3138,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * @param lastExecStartTime The last time the user code started executing, or zero if it has now finished executing.
      * @param delayLoop The true or false value to indicate whether there is a delay loop or not
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void setLastUserExecutionStartTime(long lastExecStartTime, boolean delayLoop)
     {
         this.lastExecStartTime = lastExecStartTime;
@@ -3154,6 +3171,8 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * Called with the latest simulation speed
      * @param simSpeed The simulation speed we received from the debug VM:
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void notifySimulationSpeed(int simSpeed)
     {
         // We want to update the speed slider, but we don't want to alter
