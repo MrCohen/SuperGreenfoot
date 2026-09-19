@@ -23,7 +23,7 @@ package greenfoot.guifx;
 
 import bluej.Config;
 import bluej.utility.javafx.JavaFXUtil;
-import greenfoot.guifx.GreenfootStage.State;
+import greenfoot.guifx.controller.SimulationState;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
@@ -264,7 +264,7 @@ public class FullScreenView extends Stage
     }
 
     /** Mirror of GreenfootStage.updateGUIState for the floating controls. */
-    public void updateState(State newState, boolean atBreakpoint)
+    public void updateState(SimulationState newState, boolean atBreakpoint)
     {
         controlPanel.updateState(newState, atBreakpoint);
     }

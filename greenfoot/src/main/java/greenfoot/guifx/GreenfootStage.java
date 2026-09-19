@@ -79,6 +79,7 @@ import greenfoot.guifx.classes.GClassDiagram;
 import greenfoot.guifx.classes.GClassDiagram.GClassType;
 import greenfoot.guifx.classes.ImportClassDialog;
 import greenfoot.guifx.classes.LocalGClassNode;
+import greenfoot.guifx.controller.SimulationState;
 import greenfoot.guifx.export.ExportDialog;
 import greenfoot.guifx.export.ExportException;
 import greenfoot.guifx.images.NewImageClassFrame;
@@ -217,12 +218,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     private AnimationTimer vmCommsHandler;
     private boolean constructingWorld = false;
 
-    public static enum State
-    {
-        RUNNING, RUNNING_REQUESTED_PAUSE, PAUSED, PAUSED_REQUESTED_ACT_OR_RUN, NO_WORLD, NO_PROJECT;
-    }
-    
-    private final ObjectProperty<State> stateProperty = new SimpleObjectProperty<>(State.NO_PROJECT);
+    private final ObjectProperty<SimulationState> stateProperty = new SimpleObjectProperty<>(SimulationState.NO_PROJECT);
     private boolean atBreakpoint = false;
     private boolean simulationRunning = false;
     private boolean waitingForDiscard = false;
@@ -383,7 +379,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         
         worldDisplay = new WorldDisplay();
         worldDisplay.setOnMouseClicked(event -> {
-            if (event.getButton() == MouseButton.PRIMARY && stateProperty.get() == State.RUNNING)
+            if (event.getButton() == MouseButton.PRIMARY && stateProperty.get() == SimulationState.RUNNING)
             {
                 worldDisplay.requestFocus();
             }
@@ -395,7 +391,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             // We show hung text if we are twirling and either:
             //  - We are awaiting a reset (greyed out not due to asking)
             //  - We are awaiting a pause
-            hungMessage.setVisible(twirling && ((worldDisplay.isGreyedOut() && !worldDisplay.isAsking()) || stateProperty.get() == State.RUNNING_REQUESTED_PAUSE));
+            hungMessage.setVisible(twirling && ((worldDisplay.isGreyedOut() && !worldDisplay.isAsking()) || stateProperty.get() == SimulationState.RUNNING_REQUESTED_PAUSE));
         });
         
         classDiagram = new GClassDiagram(this);
@@ -570,7 +566,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             setHeight(Double.valueOf(height));
         }
 
-        stateProperty.set(State.NO_WORLD);
+        stateProperty.set(SimulationState.NO_WORLD);
     }
 
     /**
@@ -580,7 +576,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     private void updateBackgroundMessage()
     {
         final String message;
-        if (stateProperty.get() == State.NO_WORLD && !classDiagram.hasUserWorld())
+        if (stateProperty.get() == SimulationState.NO_WORLD && !classDiagram.hasUserWorld())
         {
             // May be totally blank project (in which case state remains as UNCOMPILED),
             // hint to the user to create a world:
@@ -590,7 +586,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         {
             message = "";
         }
-        else if (stateProperty.get() == State.NO_WORLD)
+        else if (stateProperty.get() == SimulationState.NO_WORLD)
         {
             // If we are paused, but no world is visible, the user either
             // needs to instantiate a world (if they have one) or create a world class
@@ -619,7 +615,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 message = Config.getString("centrePanel.message.createWorldClass");
             }
         }
-        else if (stateProperty.get() == State.NO_PROJECT)
+        else if (stateProperty.get() == SimulationState.NO_PROJECT)
         {
             if (isQuittingRequest)
             {
@@ -729,10 +725,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     private void discardWorld()
     {
-        if (stateProperty.get() != State.NO_WORLD && stateProperty.get() != State.NO_PROJECT)
+        if (stateProperty.get() != SimulationState.NO_WORLD && stateProperty.get() != SimulationState.NO_PROJECT)
         {
             debugHandler.getVmComms().discardWorld();
-            stateProperty.set(State.NO_WORLD);
+            stateProperty.set(SimulationState.NO_WORLD);
             waitingForDiscard = true;
         }
     }
@@ -943,7 +939,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         worldVisible.set(false);
         classDiagram.setProject(null);
         // Setting the state will update background message:
-        stateProperty.set(State.NO_PROJECT);
+        stateProperty.set(SimulationState.NO_PROJECT);
         setTitle(STAGE_TITLE);
         currentWorld = null;
     }
@@ -1029,7 +1025,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     private void doShare()
     {
-        if (stateProperty.get() == State.NO_WORLD)
+        if (stateProperty.get() == SimulationState.NO_WORLD)
         {
             DialogManager.showErrorFX(this, "export-compile-not-compiled");
         }
@@ -1052,11 +1048,11 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     public void act()
     {
-        if (stateProperty.get() == State.PAUSED)
+        if (stateProperty.get() == SimulationState.PAUSED)
         {
             DataCollector.recordGreenfootEvent(project, GreenfootInterfaceEvent.WORLD_ACT);
             debugHandler.getVmComms().act();
-            stateProperty.set(State.PAUSED_REQUESTED_ACT_OR_RUN);
+            stateProperty.set(SimulationState.PAUSED_REQUESTED_ACT_OR_RUN);
             saveTheWorldRecorder.invalidateRecording();
         }
     }
@@ -1066,19 +1062,19 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     public void doRunPause()
     {
-        if (stateProperty.get() == State.PAUSED)
+        if (stateProperty.get() == SimulationState.PAUSED)
         {
             DataCollector.recordGreenfootEvent(project, GreenfootInterfaceEvent.WORLD_RUN);
             debugHandler.getVmComms().runSimulation();
-            stateProperty.set(State.PAUSED_REQUESTED_ACT_OR_RUN);
+            stateProperty.set(SimulationState.PAUSED_REQUESTED_ACT_OR_RUN);
             saveTheWorldRecorder.invalidateRecording();
             worldDisplay.requestFocus();
         }
-        else if (stateProperty.get() == State.RUNNING)
+        else if (stateProperty.get() == SimulationState.RUNNING)
         {
             DataCollector.recordGreenfootEvent(project, GreenfootInterfaceEvent.WORLD_PAUSE);
             debugHandler.getVmComms().pauseSimulation();
-            stateProperty.set(State.RUNNING_REQUESTED_PAUSE);
+            stateProperty.set(SimulationState.RUNNING_REQUESTED_PAUSE);
         }
     }
 
@@ -1348,7 +1344,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     /**
      * Update scenario controls (act, run/pause, reset etc) according to scenario state.
      */
-    private void updateGUIState(State newState)
+    private void updateGUIState(SimulationState newState)
     {
         controlPanel.updateState(newState, atBreakpoint);
         if (fullScreenView != null)
@@ -1550,7 +1546,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 }
 
                 // We only want fully paused; if they've requested a run, don't allow a shift-click:
-                boolean paused = stateProperty.get() == State.PAUSED;
+                boolean paused = stateProperty.get() == SimulationState.PAUSED;
                 ClassTarget selectedClassTarget = classDiagram.getSelectedClassTarget();
                 if (e.getCode() == KeyCode.SHIFT && newActorProperty.get() == null && selectedClassTarget != null && paused)
                 {
@@ -1582,7 +1578,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 return;
             }
             
-            boolean paused = stateProperty.get() == State.PAUSED;
+            boolean paused = stateProperty.get() == SimulationState.PAUSED;
             if (paused)
             { 
                 Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
@@ -1659,7 +1655,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 return;
             }
             
-            boolean paused = stateProperty.get() == State.PAUSED && allowPick;
+            boolean paused = stateProperty.get() == SimulationState.PAUSED && allowPick;
             int eventType;
             if (e.getEventType() == MouseEvent.MOUSE_CLICKED)
             {
@@ -1951,9 +1947,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             worldVisible.set(false);
         }
         
-        if (stateProperty.get() == State.NO_WORLD && ! waitingForDiscard)
+        if (stateProperty.get() == SimulationState.NO_WORLD && ! waitingForDiscard)
         {
-            stateProperty.set(simulationRunning ? State.RUNNING : State.PAUSED);
+            stateProperty.set(simulationRunning ? SimulationState.RUNNING : SimulationState.PAUSED);
         }
     }
     
@@ -1975,7 +1971,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         if (!worldPresent)
         {
             worldDisplay.greyOutWorld();
-            stateProperty.set(State.NO_WORLD);
+            stateProperty.set(SimulationState.NO_WORLD);
         }
     }
     
@@ -2274,9 +2270,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             // If the world constructor calls Greenfoot.start() we can see the simulation start
             // before we know whether world creation is successful. Therefore, set the state now
             // only if we have received the world already:
-            if (stateProperty.get() != State.NO_WORLD)
+            if (stateProperty.get() != SimulationState.NO_WORLD)
             {
-                stateProperty.set(State.RUNNING);
+                stateProperty.set(SimulationState.RUNNING);
             }
             project.getTerminal().activate(true);
         });
@@ -2290,9 +2286,9 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             simulationRunning = false;
             // We can see this message when closing a project, or when the world has been removed,
             // in which case we want to ignore it:
-            if (project != null && stateProperty.get() != State.NO_WORLD)
+            if (project != null && stateProperty.get() != SimulationState.NO_WORLD)
             {
-                stateProperty.set(State.PAUSED);
+                stateProperty.set(SimulationState.PAUSED);
             }
             project.getTerminal().activate(false);
         });
@@ -2349,7 +2345,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             curDragRequest = -1;
             currentWorld = null;
             worldVisible.set(false);
-            stateProperty.set(State.NO_WORLD);
+            stateProperty.set(SimulationState.NO_WORLD);
             // This will set up pendingCommands, ready for when
             // the new debug VM can process data:
             loadAndMirrorProperties();

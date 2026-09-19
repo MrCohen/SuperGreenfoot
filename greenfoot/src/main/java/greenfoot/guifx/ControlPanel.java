@@ -24,7 +24,7 @@ package greenfoot.guifx;
 import bluej.Config;
 import bluej.utility.javafx.JavaFXUtil;
 import greenfoot.core.Simulation;
-import greenfoot.guifx.GreenfootStage.State;
+import greenfoot.guifx.controller.SimulationState;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -200,16 +200,16 @@ public class ControlPanel extends GridPane
     /**
      * Called by GreenfootStage to update the state of our buttons.
      */
-    public void updateState(State newState, boolean atBreakpoint)
+    public void updateState(SimulationState newState, boolean atBreakpoint)
     {
-        actDisabled.setValue(newState != State.PAUSED || atBreakpoint);
-        runDisabled.setValue(newState != State.PAUSED || atBreakpoint);
-        pauseDisabled.setValue(newState != State.RUNNING || atBreakpoint);
-        resetDisabled.setValue(newState == State.NO_PROJECT);
-        speedSlider.setDisable(newState == State.NO_PROJECT);
-        speedLabel.setDisable(newState == State.NO_PROJECT);
+        actDisabled.setValue(newState != SimulationState.PAUSED || atBreakpoint);
+        runDisabled.setValue(newState != SimulationState.PAUSED || atBreakpoint);
+        pauseDisabled.setValue(newState != SimulationState.RUNNING || atBreakpoint);
+        resetDisabled.setValue(newState == SimulationState.NO_PROJECT);
+        speedSlider.setDisable(newState == SimulationState.NO_PROJECT);
+        speedLabel.setDisable(newState == SimulationState.NO_PROJECT);
 
-        boolean showingPause = newState == State.RUNNING || newState == State.RUNNING_REQUESTED_PAUSE;
+        boolean showingPause = newState == SimulationState.RUNNING || newState == SimulationState.RUNNING_REQUESTED_PAUSE;
         if (showingPause)
         {
             // Only change button text and tooltip if needed; changing the tooltip to another
