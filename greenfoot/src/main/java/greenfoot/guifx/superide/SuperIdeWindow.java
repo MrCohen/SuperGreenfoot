@@ -331,6 +331,8 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         browser.setOnNewClass(this::showNewClassMenu);
         JavaFXUtil.addChangeListenerPlatform(browser.selectedClassProperty(), this::showClassInInspector);
 
+        // Printed output still goes to the Terminal window (routing it here comes next):
+        getOutput().setPlaceholderText("Printed output (System.out.println) appears in the Terminal window for now.");
         welcomePanel = makeWelcomePanel();
         setupWorldDisplay();
         setupPlacingActor();

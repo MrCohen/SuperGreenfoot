@@ -76,6 +76,7 @@ public class OutputPane extends VBox
     private final ToggleButton outputTab = new ToggleButton("Output");
     private final ToggleButton problemsTab = new ToggleButton("Problems");
     private final ReadOnlyStringWrapper lastLine = new ReadOnlyStringWrapper("Nothing printed yet");
+    private final Label placeholder = new Label("Nothing printed yet. System.out.println shows up here.");
     private final ReadOnlyStringWrapper problemSummary = new ReadOnlyStringWrapper("Problems 0");
     private Runnable onCollapse = () -> {};
 
@@ -111,7 +112,7 @@ public class OutputPane extends VBox
 
         listView.getStyleClass().add("sg-output");
         listView.setFocusTraversable(true);
-        listView.setPlaceholder(new Label("Nothing printed yet. System.out.println shows up here."));
+        listView.setPlaceholder(placeholder);
         listView.setCellFactory(v -> new ListCell<>()
         {
             @Override
@@ -152,6 +153,14 @@ public class OutputPane extends VBox
     }
 
     /** A line the scenario printed. */
+    /**
+     * The text shown while there is no output (for example, where output goes instead).
+     */
+    public void setPlaceholderText(String text)
+    {
+        placeholder.setText(text);
+    }
+
     public void appendOutput(String text)
     {
         append(text, Kind.PRINTED);
