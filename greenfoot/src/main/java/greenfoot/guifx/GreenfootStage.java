@@ -346,7 +346,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
         JavaFXUtil.addChangeListenerPlatform(focusedProperty(), focused -> {
             if (focused && this.project != null)
             {
-                controller.windowActivated();
+                this.controller.windowActivated();
             }
         });
         
