@@ -1,5 +1,6 @@
 /*
  This file is part of the SuperGreenfoot program, a derivative of Greenfoot.
+ Copyright (C) 2017,2018,2019,2019,2020,2021,2022,2023,2024  Poul Henriksen and Michael Kolling
  Copyright (C) 2026 SuperGreenfoot contributors
 
  This program is free software; you can redistribute it and/or

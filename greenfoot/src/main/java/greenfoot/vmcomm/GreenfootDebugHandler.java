@@ -38,7 +38,7 @@ import java.util.Map;
 
 import greenfoot.core.ProjectManager;
 import greenfoot.core.WorldHandler;
-import greenfoot.guifx.GreenfootStage;
+import greenfoot.guifx.controller.ProjectRegistry;
 import greenfoot.platforms.ide.WorldHandlerDelegateIDE;
 import greenfoot.record.GreenfootRecorder;
 import greenfoot.util.DebugUtil;
@@ -140,7 +140,7 @@ public class GreenfootDebugHandler implements DebuggerListener, ObjectBenchInter
         {
             project.getDebugger().runOnEventHandler(() -> handler.launch(project.getDebugger()));
         }
-        GreenfootStage.makeStage(project, handler).show();
+        ProjectRegistry.open(project, handler);
     }
     
     /**

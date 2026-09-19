@@ -27,6 +27,7 @@ import bluej.GuiHandler;
 import bluej.Main;
 import bluej.pkgmgr.Project;
 import greenfoot.core.ProjectManager;
+import greenfoot.guifx.controller.ProjectRegistry;
 import javafx.stage.Stage;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -50,7 +51,7 @@ public class GreenfootGuiHandler implements GuiHandler
         }
         else
         {
-            if (GreenfootStage.openArchive(path, null))
+            if (ProjectRegistry.openArchive(path, null))
             {
                 return true;
             }
@@ -81,19 +82,17 @@ public class GreenfootGuiHandler implements GuiHandler
     public Stage initialOpenComplete(boolean projectOpen)
     {
         if (! projectOpen) {
-            GreenfootStage stage = GreenfootStage.makeStage(null, null);
-            stage.show();
-            return stage;
+            return ProjectRegistry.showEmptyWindow();
         }
         else
         {
-            return GreenfootStage.getOpenStage();
+            return ProjectRegistry.getOpenStage();
         }
     }
     
     @Override
     public void doExitCleanup()
     {
-        GreenfootStage.closeAll();
+        ProjectRegistry.closeAll();
     }
 }

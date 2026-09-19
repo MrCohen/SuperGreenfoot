@@ -79,6 +79,7 @@ import greenfoot.guifx.classes.GClassDiagram;
 import greenfoot.guifx.classes.GClassDiagram.GClassType;
 import greenfoot.guifx.classes.ImportClassDialog;
 import greenfoot.guifx.classes.LocalGClassNode;
+import greenfoot.guifx.controller.ProjectRegistry;
 import greenfoot.guifx.controller.SimulationState;
 import greenfoot.guifx.export.ExportDialog;
 import greenfoot.guifx.export.ExportException;
@@ -148,7 +149,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.OptionalInt;
@@ -168,8 +168,6 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
 {
     private static final String STAGE_TITLE = "Greenfoot";
 
-    private static int numberOfOpenProjects = 0;
-    private static List<GreenfootStage> stages = new ArrayList<>();
     // Flag indicating Greenfoot is being exited by the user
     private boolean isQuittingRequest = false;
 
@@ -361,7 +359,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     {
         setTitle(STAGE_TITLE);
 
-        stages.add(this);
+        ProjectRegistry.windowOpened(this);
 
         soundRecorder = new SoundRecorderControls(project);
 
@@ -494,7 +492,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         project.getPackage("").setUI(this);
         this.debugHandler = greenfootDebugHandler;
         hasNoProject.set(false);
-        numberOfOpenProjects++;
+        ProjectRegistry.projectOpened();
 
         project.getUnnamedPackage().addCompileObserver(this);
         greenfootDebugHandler.setPickListener(this::pickResults);
@@ -648,10 +646,11 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      */
     public static GreenfootStage makeStage(Project project, GreenfootDebugHandler greenfootDebugHandler)
     {
-        if (stages.size() == 1 && stages.get(0).project == null)
+        GreenfootStage emptyStage = ProjectRegistry.getSoleEmptyStage();
+        if (emptyStage != null)
         {
-            stages.get(0).showProject(project, greenfootDebugHandler);
-            return stages.get(0);
+            emptyStage.showProject(project, greenfootDebugHandler);
+            return emptyStage;
         }
         else
         {
@@ -798,32 +797,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         File chosen = chooser.showOpenDialog(this.getStage());
         if (chosen != null)
         {
-            openArchive(chosen, getStage());
-        }
-    }
-
-    /**
-     * Open a gfar archive file as a Greenfoot project.
-     * The file contents are extracted, the containing directory
-     * is then converted into a Greenfoot project, and opened.
-     * Opening already extracted gfar will show an error message.
-     * @param archive The chosen archived file.
-     * @param window  The parent javafx window to show error message if needed. It could be null.
-     * @return A true value if the archived is open successfully or false otherwise.
-     */
-    public static boolean openArchive(File archive, Window window)
-    {
-        // Determine the output path.
-        File oPath = Utility.maybeExtractArchive(archive, () -> window);
-
-        if (oPath != null && Project.isProject(oPath.getPath()))
-        {
-            ProjectManager.instance().launchProject(Project.openProject(oPath.toString()));
-            return true;
-        }
-        else
-        {
-            return false;
+            ProjectRegistry.openArchive(chosen, getStage());
         }
     }
 
@@ -837,7 +811,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
         Project p = Project.openProject(projPath.getAbsolutePath());
         if (p != null)
         {
-            GreenfootStage stage = findStageForProject(p);
+            GreenfootStage stage = ProjectRegistry.findStageForProject(p);
             if (stage != null)
             {
                 // If already open, bring the window to the foreground:
@@ -885,12 +859,12 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
      * @param keepLast  if true, don't close the last stage; leave it open without a scenario. If
      *                  false, quit BlueJ when the last stage is closed.
      */
-    private void doClose(boolean keepLast)
+    public void doClose(boolean keepLast)
     {
         exitFullScreenView();
         PrefMgr.getPlayerName().removeListener(playerNameListener);
         
-        if (numberOfOpenProjects <= 1 && ! keepLast)
+        if (ProjectRegistry.getNumberOfOpenProjects() <= 1 && ! keepLast)
         {
             // We quit with the current scenario still open, so that it will be saved to the
             // projects-for-re-opening list and re-opened when Greenfoot is next started:
@@ -905,17 +879,17 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             doSave();
             Project.cleanUp(project);
             project.getPackage("").closeAllEditors();
-            numberOfOpenProjects--;
+            ProjectRegistry.projectClosed();
         }
 
-        if (numberOfOpenProjects == 0)
+        if (ProjectRegistry.getNumberOfOpenProjects() == 0)
         {
             // Keep this stage open, but show it as empty
             removeScenarioDetails();
         }
         else
         {
-            stages.remove(this);
+            ProjectRegistry.windowClosed(this);
             close();
         }
     }
@@ -2815,56 +2789,6 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     }
 
     /**
-     * Close all Greenfoot windows (before exit).
-     */
-    public static void closeAll()
-    {
-        Collection<GreenfootStage> stages_copy = new ArrayList<>(stages);
-
-        // Save the list of open projects, to be re-opened next time:
-        int i = 0;
-        for (GreenfootStage stage : stages_copy)
-        {
-            if (stage.project != null)
-            {
-                i++;
-                Config.putPropString(Config.BLUEJ_OPENPACKAGE + i,
-                        stage.project.getProjectDir().getPath());
-            }
-        }
-
-        // Remove any extra open projects from the list:
-        String exists;
-        do {
-            i++;
-            exists = Config.removeProperty(Config.BLUEJ_OPENPACKAGE + i);
-        } while (exists != null);
-
-        // Close all stages:
-        for (GreenfootStage stage : stages_copy)
-        {
-            // pass keepLast = true to avoid closing the final stage causing infinite recursion:
-            stage.doClose(true);
-        }
-    }
-    
-    /**
-     * Find the stage currently showing the specified project (if any).
-     */
-    public static GreenfootStage findStageForProject(Project project)
-    {
-        for (GreenfootStage stage : stages)
-        {
-            if (stage.project == project)
-            {
-                return stage;
-            }
-        }
-        
-        return null;
-    }
-
-    /**
      * Shows the terminal for this project, and brings it to the front.
      */
     @Override
@@ -3113,7 +3037,7 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
                 props.put("version", Boot.GREENFOOT_API_VERSION);
                 unNamedPkg.save(props);
                 ProjectManager.instance().launchProject(proj);
-                GreenfootStage stage = findStageForProject(proj);
+                GreenfootStage stage = ProjectRegistry.findStageForProject(proj);
                 LocalGClassNode worldClass = stage.createNewClass(unNamedPkg, "World",
                         "MyWorld", sourceType, getWorldTemplateFileName(true, sourceType));
                 stage.currentWorld = worldClass.getClassTarget();
@@ -3322,10 +3246,10 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
     }
 
     /**
-     * Gets a Stage reference for an open GreenfootStage, or null if there are none.
+     * The project shown in this window, or null if the window is empty.
      */
-    public static Stage getOpenStage()
+    public Project getProject()
     {
-        return stages.isEmpty() ? null : stages.get(0);
+        return project;
     }
 }
