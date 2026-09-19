@@ -26,24 +26,13 @@ import bluej.Config;
 import bluej.Main;
 import bluej.compiler.CompileReason;
 import bluej.compiler.CompileType;
-import bluej.debugger.Debugger;
 import bluej.debugger.DebuggerObject;
-import bluej.debugger.DebuggerResult;
-import bluej.debugger.ExceptionDescription;
-import bluej.debugger.gentype.GenTypeClass;
 import bluej.debugger.gentype.JavaType;
 import bluej.debugger.gentype.Reflective;
-import bluej.debugmgr.Invoker;
-import bluej.debugmgr.NamedValue;
-import bluej.debugmgr.ResultWatcher;
-import bluej.debugmgr.objectbench.InvokeListener;
-import bluej.debugmgr.objectbench.ObjectWrapper;
-import bluej.debugmgr.objectbench.ResultWatcherBase;
 import bluej.editor.Editor;
 import bluej.extensions2.SourceType;
 import bluej.pkgmgr.AboutDialogTemplate;
 import bluej.pkgmgr.Package;
-import bluej.pkgmgr.PackageUI;
 import bluej.pkgmgr.Project;
 import bluej.pkgmgr.ProjectUtils;
 import bluej.pkgmgr.target.ClassTarget;
@@ -52,20 +41,14 @@ import bluej.pkgmgr.target.Target;
 import bluej.prefmgr.PrefMgr;
 import bluej.prefmgr.PrefMgrDialog;
 import bluej.testmgr.record.InvokerRecord;
-import bluej.testmgr.record.ObjectInspectInvokerRecord;
 import bluej.utility.Debug;
 import bluej.utility.DialogManager;
 import bluej.utility.FileUtility;
-import bluej.utility.JavaReflective;
 import bluej.utility.Utility;
 import bluej.utility.javafx.FXPlatformConsumer;
 import bluej.utility.javafx.FXPlatformFunction;
 import bluej.utility.javafx.JavaFXUtil;
 import bluej.utility.javafx.UnfocusableScrollPane;
-import bluej.views.CallableView;
-import bluej.views.ConstructorView;
-import bluej.views.MethodView;
-import greenfoot.Actor;
 import greenfoot.core.ProjectManager;
 import greenfoot.export.ScenarioSaver;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
@@ -88,14 +71,12 @@ import greenfoot.util.GreenfootUtil;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import greenfoot.vmcomm.DisplayState;
 import greenfoot.vmcomm.VMCommsMain;
-import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
-import javafx.event.ActionEvent;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.CacheHint;
@@ -137,19 +118,15 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.Properties;
 
-import static bluej.pkgmgr.target.EditableTarget.MENU_STYLE_INBUILT;
-import static greenfoot.vmcomm.Command.*;
 
 /**
  * Greenfoot's main window: a JavaFX replacement for GreenfootFrame which lives on the server VM.
  */
 @OnThread(Tag.FXPlatform)
-public class GreenfootStage extends Stage implements PackageUI, ControlPanelListener, ScenarioSaver,
+public class GreenfootStage extends Stage implements ControlPanelListener, ScenarioSaver,
         ProjectView
 {
     private static final String STAGE_TITLE = "Greenfoot";
@@ -190,25 +167,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
 
     private final ExecutionTwirler executionTwirler;
     private final ControlPanel controlPanel;
-    
-    private DebuggerObject draggedActor;
-
-    // Details for pick requests that we have sent to the debug VM:
-    private static enum PickType
-    {
-        LEFT_CLICK, CONTEXT_MENU, DRAG;
-    }
-
-    // The next free pick ID that we will use
-    private int nextPickId = 1;
-    // The most recent pick ID that we are waiting on from the debug VM.
-    private int curPickRequest;
-    // The point at which the most recent pick happened.
-    private Point2D curPickPoint;
-    // If true, most recent pick was for right-click menu.  If false, was for a left-click drag.
-    private PickType curPickType;
-    // The current drag request ID, or -1 if not currently dragging:
-    private int curDragRequest;
 
     private GreenfootRecorder saveTheWorldRecorder;
     private final SoundRecorderControls soundRecorder;
@@ -324,7 +282,10 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
             }
         });
         JavaFXUtil.addFocusListener(worldDisplay, focused -> {
-            debugHandler.getVmComms().worldFocusChanged(focused);
+            if (controller != null)
+            {
+                controller.notifyWorldFocus(focused);
+            }
         });
         executionTwirler.setWhileTwirling(twirling -> {
             // We show hung text if we are twirling and either:
@@ -418,13 +379,13 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         this.controller = controller;
         this.project = project;
         this.saveTheWorldRecorder = greenfootDebugHandler.getRecorder();
-        project.getPackage("").setUI(this);
+        project.getPackage("").setUI(controller);
         this.debugHandler = greenfootDebugHandler;
         hasNoProject.set(false);
         ProjectRegistry.projectOpened();
 
         project.getUnnamedPackage().addCompileObserver(controller);
-        greenfootDebugHandler.setPickListener(this::pickResults);
+        greenfootDebugHandler.setPickListener(controller::pickResults);
         greenfootDebugHandler.setSimulationListener(controller);
         showingDebugger.bindBidirectional(project.debuggerShowing());
         
@@ -1132,33 +1093,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     }
 
     /**
-     * A helper method used for adding actors to the world as part of the shift-click "quick add"
-     * functionality. This must not be called from the UI event thread.
-     * 
-     * @param dest  the destination coordinates in the world (pixels)
-     * @param cell  the destination coordinates in the world (cells)
-     * @param actor  the actor to be added
-     */
-    @OnThread(Tag.Any)
-    @SuppressWarnings("threadchecker")
-    private void addActorQuick(Point2D dest, Point2D cell, DebuggerObject actor)
-    {
-        // Note: threadchecker checking disabled due to incorrect tagging of "getMirror" method.
-        
-        saveTheWorldRecorder.addActorToWorld(actor, (int)cell.getX(), (int)cell.getY());
-
-        // Bit hacky to pass positions as strings, but mirroring the values as integers
-        // would have taken a lot of code changes to route through to VMReference:
-        DebuggerObject xObject = project.getDebugger().getMirror("" + (int) dest.getX());
-        DebuggerObject yObject = project.getDebugger().getMirror("" + (int) dest.getY());
-        
-        project.getDebugger().instantiateClass(
-                "greenfoot.core.AddToWorldHelper",
-                new String[] {"java.lang.Object", "java.lang.String", "java.lang.String"},
-                new DebuggerObject[] {actor, xObject, yObject});
-    }
-    
-    /**
      * Setup mouse listeners for showing a new actor underneath the mouse cursor
      */
     private void setupMouseForPlacingNewActor(StackPane stackPane)
@@ -1182,42 +1116,19 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
                 Point2D dest = worldDisplay.sceneToWorld(lastMousePosInScene);
                 if (worldDisplay.worldContains(dest))
                 {
-                    DebuggerObject actor = newActorProperty.get().actorObject;
-                    Point2D cell = pixelToCellCoordinates(dest);
-                    if (actor != null)
+                    NewActor newActor = newActorProperty.get();
+                    if (newActor.actorObject != null)
                     {
                         // Place the already-constructed actor.
-                        saveTheWorldRecorder.createActor(actor,
-                                newActorProperty.get().invokerRecord.getArgumentValues(),
-                                newActorProperty.get().paramTypes);
+                        controller.placeNewActor(newActor.actorObject, newActor.invokerRecord,
+                                newActor.paramTypes, dest);
                         // Can't place same instance twice:
                         newActorProperty.set(null);
-                        new Thread("Add actor on click")
-                        {
-                            public void run()
-                            {
-                                addActorQuick(dest, cell, actor);
-                            }
-                        }.start();
                     }
                     else
                     {
                         // Must be shift-clicking; will need to make a new instance:
-                        new Thread("Add actor on shift click") {
-                            public void run()
-                            {
-                                DebuggerResult result = project.getDebugger()
-                                        .instantiateClass(newActorProperty.get().typeName);
-                                DebuggerObject actor = result.getResultObject();
-                                
-                                if (actor != null)
-                                {
-                                    saveTheWorldRecorder.createActor(actor, new String[0],
-                                            new JavaType[0]);
-                                    addActorQuick(dest, cell, actor);
-                                }
-                            }
-                        }.start();
+                        controller.quickAddActor(newActor.typeName, dest);
                     }
                 }
                 else
@@ -1265,22 +1176,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     }
 
     /**
-     * Convert world pixel coordinates to cell coordinates.
-     */
-    private Point2D pixelToCellCoordinates(Point2D worldPixels)
-    {
-        int cellSize = debugHandler.getVmComms().getWorldCellSize();
-        if (cellSize == 0)
-        {
-            return worldPixels;
-        }
-        
-        int xpos = (int)worldPixels.getX() / cellSize;
-        int ypos = (int)worldPixels.getY() / cellSize;
-        return new Point2D(xpos, ypos);
-    }
-    
-    /**
      * Sets up the writing
      * of keyboard and mouse events back to the buffer.
      */
@@ -1321,7 +1216,7 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
                     // Holding shift, so show actor preview if it is an actor with no-arg constructor:
                     Reflective type = selectedClassTarget.getTypeReflective();
                     if (type != null
-                            && getActorReflective().isAssignableFrom(type)
+                            && controller.getActorReflective().isAssignableFrom(type)
                             && GreenfootProjectController.hasNoArgConstructor(type))
                     {
                         newActorProperty.set(new NewActor(getImageViewForClass(type), selectedClassTarget.getBaseName()));
@@ -1341,17 +1236,13 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         worldDisplay.addEventFilter(KeyEvent.ANY, this::forwardWorldKeyEvent);
 
         worldDisplay.setOnContextMenuRequested(e -> {
-            if (project == null)
+            if (controller == null)
             {
                 return;
             }
             
-            boolean paused = getState() == SimulationState.PAUSED;
-            if (paused)
-            { 
-                Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
-                pickRequest(worldPos, PickType.CONTEXT_MENU);
-            }
+            Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+            controller.requestWorldContextMenu(worldPos);
         });
         worldDisplay.getImageView().addEventFilter(MouseEvent.ANY, e -> {
             Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
@@ -1365,45 +1256,9 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
      */
     void forwardWorldKeyEvent(KeyEvent e)
     {
+        if (controller != null)
         {
-            if (project == null)
-            {
-                return;
-            }
-            
-            // Ignore keypresses if we are currently waiting for an ask-answer:
-            if (worldDisplay.isAsking())
-            {
-                return;
-            }
-            
-            int eventType;
-            if (e.getEventType().equals(KeyEvent.KEY_PRESSED))
-            {
-                eventType = KEY_DOWN;
-            }
-            else if (e.getEventType().equals(KeyEvent.KEY_RELEASED))
-            {
-                eventType = KEY_UP;
-            }
-            else if (e.getEventType().equals(KeyEvent.KEY_TYPED))
-            {
-                eventType = KEY_TYPED;
-            }
-            else
-            {
-                return;
-            }
-            debugHandler.getVmComms().sendKeyEvent(eventType, e.getCode(), e.getText());
-            
-            // Don't consume keypresses involving control because they might be menu accelerators.
-            // Consume anything else, including anything involving alt, because we don't want alt
-            // to trigger the menu like it usually would on Windows.
-            // On MacOS consuming the key doesn't prevent the menu accelerators firing.
-            if (!e.isControlDown() || (e.isAltDown() && Config.isWinOS()))
-            {
-                e.consume();
-            }
+            controller.forwardWorldKeyEvent(e);
         }
     }
 
@@ -1417,92 +1272,18 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
      */
     void forwardWorldMouseEvent(MouseEvent e, Point2D worldPos, boolean allowPick)
     {
+        if (controller != null)
         {
-            if (project == null)
-            {
-                return;
-            }
-            
-            boolean paused = getState() == SimulationState.PAUSED && allowPick;
-            int eventType;
-            if (e.getEventType() == MouseEvent.MOUSE_CLICKED)
-            {
-                if (e.getButton() == MouseButton.PRIMARY && (!Config.isMacOS() || !e.isControlDown()))
-                {
-                    hideContextMenu();
-                    if (paused)
-                    {
-                        pickRequest(worldPos, PickType.LEFT_CLICK);
-                    }
-                }
-                eventType = MOUSE_CLICKED;
-            }
-            else if (e.getEventType() == MouseEvent.MOUSE_PRESSED)
-            {
-                eventType = MOUSE_PRESSED;
-                if (paused && e.isPrimaryButtonDown() && !e.isControlDown())
-                {
-                    // Begin a drag. We do this on MOUSE_PRESSED, because MOUSE_DRAG_DETECTED requires
-                    // several pixels of movement, which might take us off the actor if it is small.
-                    pickRequest(worldPos, PickType.DRAG);
-                }
-            }
-            else if (e.getEventType() == MouseEvent.MOUSE_RELEASED)
-            {
-                eventType = MOUSE_RELEASED;
-                // Finish any current drag:
-                if (curDragRequest != -1)
-                {
-                    Point2D cellPos = pixelToCellCoordinates(worldPos);
-                    debugHandler.getVmComms().endDrag(curDragRequest, (int)cellPos.getX(), (int)cellPos.getY());
-                    curDragRequest = -1;
-                    saveTheWorldRecorder.moveActor(draggedActor, (int)cellPos.getX(), (int)cellPos.getY());
-                }
-            }
-            else if (e.getEventType() == MouseEvent.MOUSE_DRAGGED)
-            {
-                // Continue the drag if one is going:
-                if (e.getButton() == MouseButton.PRIMARY && paused && curDragRequest != -1)
-                {
-                    debugHandler.getVmComms().continueDrag(curDragRequest, (int)worldPos.getX(), (int)worldPos.getY());
-                }
-
-                eventType = MOUSE_DRAGGED;
-            }
-            else if (e.getEventType() == MouseEvent.MOUSE_MOVED)
-            {
-                eventType = MOUSE_MOVED;
-            }
-            else if (e.getEventType() == MouseEvent.MOUSE_EXITED)
-            {
-                eventType = MOUSE_EXITED;
-            }
-            else
-            {
-                return;
-            }
-            MouseButton button = e.getButton();
-            if (Config.isMacOS() && button == MouseButton.PRIMARY && e.isControlDown())
-            {
-                button = MouseButton.SECONDARY;
-            }
-            
-            // Don't send the event if they are placing a new actor:
-            if (newActorProperty.get() == null)
-            {
-                debugHandler.getVmComms().sendMouseEvent(
-                        eventType, (int) worldPos.getX(), (int) worldPos.getY(),
-                        button.ordinal(), e.getClickCount());
-            }
+            controller.forwardWorldMouseEvent(e, worldPos, allowPick);
         }
     }
 
     /** Tell the debug VM whether a world view has keyboard focus (used by the full-screen view). */
     void notifyWorldFocus(boolean focused)
     {
-        if (project != null)
+        if (controller != null)
         {
-            debugHandler.getVmComms().worldFocusChanged(focused);
+            controller.notifyWorldFocus(focused);
         }
     }
 
@@ -1670,153 +1451,25 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         return fullScreenView != null;
     }
 
-    /**
-     * Performs a pick request on the debug VM at given coordinates.
-     */
-    private void pickRequest(Point2D worldPosition, PickType pickType)
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void showWorldContextMenu(List<MenuItem> items, Point2D worldPos)
     {
-        curPickType = pickType;
-        Debugger debugger = project.getDebugger();
-        // Bit hacky to pass positions as strings, but mirroring the values as integers
-        // would have taken a lot of code changes to route through to VMReference:
-        DebuggerObject xObject = debugger.getMirror("" + (int) worldPosition.getX());
-        DebuggerObject yObject = debugger.getMirror("" + (int) worldPosition.getY());
-        int thisPickId = nextPickId++;
-        DebuggerObject pickIdObject = debugger.getMirror("" + thisPickId);
-        String requestTypeString = pickType == PickType.DRAG ? "drag" : "";
-        DebuggerObject requestTypeObject = debugger.getMirror(requestTypeString);
-        // One pick at a time only:
-        curPickRequest = thisPickId;
-        curPickPoint = worldPosition;
-        
-
-        // Need to find out which actors are at the point.  Do this in background thread to
-        // avoid blocking the GUI thread:
-        Utility.runBackground(() -> 
-            debugger.instantiateClass("greenfoot.core.PickActorHelper",
-                new String[] {"java.lang.String", "java.lang.String", "java.lang.String", "java.lang.String"},
-                new DebuggerObject[] {xObject, yObject, pickIdObject, requestTypeObject})
-        );
-        // Once that completes, pickResults(..) will be called.
+        hideContextMenu();
+        contextMenu = new ContextMenu();
+        contextMenu.setOnHidden(e -> {
+            contextMenu = null;
+        });
+        contextMenu.getItems().addAll(items);
+        Point2D screenLocation = worldDisplay.worldToScreen(worldPos);
+        contextMenu.show(worldDisplay, screenLocation.getX(), screenLocation.getY());
     }
 
-    /**
-     * Callback when a pick has completed (i.e. a request to find actors at given position)
-     * @param pickId The ID of the pick has requested
-     * @param actors The list of actors found.  May be any size.
-     * @param world The world -- only relevant if actors list is empty.
-     */
-    @OnThread(Tag.Any)
-    public void pickResults(int pickId, List<DebuggerObject> actors, DebuggerObject world)
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void hideWorldContextMenu()
     {
-        Platform.runLater(() -> {
-            if (curPickRequest != pickId)
-            {
-                return; // Pick has been cancelled by a more recent pick, so ignore
-            }
-
-            if (curPickType == PickType.CONTEXT_MENU)
-            {
-                // If single actor, show simple context menu:
-                if (!actors.isEmpty())
-                {
-                    NamedValue[] namesForActors = debugHandler.nameObjects(actors);
-                    // This is a list of menus; if there's only one we'll display
-                    // directly in context menu.  If there's more than one, we'll
-                    // have a higher level menu to pick between them.
-                    List<Menu> actorMenus = new ArrayList<>();
-                    for (int i = 0; i < actors.size(); i++)
-                    {
-                        DebuggerObject actor = actors.get(i);
-                        Target target = project.getTarget(actor.getClassName());
-                        // Should always be ClassTarget, but check in case:
-                        if (target instanceof ClassTarget)
-                        {
-                            Menu menu = new Menu(namesForActors[i].getName() + ":" + actor.getClassName());
-                            ObjectWrapper.createMethodMenuItems(menu.getItems(), project.loadClass(actor.getClassName()), new RecordInvoke(actor), "", true);
-                            menu.getItems().add(makeInspectMenuItem(actor, namesForActors[i].getName()));
-                            //add a listener to the action event on the items in the sub-menu to hide the context menus
-                            for (MenuItem menuItem : menu.getItems())
-                            {
-                                menuItem.addEventHandler(ActionEvent.ACTION, e -> hideContextMenu());
-                            }
-
-                            MenuItem removeItem = new MenuItem(Config.getString("world.handlerDelegate.remove"));
-                            JavaFXUtil.addStyleClass(removeItem, MENU_STYLE_INBUILT);
-                            removeItem.setOnAction(e -> {
-                                project.getDebugger().instantiateClass(
-                                    "greenfoot.core.RemoveFromWorldHelper",
-                                    new String[]{"java.lang.Object"},
-                                    new DebuggerObject[]{actor});
-                                saveTheWorldRecorder.removeActor(actor);
-                            });
-                            menu.getItems().add(removeItem);
-                            actorMenus.add(menu);
-                        }
-                    }
-                    hideContextMenu();
-                    contextMenu = new ContextMenu();
-                    contextMenu.setOnHidden(e -> {
-                        contextMenu = null;
-                    });
-                    if (actorMenus.size() == 1)
-                    {
-                        // No point showing higher-level menu with one item, collapse:
-                        contextMenu.getItems().addAll(actorMenus.get(0).getItems());
-                    }
-                    else
-                    {
-                        contextMenu.getItems().addAll(actorMenus);
-                    }
-                    Point2D screenLocation = worldDisplay.worldToScreen(curPickPoint);
-                    contextMenu.show(worldDisplay, screenLocation.getX(), screenLocation.getY());
-                }
-                else
-                {
-                    Target target = project.getTarget(world.getClassName());
-                    // Should always be ClassTarget, but check in case:
-                    if (target instanceof ClassTarget)
-                    {
-                        hideContextMenu();
-                        contextMenu = new ContextMenu();
-                        contextMenu.setOnHidden(e -> {
-                            contextMenu = null;
-                        });
-                        ObjectWrapper.createMethodMenuItems(contextMenu.getItems(),
-                                project.loadClass(world.getClassName()), new RecordInvoke(world), "", true);
-                        contextMenu.getItems().add(makeInspectMenuItem(world, debugHandler.nameObjects(List.of(world))[0].getName()));
-                        
-                        MenuItem saveTheWorld = new MenuItem(Config.getString("save.world"));
-                        JavaFXUtil.addStyleClass(saveTheWorld, MENU_STYLE_INBUILT);
-                        saveTheWorld.setOnAction(e -> {
-                            if (!saveTheWorldRecorder.writeCode(className -> ((ClassTarget) target).getEditor()))
-                            {
-                                DialogManager.showErrorFX(this, "cannot-save-world");
-                            }
-                            else
-                            {
-                                this.project.scheduleCompilation(true, CompileReason.USER,
-                                        CompileType.INDIRECT_USER_COMPILE, this.project.getUnnamedPackage());
-                            }
-                        });
-                        contextMenu.getItems().add(saveTheWorld);
-
-                        Point2D screenLocation = worldDisplay.worldToScreen(curPickPoint);
-                        contextMenu.show(worldDisplay, screenLocation.getX(), screenLocation.getY());
-                    }
-                }
-            }
-            else if (curPickType == PickType.DRAG && !actors.isEmpty())
-            {
-                // Left-click drag, and there is an actor there, so begin drag:
-                curDragRequest = pickId;
-                draggedActor = actors.get(0);
-            }
-            else if (curPickType == PickType.LEFT_CLICK && !actors.isEmpty())
-            {
-                debugHandler.addSelectedObjects(actors, worldDisplay.worldToScreen(curPickPoint));
-            }
-        });
+        hideContextMenu();
     }
 
     /**
@@ -1831,18 +1484,36 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         }
     }
 
-    /**
-     * Makes a MenuItem with an Inspect command for the given debugger object
-     */
-    private MenuItem makeInspectMenuItem(DebuggerObject debuggerObject, String name)
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public Point2D worldToScreen(Point2D worldPos)
     {
-        MenuItem inspectItem = new MenuItem(Config.getString("debugger.objectwrapper.inspect"));
-        JavaFXUtil.addStyleClass(inspectItem, MENU_STYLE_INBUILT);
-        inspectItem.setOnAction(e -> {
-            InvokerRecord ir = new ObjectInspectInvokerRecord(debuggerObject.getClassName());
-            project.getInspectorInstance(debuggerObject, name, project.getUnnamedPackage(), ir, this, null);  // shows the inspector
-        });
-        return inspectItem;
+        return worldDisplay.worldToScreen(worldPos);
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public boolean isPlacingActor()
+    {
+        return newActorProperty.get() != null;
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void beginPlacingActor(DebuggerObject actor, InvokerRecord ir, JavaType[] paramTypes, Reflective type)
+    {
+        ImageView imageView = getImageViewForClass(type);
+        if (imageView != null)
+        {
+            newActorProperty.set(new NewActor(imageView, actor, ir, paramTypes));
+        }
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void showActorHighlight(int x, int y, int width, int height, int rotation)
+    {
+        worldDisplay.setActorHighlight(x, y, width, height, rotation);
     }
 
     /**
@@ -2021,9 +1692,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         exitFullScreenView();
         worldDisplay.setImage(null);
         worldDisplay.cancelAsk();
-        nextPickId = 1;
-        curPickRequest = 0;
-        curDragRequest = -1;
     }
 
     /**
@@ -2340,68 +2008,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
     }
 
     /**
-     * Gets a Reflective for the Actor class.
-     */
-    private Reflective getActorReflective()
-    {
-        return new JavaReflective(project.loadClass("greenfoot.Actor"));
-    }
-
-    /**
-     * Gets a Reflective for the World class.
-     */
-    private Reflective getWorldReflective()
-    {
-        return new JavaReflective(project.loadClass("greenfoot.World"));
-    }
-
-    /**
-     * An InvokeListener which also records the invocation for save-the-world purposes
-     */
-    private class RecordInvoke implements InvokeListener
-    {
-        private final DebuggerObject target;
-
-        public RecordInvoke(DebuggerObject target)
-        {
-            this.target = target;
-        }
-
-        @Override
-        public void executeMethod(MethodView mv)
-        {
-            // We must put the object on the bench so that it has a name on the debug VM
-            // side.  Without a name, you can't call a method on it using the BlueJ workers.
-            // The object bench gets cleared on compile, so that takes care of clean-up:
-            String objInstanceName = debugHandler.ensureObjectOnBench(target, target.getGenType()).getName();
-
-            ResultWatcher watcher = new ResultWatcherBase(target, objInstanceName,
-                    project.getUnnamedPackage(), GreenfootStage.this, mv) {
-                @Override
-                protected void addInteraction(InvokerRecord ir)
-                {
-                    saveTheWorldRecorder.callActorOrWorldMethod(target, mv.getMethod(),
-                            ir.getArgumentValues(), mv.getParamTypes(false));
-                }
-            };
-            
-            if (ProjectUtils.checkDebuggerState(project, GreenfootStage.this)) {
-                // Invoker invoker = new Invoker(pmf, mv, objInstanceName, target, watcher);
-                Package unpkg = project.getPackage("");
-                Invoker invoker = new Invoker(GreenfootStage.this, unpkg, mv, watcher, unpkg.getCallHistory(), debugHandler, debugHandler,
-                        project.getDebugger(), objInstanceName);
-                invoker.invokeInteractive();
-            }
-        }
-
-        @Override
-        public void callConstructor(ConstructorView cv)
-        {
-            //We are not used for constructors, so this won't get called.
-        }
-    }
-
-    /**
      * Opens a browser tab (in an editor window) for the given fully qualified class name
      * of a built-in Greenfoot class (e.g. greenfoot.Actor)
      */
@@ -2472,181 +2078,14 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
                 image, translatorNames, previousTeamMembers).showAndWait();
     }
 
-    /*
-     * PackageUI getStage() implementation.
-     * @see bluej.pkgmgr.PackageUI#getStage()
+    /**
+     * This window, as a Stage.
      */
-    @Override
-    @OnThread(Tag.FXPlatform)
     public Stage getStage()
     {
         return this;
     }
     
-    /**
-     * We have the result of an interactive object construction. Do the appropriate thing
-     * depending on the object type.
-     * 
-     * @param result      The result object
-     * @param ir          The invocation record for the invocation which created the object
-     * @param paramTypes  The parameter types for the constructor call
-     */
-    private void gotConstructionResult(DebuggerObject result, InvokerRecord ir, JavaType[] paramTypes)
-    {
-        Reflective typeReflective = result.getGenType().getReflective();
-        if (typeReflective != null)
-        {
-            // We need to convert the reflective to a JavaReflective in order for the
-            // "isAssignableFrom" tests below to work.
-            Class<?> cl = project.loadClass(typeReflective.getName());
-            if (cl != null)
-            {
-                typeReflective = new JavaReflective(cl);
-            }
-            else {
-                typeReflective = null;
-            }
-        }
-        
-        if (typeReflective != null && getActorReflective().isAssignableFrom(typeReflective))
-        {
-            // It's an actor!
-            ImageView imageView = getImageViewForClass(typeReflective);
-            if (imageView != null)
-            {
-                newActorProperty.set(new NewActor(imageView, result, ir, paramTypes));
-            }
-        }
-        else if (typeReflective != null && getWorldReflective().isAssignableFrom(typeReflective))
-        {
-            // It's a world
-            String className = result.getGenType().getErasedType().toString();
-            Target t = project.getTarget(className);
-            if (t instanceof ClassTarget)
-            {
-                controller.setCurrentWorld((ClassTarget)t);
-            }
-            
-            // Shouldn't wait on debug VM in the UI thread, so run in a separate thread:
-            new Thread("Setting constructed world")
-            {
-                public void run()
-                {
-                    project.getDebugger()
-                    .instantiateClass("greenfoot.core.SetWorldHelper",
-                            new String[]{"java.lang.Object"},
-                            new DebuggerObject[] { result });
-                    Platform.runLater(() -> saveTheWorldRecorder.recordingValid());
-                }
-            }.start();
-        }
-        else
-        {
-            // If neither actor nor world, we just inspect the constructed object:
-            project.getInspectorInstance(result, "<object>", project.getUnnamedPackage(), null, this, null);
-        }
-    }
-
-    @Override
-    public void callStaticMethodOrConstructor(CallableView cv)
-    {
-        controller.suggestTerminateIfAskingThenRun(() -> callStaticMethodOrConstructorNowReady(cv));
-    }
-
-    private void callStaticMethodOrConstructorNowReady(CallableView cv)
-    {
-        ResultWatcher watcher = null;
-        Package pkg = project.getPackage("");
-
-        if (cv instanceof ConstructorView)
-        {
-            // Is it a World subclass?  If so, count it as constructing a world.
-            Class<?> viewClass = cv.getDeclaringView().getViewClass();
-            try
-            {
-                // Must use same class loader for the World class for this to work:
-                if (viewClass.getClassLoader().loadClass("greenfoot.World").isAssignableFrom(viewClass))
-                {
-                    controller.setConstructingWorld(true);
-                    updateBackgroundMessage();
-                }
-            }
-            catch (ClassNotFoundException e)
-            {
-                // Just don't set the flag.
-            }
-            
-            // if we are constructing an object, create a watcher that waits for
-            // completion of the call and then places the object on the object
-            // bench
-            watcher = new ResultWatcherBase(pkg, this, cv) {
-                @Override
-                public void beginCompile()
-                {
-                    super.beginCompile();
-                }
-                
-                @Override
-                protected void nonNullResult(DebuggerObject result, String name, InvokerRecord ir)
-                {
-                    if ((name == null) || (name.length() == 0))
-                        name = "result";
-
-                    project.getTerminal().activate(false);
-                    debugHandler.addObject(result, result.getGenType(), name);
-                    project.getDebugger().addObject(project.getPackage("").getId(), name, result);
-                    
-                    gotConstructionResult(result, ir, cv.getParamTypes(false));
-                }
-
-                @Override
-                protected void addInteraction(InvokerRecord ir)
-                {
-                    // Nothing we can do here.
-                }
-
-                @Override
-                public void putException(ExceptionDescription exception, InvokerRecord ir)
-                {
-                    controller.setConstructingWorld(false);
-                    project.getTerminal().activate(false);
-                    updateBackgroundMessage();
-                    super.putException(exception, ir);
-                }
-
-                @Override
-                public void putError(String msg, InvokerRecord ir)
-                {
-                    controller.setConstructingWorld(false);
-                    project.getTerminal().activate(false);
-                    updateBackgroundMessage();
-                    super.putError(msg, ir);
-                }
-            };
-        }
-        else if (cv instanceof MethodView) {
-            // create a watcher
-            // that waits for completion of the call and then displays the
-            // result (or does nothing if void)
-            watcher = new ResultWatcherBase(pkg, this, cv) {
-                @Override
-                protected void addInteraction(InvokerRecord ir)
-                {
-                    project.getTerminal().activate(false);
-                    saveTheWorldRecorder.callStaticMethod(cv.getClassName(), ((MethodView) cv).getMethod(),
-                            ir.getArgumentValues(), cv.getParamTypes(false));
-                }
-            };
-        }
-
-        // create an Invoker to handle the actual invocation
-        if (ProjectUtils.checkDebuggerState(project, this)) {
-            project.getTerminal().activate(true);
-            new Invoker(this, pkg, cv, watcher, pkg.getCallHistory(), debugHandler, debugHandler,
-                    project.getDebugger(), null).invokeInteractive();
-        }
-    }
-
     /**
      * Allow the user to select a directory into which we create a project.
      */
@@ -2744,86 +2183,6 @@ public class GreenfootStage extends Stage implements PackageUI, ControlPanelList
         {
             controller.fireWorldRemovedCheck(classTarget);
         }
-    }
-
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void highlightObject(DebuggerObject currentObject)
-    {
-        JavaType actorType = new GenTypeClass(new JavaReflective(Actor.class));
-
-        if (currentObject != null && currentObject.getGenType() != null 
-            && actorType.isAssignableFrom(currentObject.getGenType()))
-        {
-            // It is an actor; try to find the bounds.  Do this in background thread to
-            // avoid blocking the GUI thread:
-            Utility.runBackground(() -> {
-                // Since the execution is paused, probably on the simulation thread, it is
-                // a bit awkward to execute code to access the details from another thread, especially
-                // for methods like getX() that the user may have overridden with arbitrary code.  So
-                // instead we use the debugger to read the values directly out of fields in Actor/GreenfootImage:
-                
-                OptionalInt x = getIntegerField(currentObject, "greenfoot.Actor", "x");
-                OptionalInt y = getIntegerField(currentObject, "greenfoot.Actor", "y");
-                OptionalInt rotation = getIntegerField(currentObject, "greenfoot.Actor", "rotation");
-                OptionalInt width = getIntegerField(currentObject, "greenfoot.Actor", "imageWidth");
-                OptionalInt height = getIntegerField(currentObject, "greenfoot.Actor", "imageHeight");
-                DebuggerObject world = getObjectField(currentObject, "greenfoot.Actor", "world");
-                OptionalInt cellSize = getIntegerField(world, "greenfoot.World", "cellSize");
-                
-                if (x.isPresent() && y.isPresent() && width.isPresent() 
-                        && height.isPresent() && rotation.isPresent() && cellSize.isPresent())
-                {
-                    Platform.runLater(() -> worldDisplay.setActorHighlight(
-                            x.getAsInt() * cellSize.getAsInt() + (cellSize.getAsInt() / 2), 
-                            y.getAsInt() * cellSize.getAsInt() + (cellSize.getAsInt() / 2), 
-                            width.getAsInt(), height.getAsInt(), rotation.getAsInt()));
-                }
-            });
-        }
-        else
-        {
-            worldDisplay.clearActorHighlight();
-        }
-    }
-
-    /**
-     * Given a debugger object (currentObject), get value of field declared in class className named
-     * fieldName.  Returns null if the object is null or the field cannot be found.
-     */
-    @OnThread(Tag.Any)
-    private static DebuggerObject getObjectField(DebuggerObject currentObject, String className, String fieldName)
-    {
-        if (currentObject == null || currentObject.isNullObject())
-        {
-            return null;
-        }
-        
-        return currentObject.getFields().stream()
-                .filter(f -> f.getDeclaringClassName().equals(className) 
-                    && f.getName().equals(fieldName))
-                .map(f -> f.getValueObject())
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * Given a debugger object (currentObject), get integer field declared in class className named
-     * fieldName.  Returns OptionalInt.empty if the object is null or the field cannot be found.
-     */
-    @OnThread(Tag.Any)
-    private OptionalInt getIntegerField(DebuggerObject currentObject, String className, String fieldName)
-    {
-        if (currentObject == null || currentObject.isNullObject())
-        {
-            return OptionalInt.empty();
-        }
-        
-        return currentObject.getFields().stream()
-            .filter(f -> f.getDeclaringClassName().equals(className) 
-                && f.getName().equals(fieldName))
-            .mapToInt(f -> Integer.parseInt(f.getValueString()))
-            .findFirst();
     }
 
     /**

@@ -21,11 +21,19 @@
  */
 package greenfoot.guifx.controller;
 
+import bluej.debugger.DebuggerObject;
+import bluej.debugger.gentype.JavaType;
+import bluej.debugger.gentype.Reflective;
+import bluej.testmgr.record.InvokerRecord;
 import bluej.utility.javafx.FXPlatformConsumer;
+import javafx.geometry.Point2D;
+import javafx.scene.control.MenuItem;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import threadchecker.OnThread;
 import threadchecker.Tag;
+
+import java.util.List;
 
 /**
  * A window that shows one open project, driven by that project's
@@ -115,6 +123,50 @@ public interface ProjectView
      * Remove any debugger highlight of an actor.
      */
     void clearActorHighlight();
+
+    /**
+     * Highlight an actor in the world (while the debugger shows it).
+     *
+     * @param x The centre X coordinate (in pixels, in the world)
+     * @param y The centre Y coordinate (in pixels, in the world)
+     * @param width The width of the image (in pixels)
+     * @param height The height of the image (in pixels)
+     * @param rotation The rotation of the actor (in degrees)
+     */
+    void showActorHighlight(int x, int y, int width, int height, int rotation);
+
+    /**
+     * Convert a point in world pixel coordinates to screen coordinates.
+     */
+    Point2D worldToScreen(Point2D worldPos);
+
+    /**
+     * Show a context menu with the given items on the world, at the given
+     * position (in world pixel coordinates), replacing any showing already.
+     */
+    void showWorldContextMenu(List<MenuItem> items, Point2D worldPos);
+
+    /**
+     * Hide the world's context menu, if one is showing.
+     */
+    void hideWorldContextMenu();
+
+    /**
+     * Whether the user is placing a new actor into the world (so mouse events
+     * on the world are not passed to the scenario).
+     */
+    boolean isPlacingActor();
+
+    /**
+     * An actor has been constructed interactively: let the user place it into the
+     * world (by clicking), then call the controller's placeNewActor.
+     *
+     * @param actor       The new actor
+     * @param ir          The invoker record for its construction
+     * @param paramTypes  The parameter types of the constructor call
+     * @param type        The actor's class
+     */
+    void beginPlacingActor(DebuggerObject actor, InvokerRecord ir, JavaType[] paramTypes, Reflective type);
 
     /**
      * Show the simulation speed on the speed slider.
