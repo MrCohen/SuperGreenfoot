@@ -168,6 +168,9 @@ public class JarCreator
         addSkipFile(".ctxt");
         addSkipFile("bluej.pkg");
         addSkipFile("bluej.pkh");   
+        // SuperGreenfoot: the new IDE's per-scenario settings (class folders,
+        // view state; see ProjectSettingsFile) mean nothing to a running game.
+        addSkipFile("supergreenfoot.properties");
         
         // Exlude +libs. These should be added with the addJar() method.
         addSkipDir(Project.projectLibDirName);
