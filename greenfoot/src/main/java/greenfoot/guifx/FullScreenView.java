@@ -23,6 +23,7 @@ package greenfoot.guifx;
 
 import bluej.Config;
 import bluej.utility.javafx.JavaFXUtil;
+import greenfoot.guifx.controller.GreenfootProjectController;
 import greenfoot.guifx.controller.SimulationState;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
@@ -55,7 +56,7 @@ import threadchecker.Tag;
  * speed) that can be dragged, hidden with Escape, or locked.
  *
  * <p>Keyboard and mouse input on this window is forwarded to the scenario via
- * the owning GreenfootStage, exactly as input on the normal world view is.
+ * the project's controller, exactly as input on the normal world view is.
  * A teacher can always recover hidden or locked controls by holding Escape
  * for two seconds.
  */
@@ -65,7 +66,7 @@ public class FullScreenView extends Stage
     /** How long Escape must be held to force the controls back (unlocks them too). */
     private static final long ESC_HOLD_MS = 2000;
 
-    private final GreenfootStage owner;
+    private final GreenfootProjectController owner;
     private final ImageView imageView = new ImageView();
     private final StackPane root = new StackPane();
     private final VBox controlsBox = new VBox();
@@ -84,19 +85,20 @@ public class FullScreenView extends Stage
     /** Set once leave() has started, so a second request does nothing. */
     private boolean leaving = false;
 
-    public FullScreenView(GreenfootStage owner)
+    public FullScreenView(GreenfootProjectController owner)
     {
         this.owner = owner;
-        setTitle(owner.getTitle());
+        Stage mainWindow = owner.getView().getWindow();
+        setTitle(mainWindow.getTitle());
         // Deliberately no initOwner(): on macOS an owned window is a child window
         // and cannot enter native full-screen mode (it only maximises).
         // Without an owner or a position JavaFX would centre this window on the
         // primary display, and macOS goes full screen on the display the window is
         // on. Start over the main window instead, so full screen uses its display.
-        setX(owner.getX());
-        setY(owner.getY());
-        setWidth(owner.getWidth());
-        setHeight(owner.getHeight());
+        setX(mainWindow.getX());
+        setY(mainWindow.getY());
+        setWidth(mainWindow.getWidth());
+        setHeight(mainWindow.getHeight());
 
         imageView.setPreserveRatio(true);
         imageView.setSmooth(true);
@@ -263,7 +265,7 @@ public class FullScreenView extends Stage
         }
     }
 
-    /** Mirror of GreenfootStage.updateGUIState for the floating controls. */
+    /** Mirror of the main window's state display for the floating controls. */
     public void updateState(SimulationState newState, boolean atBreakpoint)
     {
         controlPanel.updateState(newState, atBreakpoint);

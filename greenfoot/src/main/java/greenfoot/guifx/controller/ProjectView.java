@@ -40,20 +40,12 @@ import java.util.List;
  * {@link GreenfootProjectController}.  The Classic Greenfoot IDE window
  * (GreenfootStage) is one; the new SuperGreenfoot IDE window will be another.
  *
- * <p>The full-screen display callbacks still reach the view unchanged, through
- * the controller, until full screen moves into the controller.
+ * <p>The controller holds all the state; the window shows what it is told and
+ * passes the user's actions (and its world view's input) back to the controller.
  */
 @OnThread(Tag.FXPlatform)
 public interface ProjectView
 {
-    // Debug VM callbacks, passed on unchanged by the controller for now
-    // (see VMCommsMain.CommsListener):
-
-    void sendDisplayState();
-
-    void receivedDisplayRequest(int seq, int flags);
-
-    // What the controller asks of the window:
 
     /**
      * The window, as the owner for dialogs.
@@ -170,11 +162,8 @@ public interface ProjectView
 
     /**
      * Show the simulation speed on the speed slider.
-     *
-     * @param speed              the speed
-     * @param includeFullScreen  whether to update the full-screen controls as well
      */
-    void showSpeed(int speed, boolean includeFullScreen);
+    void showSpeed(int speed);
 
     /**
      * The project's classes have been recompiled; refresh how they are shown.

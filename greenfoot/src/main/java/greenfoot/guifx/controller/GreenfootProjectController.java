@@ -63,7 +63,10 @@ import bluej.views.ConstructorView;
 import bluej.views.MethodView;
 import greenfoot.Actor;
 import greenfoot.export.mygame.ScenarioInfo;
+import greenfoot.guifx.ControlPanel.ControlPanelListener;
+import greenfoot.guifx.FullScreenView;
 import greenfoot.record.GreenfootRecorder;
+import greenfoot.vmcomm.DisplayState;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import greenfoot.vmcomm.GreenfootDebugHandler.SimulationStateListener;
 import greenfoot.vmcomm.VMCommsMain;
@@ -77,6 +80,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.geometry.Point2D;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.image.Image;
@@ -85,7 +89,9 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -110,8 +116,9 @@ import static greenfoot.vmcomm.Command.*;
  * whether user code has been running long enough to show the execution twirler,
  * keyboard and mouse input to the world, picking and dragging actors and their
  * context menus, interactive method and constructor calls (it is the package's
- * {@link PackageUI}), the save-the-world recorder, the scenario details, and
- * the work waiting for the debug VM to be ready.
+ * {@link PackageUI}), the full-screen play window and the display state the
+ * scenario sees, the save-the-world recorder, the scenario details, and the
+ * work waiting for the debug VM to be ready.
  *
  * <p>One controller exists per open project, for as long as the project is open.
  * A window ({@link ProjectView}) attaches to it to show the project.  This is
@@ -120,7 +127,7 @@ import static greenfoot.vmcomm.Command.*;
  */
 @OnThread(Tag.FXPlatform)
 public class GreenfootProjectController implements VMCommsMain.CommsListener,
-        SimulationStateListener, FXCompileObserver, PackageUI
+        SimulationStateListener, FXCompileObserver, PackageUI, ControlPanelListener
 {
     private final Project project;
     private final GreenfootDebugHandler debugHandler;
@@ -204,6 +211,18 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     // The number of interactive calls (made from the world or the class diagram) that are executing:
     private int invocationsRunning = 0;
 
+    // The full-screen play window, or null when not in full screen.  It has no owner
+    // window, so it is not affected by which window shows the project:
+    private FullScreenView fullScreenView;
+    // Full-screen bar preferences, kept while no full-screen window is open, so that
+    // scenario code (Greenfoot.setScaleMode etc.) and the user's choices survive re-entry:
+    private boolean fsPixelPerfect = false;
+    private boolean fsControlsVisible = true;
+    private boolean fsControlsLocked = false;
+    private int lastAppliedDisplayRequest = 0;
+    // The screen last reported to the debug VM:
+    private Rectangle2D lastReportedScreen = null;
+
     private final ChangeListener<String> playerNameListener = new ChangeListener<String>()
     {
         @Override
@@ -227,7 +246,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         this.debugHandler = debugHandler;
         this.saveTheWorldRecorder = debugHandler.getRecorder();
         this.scenarioInfo = new ScenarioInfo(project.getUnnamedPackage().getLastSavedProperties());
-        JavaFXUtil.addChangeListenerPlatform(stateProperty, s -> view.stateChanged(s, atBreakpoint));
+        JavaFXUtil.addChangeListenerPlatform(stateProperty, s -> showState());
     }
 
     /**
@@ -273,7 +292,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             // We send a reset to make a new world after the project properties have been sent across:
             constructingWorld = true;
             project.getTerminal().activate(true);
-            view.sendDisplayState();   // so the world constructor can already ask about the screen
+            sendDisplayState();   // so the world constructor can already ask about the screen
             debugHandler.getVmComms().instantiateWorld(lastInstantiatedWorldName);
             saveTheWorldRecorder.recordingValid();
             view.worldStatusChanged();
@@ -353,7 +372,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         {
             // Just leave it as the default 50 if there is a problem
         }
-        view.showSpeed(lastUserSetSpeed, true);
+        showSpeed(lastUserSetSpeed, true);
         debugHandler.getVmComms().setSimulationSpeed(lastUserSetSpeed);
     }
 
@@ -371,6 +390,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     /**
      * Perform a single act step, if paused, by adding to the list of pending commands.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void act()
     {
         if (stateProperty.get() == SimulationState.PAUSED)
@@ -385,6 +406,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     /**
      * Run or pause the simulation (depending on current state).
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void doRunPause()
     {
         if (stateProperty.get() == SimulationState.PAUSED)
@@ -406,6 +429,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     /**
      * The user pressed Reset.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void userReset()
     {
         DataCollector.recordGreenfootEvent(project, GreenfootInterfaceEvent.WORLD_RESET);
@@ -431,7 +456,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 doWorldDiscard();
                 constructingWorld = true;
                 project.getTerminal().activate(true);
-                view.sendDisplayState();
+                sendDisplayState();
                 debugHandler.getVmComms().instantiateWorld(curWorld.getQualifiedName());
                 // currentWorld will have been set to null when the VM terminated,
                 // so we must set it back again:
@@ -509,6 +534,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      * to communicate the new value to the debug VM.
      * @param newSpeed The new speed, from the slider.
      */
+    @Override
+    @OnThread(Tag.FXPlatform)
     public void setSpeedFromSlider(int newSpeed)
     {
         if (!settingSpeedFromSimulation)
@@ -516,7 +543,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             lastUserSetSpeed = newSpeed;
             debugHandler.getVmComms().setSimulationSpeed(newSpeed);
             // Keep both speed sliders (main window and full-screen bar) in step:
-            view.showSpeed(newSpeed, true);
+            showSpeed(newSpeed, true);
         }
     }
 
@@ -533,7 +560,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         // tell the simulation about a speed change that they instigated.
         // So we set a boolean flag to block the slider listener:
         settingSpeedFromSimulation = true;
-        view.showSpeed(simSpeed, false);
+        showSpeed(simSpeed, false);
         settingSpeedFromSimulation = false;
     }
 
@@ -724,7 +751,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 return;
             }
             atBreakpoint = true;
-            view.stateChanged(stateProperty.get(), atBreakpoint);
+            showState();
         });
     }
 
@@ -738,7 +765,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 return;
             }
             atBreakpoint = false;
-            view.stateChanged(stateProperty.get(), atBreakpoint);
+            showState();
         });
     }
 
@@ -769,6 +796,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 return;
             }
             // We must reset the debug VM related state ready for the new debug VM:
+            exitFullScreenView();
             view.vmTerminated();
             nextPickId = 1;
             curPickRequest = 0;
@@ -944,6 +972,10 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             // Showing a new image turns off any greying effect:
             greyedOut = false;
             view.showWorldImage(lastWorldImage);
+            if (fullScreenView != null)
+            {
+                fullScreenView.setImage(lastWorldImage);
+            }
             nextWorldImgToWrite = (nextWorldImgToWrite + 1) % worldImg.length;
             worldInstantiationError = false;
             setWorldVisible(true);
@@ -971,6 +1003,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     @OnThread(Tag.FXPlatform)
     public void receivedAsk(int askId, int[] promptCodepoints)
     {
+        // The ask pane lives in the main window, so leave full screen first:
+        exitFullScreenView();
         String prompt = new String(promptCodepoints, 0, promptCodepoints.length);
         asking = true;
         // Asking greys out the world behind the prompt:
@@ -1068,20 +1102,216 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         project.getTerminal().getWindow().toFront();
     }
 
-    // The full-screen display state is still handled by the window:
+    // ---- Showing state and speed (main window and full-screen window) ----
 
-    @Override
-    @OnThread(Tag.FXPlatform)
-    public void sendDisplayState()
+    /**
+     * Show the current simulation state in the window, and on the full-screen controls.
+     */
+    private void showState()
     {
-        view.sendDisplayState();
+        view.stateChanged(stateProperty.get(), atBreakpoint);
+        if (fullScreenView != null)
+        {
+            fullScreenView.updateState(stateProperty.get(), atBreakpoint);
+        }
     }
 
+    /**
+     * Show the simulation speed on the speed slider.
+     *
+     * @param speed              the speed
+     * @param includeFullScreen  whether to update the full-screen controls as well
+     */
+    private void showSpeed(int speed, boolean includeFullScreen)
+    {
+        view.showSpeed(speed);
+        if (includeFullScreen && fullScreenView != null)
+        {
+            fullScreenView.setSpeed(speed);
+        }
+    }
+
+    /**
+     * The window currently showing the project.
+     */
+    public ProjectView getView()
+    {
+        return view;
+    }
+
+    // ---- Full screen and the display state (SuperGreenfoot) ----
+
+    /**
+     * Enter or leave full-screen play mode. If the full-screen window exists but
+     * the user has gone back to the main window, bring it forward.
+     */
+    public void toggleFullScreenView()
+    {
+        if (fullScreenView != null && !fullScreenView.isFocused())
+        {
+            fullScreenView.toFront();
+            fullScreenView.requestFocus();
+        }
+        else if (fullScreenView != null)
+        {
+            exitFullScreenView();
+        }
+        else
+        {
+            fullScreenView = new FullScreenView(this);
+            fullScreenView.setImage(lastWorldImage);
+            fullScreenView.updateState(stateProperty.get(), atBreakpoint);
+            fullScreenView.setSpeed(lastUserSetSpeed);
+            fullScreenView.setPixelPerfect(fsPixelPerfect);
+            fullScreenView.setControlsLocked(fsControlsLocked);
+            fullScreenView.setControlsVisible(fsControlsVisible && !fsControlsLocked);
+            fullScreenView.show();
+            sendDisplayState();
+        }
+    }
+
+    /**
+     * Leave full-screen play mode if it is active.
+     */
+    public void exitFullScreenView()
+    {
+        if (fullScreenView != null)
+        {
+            FullScreenView v = fullScreenView;
+            fullScreenView = null;
+            fsPixelPerfect = v.isPixelPerfect();
+            fsControlsLocked = v.isControlsLocked();
+            fsControlsVisible = v.isControlsVisible() || !fsControlsLocked;
+            v.leave();
+            view.requestWorldFocus();
+            sendDisplayState();
+        }
+    }
+
+    /**
+     * Whether the full-screen play window is showing.
+     */
+    public boolean isFullScreenView()
+    {
+        return fullScreenView != null;
+    }
+
+    /**
+     * Scenario code asked (via Greenfoot.setFullScreen and friends) for a display
+     * change. Only the fields the scenario actually set are applied.
+     *
+     * @param seq    the request's sequence number (echoed back in the state)
+     * @param flags  values and mask, see DisplayState
+     */
     @Override
     @OnThread(Tag.FXPlatform)
     public void receivedDisplayRequest(int seq, int flags)
     {
-        view.receivedDisplayRequest(seq, flags);
+        lastAppliedDisplayRequest = seq;
+        if (DisplayState.isRequested(flags, DisplayState.PIXEL_PERFECT))
+        {
+            fsPixelPerfect = DisplayState.value(flags, DisplayState.PIXEL_PERFECT);
+        }
+        if (DisplayState.isRequested(flags, DisplayState.CONTROLS_VISIBLE))
+        {
+            fsControlsVisible = DisplayState.value(flags, DisplayState.CONTROLS_VISIBLE);
+        }
+        if (DisplayState.isRequested(flags, DisplayState.CONTROLS_LOCKED))
+        {
+            fsControlsLocked = DisplayState.value(flags, DisplayState.CONTROLS_LOCKED);
+            if (fsControlsLocked)
+            {
+                fsControlsVisible = false;
+            }
+        }
+        if (DisplayState.isRequested(flags, DisplayState.FULL_SCREEN))
+        {
+            boolean want = DisplayState.value(flags, DisplayState.FULL_SCREEN);
+            if (want && fullScreenView == null && !asking)
+            {
+                toggleFullScreenView();   // applies the preferences and sends the state
+                return;
+            }
+            else if (!want && fullScreenView != null)
+            {
+                exitFullScreenView();     // sends the state
+                return;
+            }
+        }
+        if (fullScreenView != null)
+        {
+            fullScreenView.setPixelPerfect(fsPixelPerfect);
+            fullScreenView.setControlsLocked(fsControlsLocked);
+            fullScreenView.setControlsVisible(fsControlsVisible && !fsControlsLocked);
+        }
+        sendDisplayState();
+    }
+
+    /**
+     * The full-screen window's controls were changed by the user.
+     */
+    public void displayStateChanged()
+    {
+        if (fullScreenView != null)
+        {
+            fsPixelPerfect = fullScreenView.isPixelPerfect();
+            fsControlsLocked = fullScreenView.isControlsLocked();
+            fsControlsVisible = fullScreenView.isControlsVisible();
+        }
+        sendDisplayState();
+    }
+
+    /**
+     * Send the debug VM the current display state, so that Greenfoot.isFullScreen(),
+     * getScreenWidth() and the rest answer truthfully.
+     */
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void sendDisplayState()
+    {
+        if (debugHandler.getVmComms() == null)
+        {
+            return;
+        }
+        Rectangle2D screen = screenBounds();
+        boolean fs = fullScreenView != null;
+        boolean visible = fs ? fullScreenView.isControlsVisible() : fsControlsVisible;
+        boolean locked = fs ? fullScreenView.isControlsLocked() : fsControlsLocked;
+        boolean pixel = fs ? fullScreenView.isPixelPerfect() : fsPixelPerfect;
+        double scale = fs ? fullScreenView.getDisplayScale() : 1.0;
+        lastReportedScreen = screen;
+        debugHandler.getVmComms().sendDisplayState(DisplayState.encode(fs, visible, locked, pixel, true,
+                (int) Math.round(screen.getWidth()), (int) Math.round(screen.getHeight()), scale,
+                lastAppliedDisplayRequest));
+    }
+
+    /**
+     * The window showing the project may have moved to another screen: if so, resend
+     * the display state, so that Greenfoot.getScreenWidth() follows it.
+     */
+    public void screenMayHaveChanged()
+    {
+        if (fullScreenView != null)
+        {
+            return;
+        }
+        Rectangle2D now = screenBounds();
+        if (!now.equals(lastReportedScreen))
+        {
+            sendDisplayState();
+        }
+    }
+
+    /**
+     * The bounds of the screen the window (or the full-screen window) is on.
+     */
+    private Rectangle2D screenBounds()
+    {
+        Window w = fullScreenView != null ? fullScreenView : view.getWindow();
+        List<Screen> screens = Screen.getScreensForRectangle(w.getX(), w.getY(),
+                Math.max(1, w.getWidth()), Math.max(1, w.getHeight()));
+        Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
+        return screen.getBounds();
     }
 
     // ---- Keyboard and mouse input to the world ----
@@ -1092,6 +1322,11 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     public void forwardWorldKeyEvent(KeyEvent e)
     {
+        if (disposed)
+        {
+            return;
+        }
+
         // Ignore keypresses if we are currently waiting for an ask-answer:
         if (asking)
         {
@@ -1137,6 +1372,11 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     public void forwardWorldMouseEvent(MouseEvent e, Point2D worldPos, boolean allowPick)
     {
+        if (disposed)
+        {
+            return;
+        }
+
         boolean paused = stateProperty.get() == SimulationState.PAUSED && allowPick;
         int eventType;
         if (e.getEventType() == MouseEvent.MOUSE_CLICKED)
@@ -1215,6 +1455,10 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     public void notifyWorldFocus(boolean focused)
     {
+        if (disposed)
+        {
+            return;
+        }
         debugHandler.getVmComms().worldFocusChanged(focused);
     }
 
