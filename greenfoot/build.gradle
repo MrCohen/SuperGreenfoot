@@ -34,7 +34,7 @@ repositories {
 }
 
 javafx {
-    version = "21.0.3"  // javafx_version_setting <-- The Github Actions on Linux uses this to find and replace this line
+    version = "21.0.12"  // javafx_version_setting <-- The Github Actions on Linux uses this to find and replace this line
     modules = ['javafx.base', 'javafx.controls', 'javafx.graphics', 'javafx.swing', 'javafx.web']
 }
 
@@ -94,6 +94,11 @@ compileTestJava.dependsOn copyGreenfootIcon1
 compileTestJava.dependsOn copyGreenfootIcon2
 
 task copyToLib(type: Copy) {
+    // SuperGreenfoot: Boot loads every javafx-*.jar in lib, so jars left over from
+    // an earlier JavaFX version would load beside the current ones.
+    doFirst {
+        delete fileTree(new File(sourceSets.main.output.resourcesDir, 'lib')) { include 'javafx-*.jar' }
+    }
     into new File(sourceSets.main.output.resourcesDir, 'lib')
     from configurations.runtimeClasspath
     from 'lib'
@@ -213,6 +218,19 @@ task userJavadoc(type: Javadoc) {
     classpath = sourceSets.main.output.classesDirs + project.configurations.compileClasspath
 }
 userJavadoc.dependsOn assemble
+
+// SuperGreenfoot: running from source reads the API documentation (double-click
+// World or Actor, Help > Greenfoot Class Documentation) from lib/doc/API, as the
+// installed app does. Without this copy those pages were blank.
+task copyApiDocToBuild(type: Copy) {
+    from '../bluej/doc/API'
+    into new File(sourceSets.main.output.resourcesDir, 'lib/doc/API')
+}
+copyApiDocToBuild.dependsOn userJavadoc
+runGreenfoot.dependsOn copyApiDocToBuild
+// The tests read the build's lib folder, so Gradle needs them ordered after the copy:
+test.mustRunAfter copyApiDocToBuild
+compileTestJava.mustRunAfter copyApiDocToBuild
 
 task packageGreenfootMacIntel(type: Exec) {
     workingDir "../bluej/package"

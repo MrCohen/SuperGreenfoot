@@ -46,7 +46,7 @@ The owner's shortcut for all of this is the `./dev` script in the repo root
 (`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`); keep it
 working when build steps change.
 
-Gradle 8.5 wrapper, JDK 21, JavaFX 21.0.3 via the openjfx plugin. The
+Gradle 8.5 wrapper, JDK 21, JavaFX 21.0.12 via the openjfx plugin. The
 thread-checker annotation processor (`@OnThread`) runs during compile and
 fails the build on thread-tag violations.
 

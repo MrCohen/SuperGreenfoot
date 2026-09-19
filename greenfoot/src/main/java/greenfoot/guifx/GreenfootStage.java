@@ -781,6 +781,11 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
             {
                 openWebBrowser(customUrl);
             }
+            else
+            {
+                // SuperGreenfoot: say the documentation is missing instead of doing nothing.
+                DialogManager.showErrorWithTextFX(this, "cannot-read-apidoc", Config.getBlueJLibDir() + "/doc/API");
+            }
         }
         catch (IOException ioe) {
             DialogManager.showErrorWithTextFX(this, "cannot-read-apidoc", ioe.getLocalizedMessage());

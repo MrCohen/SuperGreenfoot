@@ -33,6 +33,7 @@ import bluej.stride.generic.Frame;
 import bluej.stride.generic.FrameCursor;
 import bluej.stride.generic.InteractionManager;
 import bluej.utility.Debug;
+import bluej.utility.DialogManager;
 import bluej.utility.Utility;
 import bluej.utility.javafx.FXPlatformConsumer;
 import bluej.utility.javafx.FXPlatformRunnable;
@@ -765,6 +766,13 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         try
         {
             String target = Utility.getGreenfootApiDocURL(qualifiedClassName.replace('.', '/') + ".html");
+            // SuperGreenfoot: say the documentation is missing instead of opening a blank tab.
+            if (target == null)
+            {
+                DialogManager.showErrorWithTextFX(stage, "cannot-read-apidoc",
+                        Config.getBlueJLibDir() + "/doc/API");
+                return;
+            }
             openWebViewTab(target + suffix);
         }
         catch (IOException e)
