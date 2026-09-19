@@ -23,7 +23,9 @@
 package greenfoot.guifx.controller;
 
 import bluej.Config;
+import bluej.Main;
 import bluej.pkgmgr.Project;
+import bluej.utility.Debug;
 import bluej.utility.Utility;
 import greenfoot.core.ProjectManager;
 import greenfoot.guifx.GreenfootStage;
@@ -38,8 +40,10 @@ import java.util.List;
 
 /**
  * The open IDE windows, and the ways in and out of them: opening a project,
- * showing an empty window, finding the window for a project, and closing
- * everything at exit (which also writes the list of projects to reopen next time).
+ * showing an empty window, finding the window for a project, closing a window
+ * (and the project in it), moving a project to a new window without closing it,
+ * and closing everything at exit (which also writes the list of projects to
+ * reopen next time).
  *
  * This bookkeeping used to be static state in GreenfootStage.  It lives here so
  * that more than one kind of IDE window can be opened and closed the same way.
@@ -163,6 +167,113 @@ public final class ProjectRegistry
     }
 
     /**
+     * Close a window, and the project it shows (if any).
+     *
+     * @param stage     The window
+     * @param keepLast  if true, don't close the last window; leave it open without a project. If
+     *                  false, quit when the last window is closed.
+     */
+    public static void closeWindow(GreenfootStage stage, boolean keepLast)
+    {
+        GreenfootProjectController controller = stage.getController();
+        if (controller != null)
+        {
+            controller.exitFullScreenView();
+            controller.projectClosing();
+        }
+
+        if (numberOfOpenProjects <= 1 && ! keepLast)
+        {
+            // We quit with the current scenario still open, so that it will be saved to the
+            // projects-for-re-opening list and re-opened when Greenfoot is next started:
+            stage.close();
+            Main.doQuit();
+            return;
+        }
+
+        // Remove inspectors, terminal, etc:
+        if (controller != null)
+        {
+            controller.closeProject();
+            numberOfOpenProjects--;
+        }
+
+        if (numberOfOpenProjects == 0)
+        {
+            // Keep this window open, but show it as empty
+            stage.showNoProject();
+            if (controller != null)
+            {
+                controller.dispose();
+            }
+        }
+        else
+        {
+            stages.remove(stage);
+            stage.close();
+        }
+    }
+
+    /**
+     * Close a project, and its window (the window stays open, empty, if it is the last one).
+     *
+     * @param controller  The project's controller
+     * @param keepLast    if true, don't close the last window; leave it open without a project.
+     *                    If false, quit when the last window is closed.
+     */
+    public static void close(GreenfootProjectController controller, boolean keepLast)
+    {
+        GreenfootStage stage = findStageForProject(controller.getProject());
+        if (stage != null)
+        {
+            closeWindow(stage, keepLast);
+        }
+    }
+
+    /**
+     * Show the project from the given window in a new window instead, without closing it:
+     * the debug VM keeps running and the world keeps its state.  The new window takes the
+     * old one's place and position.  This is refused (returning false) while an
+     * interactive call is running, because its result would be shown relative to the old
+     * window.
+     *
+     * @param old  The window showing the project
+     * @return  true if the project moved to a new window
+     */
+    public static boolean reopenInNewWindow(GreenfootStage old)
+    {
+        GreenfootProjectController controller = old.getController();
+        if (controller == null || !controller.isStarted())
+        {
+            return false;
+        }
+        if (controller.isInvocationRunning())
+        {
+            Debug.message("Not moving " + controller.getProject().getProjectName()
+                    + " to a new window while an interactive call is running");
+            return false;
+        }
+
+        int index = stages.indexOf(old);
+        double x = old.getX(), y = old.getY(), width = old.getWidth(), height = old.getHeight();
+        old.detachProject();
+        stages.remove(old);
+        old.close();
+
+        // The new window attaches to the running controller, which brings it up to date:
+        GreenfootStage fresh = GreenfootStage.makeStage(controller);
+        // Keep the reopen-list order:
+        stages.remove(fresh);
+        stages.add(Math.max(0, Math.min(index, stages.size())), fresh);
+        fresh.setX(x);
+        fresh.setY(y);
+        fresh.setWidth(width);
+        fresh.setHeight(height);
+        fresh.show();
+        return true;
+    }
+
+    /**
      * If the only open window shows no project, return it, so a project can be shown in it.
      */
     public static GreenfootStage getSoleEmptyStage()
@@ -183,34 +294,10 @@ public final class ProjectRegistry
     }
 
     /**
-     * A window was closed.
-     */
-    public static void windowClosed(GreenfootStage stage)
-    {
-        stages.remove(stage);
-    }
-
-    /**
      * A window started showing a project.
      */
     public static void projectOpened()
     {
         numberOfOpenProjects++;
-    }
-
-    /**
-     * A window stopped showing a project.
-     */
-    public static void projectClosed()
-    {
-        numberOfOpenProjects--;
-    }
-
-    /**
-     * The number of windows showing a project.
-     */
-    public static int getNumberOfOpenProjects()
-    {
-        return numberOfOpenProjects;
     }
 }

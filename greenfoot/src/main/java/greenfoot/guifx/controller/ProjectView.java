@@ -34,6 +34,7 @@ import threadchecker.OnThread;
 import threadchecker.Tag;
 
 import java.util.List;
+import java.util.Properties;
 
 /**
  * A window that shows one open project, driven by that project's
@@ -56,6 +57,12 @@ public interface ProjectView
      * Whether the window has keyboard focus.
      */
     boolean isWindowFocused();
+
+    /**
+     * Add this window's own settings (such as its position and size) to the
+     * properties being saved to the project file.
+     */
+    void writeViewProperties(Properties p);
 
     /**
      * Show a new simulation state (enable and disable the controls to suit).

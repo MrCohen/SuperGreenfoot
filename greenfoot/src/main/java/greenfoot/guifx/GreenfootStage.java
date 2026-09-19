@@ -24,8 +24,6 @@ package greenfoot.guifx;
 import bluej.Boot;
 import bluej.Config;
 import bluej.Main;
-import bluej.compiler.CompileReason;
-import bluej.compiler.CompileType;
 import bluej.debugger.DebuggerObject;
 import bluej.debugger.gentype.JavaType;
 import bluej.debugger.gentype.Reflective;
@@ -34,9 +32,7 @@ import bluej.extensions2.SourceType;
 import bluej.pkgmgr.AboutDialogTemplate;
 import bluej.pkgmgr.Package;
 import bluej.pkgmgr.Project;
-import bluej.pkgmgr.ProjectUtils;
 import bluej.pkgmgr.target.ClassTarget;
-import bluej.pkgmgr.target.ReadmeTarget;
 import bluej.pkgmgr.target.Target;
 import bluej.prefmgr.PrefMgr;
 import bluej.prefmgr.PrefMgrDialog;
@@ -50,7 +46,6 @@ import bluej.utility.javafx.FXPlatformFunction;
 import bluej.utility.javafx.JavaFXUtil;
 import bluej.utility.javafx.UnfocusableScrollPane;
 import greenfoot.core.ProjectManager;
-import greenfoot.export.ScenarioSaver;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
 import greenfoot.guifx.classes.GClassDiagram;
 import greenfoot.guifx.classes.GClassDiagram.GClassType;
@@ -65,11 +60,9 @@ import greenfoot.guifx.export.ExportException;
 import greenfoot.guifx.images.NewImageClassFrame;
 import greenfoot.guifx.images.SelectImageFrame;
 import greenfoot.guifx.soundrecorder.SoundRecorderControls;
-import greenfoot.record.GreenfootRecorder;
 import greenfoot.sound.SoundPreferencePanel;
 import greenfoot.util.GreenfootUtil;
 import greenfoot.vmcomm.GreenfootDebugHandler;
-import greenfoot.vmcomm.VMCommsMain;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -124,8 +117,7 @@ import java.util.Properties;
  * Greenfoot's main window: a JavaFX replacement for GreenfootFrame which lives on the server VM.
  */
 @OnThread(Tag.FXPlatform)
-public class GreenfootStage extends Stage implements ControlPanelListener, ScenarioSaver,
-        ProjectView
+public class GreenfootStage extends Stage implements ControlPanelListener, ProjectView
 {
     private static final String STAGE_TITLE = "Greenfoot";
 
@@ -158,9 +150,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
     private final ExecutionTwirler executionTwirler;
     private final ControlPanel controlPanel;
 
-    private GreenfootRecorder saveTheWorldRecorder;
     private final SoundRecorderControls soundRecorder;
-    private GreenfootDebugHandler debugHandler;
     private final Menu recentProjectsMenu = new Menu(Config.getString("menu.openRecent"));
     private final SimpleBooleanProperty showingDebugger = new SimpleBooleanProperty(false);
 
@@ -378,30 +368,33 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
     private void showProject(GreenfootProjectController controller)
     {
         Project project = controller.getProject();
-        GreenfootDebugHandler greenfootDebugHandler = controller.getDebugHandler();
+        // Is the project already live (moving here from another window), or newly opened?
+        boolean alreadyLive = controller.isStarted();
         setTitle(STAGE_TITLE + ": " + project.getProjectName());
         
         this.controller = controller;
         this.project = project;
-        this.saveTheWorldRecorder = greenfootDebugHandler.getRecorder();
-        project.getPackage("").setUI(controller);
-        this.debugHandler = greenfootDebugHandler;
         hasNoProject.set(false);
-        ProjectRegistry.projectOpened();
+        if (!alreadyLive)
+        {
+            ProjectRegistry.projectOpened();
+        }
 
-        project.getUnnamedPackage().addCompileObserver(controller);
-        greenfootDebugHandler.setPickListener(controller::pickResults);
-        greenfootDebugHandler.setSimulationListener(controller);
         showingDebugger.bindBidirectional(project.debuggerShowing());
         
         classDiagram.setProject(project);
         soundRecorder.setProject(project);
-        executionTwirler.setProject(project, greenfootDebugHandler);
+        executionTwirler.setProject(project, controller.getDebugHandler());
 
-        // The controller passes the debug VM's callbacks to this window, mirrors the
-        // project properties and starts creating the last world:
+        // A new project: the controller starts looking after it (package UI, compiling,
+        // the simulation, the debug VM), mirrors the project properties and starts
+        // creating the last world.  A live project: the controller brings this window
+        // up to date.
         controller.attachView(this);
-        controller.start();
+        if (!alreadyLive)
+        {
+            controller.start();
+        }
 
         Properties lastSavedProperties = project.getUnnamedPackage().getLastSavedProperties();
         String xPosition = lastSavedProperties.getProperty("xPosition");
@@ -425,7 +418,10 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
             setHeight(Double.valueOf(height));
         }
 
-        controller.viewReady();
+        if (!alreadyLive)
+        {
+            controller.viewReady();
+        }
     }
 
     /**
@@ -633,57 +629,48 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
      */
     public void doClose(boolean keepLast)
     {
-        if (controller != null)
-        {
-            controller.exitFullScreenView();
-            controller.projectClosing();
-        }
-        
-        if (ProjectRegistry.getNumberOfOpenProjects() <= 1 && ! keepLast)
-        {
-            // We quit with the current scenario still open, so that it will be saved to the
-            // projects-for-re-opening list and re-opened when Greenfoot is next started:
-            close();
-            Main.doQuit();
-            return;
-        }
-
-        // Remove inspectors, terminal, etc:
-        if (project != null)
-        {
-            doSave();
-            Project.cleanUp(project);
-            project.getPackage("").closeAllEditors();
-            ProjectRegistry.projectClosed();
-        }
-
-        if (ProjectRegistry.getNumberOfOpenProjects() == 0)
-        {
-            // Keep this stage open, but show it as empty
-            removeScenarioDetails();
-        }
-        else
-        {
-            ProjectRegistry.windowClosed(this);
-            close();
-        }
+        ProjectRegistry.closeWindow(this, keepLast);
     }
-    
+
+    /**
+     * The project's controller (null if the window is empty).
+     */
+    public GreenfootProjectController getController()
+    {
+        return controller;
+    }
+
+    /**
+     * The project has been closed: show this window as empty.
+     */
+    public void showNoProject()
+    {
+        clearProject();
+    }
+
+    /**
+     * The project is moving to another window: stop showing it here, without
+     * closing it.
+     */
+    public void detachProject()
+    {
+        hideContextMenu();
+        newActorProperty.set(null);
+        executionTwirler.stopTwirling();
+        clearProject();
+    }
+
     /**
      * Remove scenario details, making the stage empty.
      */
-    private void removeScenarioDetails()
+    private void clearProject()
     {
         if (project != null)
         {
             showingDebugger.unbindBidirectional(project.debuggerShowing());
             project = null;
         }
-        if (controller != null)
-        {
-            controller.dispose();
-            controller = null;
-        }
+        controller = null;
         hasNoProject.set(true);
         worldDisplay.setImage(null);
         worldVisible.set(false);
@@ -696,75 +683,35 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
     /**
      * Save the project (all editors and all project information).
      */
+    private void doSave()
+    {
+        if (controller != null)
+        {
+            controller.doSave();
+        }
+    }
+
     @Override
     @OnThread(Tag.FXPlatform)
-    public void doSave()
+    public void writeViewProperties(Properties p)
     {
-        try
-        {
-            // Collect the various properties to be written out:
-            Properties p = project.getProjectPropertiesCopy();
-            p.setProperty("simulation.speed", Integer.toString(controller.getLastUserSetSpeed()));
-            // Only save if not default:
-            if (debugHandler.getShmFileSize() != VMCommsMain.DEFAULT_MAPPED_SIZE)
-            {
-                p.setProperty("shm.size", Integer.toString(debugHandler.getShmFileSize()));
-            }
-            p.put("width", Integer.toString((int) this.getWidth()));
-            p.put("height", Integer.toString((int) this.getHeight()));
-            p.put("xPosition", Integer.toString((int) Math.max(this.getX(), 0)));
-            p.put("yPosition", Integer.toString((int) Math.max(this.getY(), 0)));
-            p.put("version", Boot.GREENFOOT_API_VERSION);
-            if (controller.getCurrentWorld() != null)
-            {
-                p.put("world.lastInstantiated", controller.getCurrentWorld().getQualifiedName());
-            }
-            project.saveEditorLocations(p);
-            classDiagram.save(p);
-            controller.getScenarioInfo().store(p);
-
-            // Actually write out the properties to disk:
-            project.getUnnamedPackage().save(p);
-            
-            // Save editor contents, etc:
-            project.getImportScanner().saveCachedImports();
-            project.saveAllEditors();
-        }
-        catch (IOException ioe)
-        {
-            // The exception is logged earlier, so we won't bother logging again.
-            // However, alert the user:
-            DialogManager.showMessageFX(this, "error-saving-project");
-        }
+        p.put("width", Integer.toString((int) this.getWidth()));
+        p.put("height", Integer.toString((int) this.getHeight()));
+        p.put("xPosition", Integer.toString((int) Math.max(this.getX(), 0)));
+        p.put("yPosition", Integer.toString((int) Math.max(this.getY(), 0)));
+        classDiagram.save(p);
     }
 
     /**
      * Prompt for a location, save the scenario to the chosen location, and re-open the scenario
      * from its new location.
      */
-    public void doSaveAs()
+    private void doSaveAs()
     {
-        File choice = FileUtility.getSaveProjectFX(project, this, Config.getString("project.saveAs.title"));
-        if (choice == null)
+        if (controller != null)
         {
-            return;
+            controller.doSaveAs();
         }
-        
-        if (! ProjectUtils.saveProjectCopy(project, choice, this))
-        {
-            return;
-        }
-        
-        doClose(true);
-        
-        Project p = Project.openProject(choice.getAbsolutePath());
-        if (p == null) {
-            // This shouldn't happen, but log an error just in case:
-            Debug.reportError("Project save-as succeeded, but new project could not be opened");
-            return;
-        }
-        
-        ProjectManager.instance().launchProject(p);
     }
 
     /**
@@ -782,7 +729,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
         {
             try
             {
-                new ExportDialog(this, project, this, controller.getScenarioInfo(), getCurrentWorld(),
+                new ExportDialog(this, project, controller, controller.getScenarioInfo(), getCurrentWorld(),
                         worldDisplay.getSnapshot()).showAndWait();
             }
             catch (ExportException e)
@@ -943,6 +890,10 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
         Menu toolsMenu = new Menu(Config.getString("menu.tools"), null);
         toolsMenu.getItems().addAll(
                 JavaFXUtil.makeMenuItem(Config.getString("save.world"), () -> {
+                    if (controller == null)
+                    {
+                        return;
+                    }
                     FXPlatformFunction<String, Editor> fetchEditorByName = className -> {
                         Target t = project.getTarget(className);
                         if (t instanceof ClassTarget)
@@ -954,15 +905,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
                             return null;
                         }
                     };
-                    if (!saveTheWorldRecorder.writeCode(fetchEditorByName))
-                    {
-                        DialogManager.showErrorFX(this, "cannot-save-world");
-                    }
-                    else
-                    {
-                        this.project.scheduleCompilation(true, CompileReason.USER,
-                                CompileType.INDIRECT_USER_COMPILE, this.project.getUnnamedPackage());
-                    }
+                    controller.saveTheWorld(fetchEditorByName);
                 }, null),
                 JavaFXUtil.makeMenuItem(Config.getString("menu.tools.recompileAll"), () -> project.getUnnamedPackage().rebuild(), null),
                 JavaFXUtil.makeMenuItem("menu.tools.generateDoc",new KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN),
@@ -978,6 +921,15 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
                         Config.GREENFOOT_SET_PLAYER_NAME_SHORTCUT,
                         this::setPlayer, hasNoProject)
         );
+
+        if (Config.getPropBoolean("supergreenfoot.dev.reopenWindow"))
+        {
+            // Developer check for moving a live project between windows (not for users):
+            MenuItem reopenItem = JavaFXUtil.makeMenuItem("Reopen in New Window (developer test)",
+                    () -> ProjectRegistry.reopenInNewWindow(this), null);
+            reopenItem.disableProperty().bind(hasNoProject);
+            toolsMenu.getItems().add(reopenItem);
+        }
 
         if (! Config.isMacOS())
         {
@@ -1062,16 +1014,6 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
     {
         SetPlayerDialog dlg = new SetPlayerDialog(this, PrefMgr.getPlayerName().get());
         dlg.showAndWait().ifPresent(name -> PrefMgr.getPlayerName().set(name));
-    }
-
-    /**
-     * Send an updated property value.
-     * @param key    The property name
-     * @param value  The property value
-     */
-    public void sendPropertyToDebugVM(String key, String value)
-    {
-        debugHandler.getVmComms().sendProperty(key, value);
     }
 
     /**
@@ -1520,20 +1462,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
      */
     private void setImageToClassNode(LocalGClassNode classNode, File originalImageFile)
     {
-        File localImageFile;
-        File imagesDir = new File(project.getProjectDir(), "images");
-        if (originalImageFile.getParentFile().equals(imagesDir))
-        {
-            // The file is already in the project's images dir
-            localImageFile = originalImageFile;
-        }
-        else
-        {
-            // Copy the image file to the project's images dir
-            localImageFile = new File(imagesDir, originalImageFile.getName());
-            GreenfootUtil.copyFile(originalImageFile, localImageFile);
-        }
-        String imageFileName = localImageFile.getName();
+        String imageFileName = controller.installClassImage(originalImageFile);
         classNode.setImageFilename(imageFileName);
         String qualifiedName = classNode.getQualifiedName();
         saveAndMirrorClassImageFilename(qualifiedName, imageFileName);
@@ -1546,8 +1475,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
      */
     public void saveAndMirrorClassImageFilename(String qualifiedName, String imageFileName)
     {
-        doSave();
-        sendPropertyToDebugVM("class." + qualifiedName + ".image", imageFileName);
+        controller.saveAndMirrorClassImageFilename(qualifiedName, imageFileName);
     }
 
     /**
@@ -1563,16 +1491,9 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
 
         dialog.showAndWait().ifPresent(newClassInfo ->
         {
-            final String newClassName = newClassInfo.className;
-            final String extension = sourceType.getExtension();
-            final Package pkg = originalClassTarget.getPackage();
-            final File dir = pkg.getProject().getProjectDir();
-            final File originalFile = new File(dir, originalClassName + "." + extension);
-            final File newFile = new File(dir, newClassName + "." + extension);
-            try
+            ClassTarget newClass = controller.duplicateClassFile(originalClassTarget, newClassInfo.className);
+            if (newClass != null)
             {
-                ProjectUtils.duplicate(originalClassName, newClassName, originalFile, newFile, sourceType);
-                ClassTarget newClass = pkg.addClass(newClassName);
                 LocalGClassNode newNode = classDiagram.addClass(newClass);
                 String originalImage = originalNode.getImageFilename();
                 if (originalImage != null)
@@ -1583,11 +1504,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
                 }
 
                 // The class needs to be compiled for the state of the scenario to be correct.
-                pkg.compile(newClass, CompileReason.LOADED, CompileType.INDIRECT_USER_COMPILE);
-            }
-            catch (IOException ioe)
-            {
-                Debug.reportError(ioe);
+                controller.compileAddedClass(newClass);
             }
         });
     }
@@ -1601,7 +1518,6 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
 
         if (srcFile != null)
         {
-            boolean librariesImportedFlag = false;
             String className = GreenfootUtil.removeExtension(srcFile.getName());
             final Package pkg = project.getUnnamedPackage();
 
@@ -1627,25 +1543,9 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
                 }
             }
 
-            // Copy the java/class file cross:
-            File destFile = new File(project.getProjectDir(), srcFile.getName());
-            GreenfootUtil.copyFile(srcFile, destFile);
-
-            // Copy the lib files cross:
-            File libFolder = new File(srcFile.getParentFile(), className + "/lib");
-            if ( (libFolder.exists()) && (libFolder.listFiles().length > 0) )
-            {
-                for (File srcLibFile : libFolder.listFiles())
-                {
-                    File destLibFile = new File(project.getProjectDir(), "+libs/" + srcLibFile.getName());
-                    GreenfootUtil.copyFile(srcLibFile, destLibFile);
-                }
-                librariesImportedFlag = true;
-            }
-
-            // We must reload the package to be able to access the GClass object:
-            pkg.reload();
-            ClassTarget gclass = (ClassTarget)pkg.getTarget(className);
+            // Copy the java/class file and any libraries across, and reload the package:
+            GreenfootProjectController.ImportedClass imported = controller.importClassFiles(srcFile, className);
+            ClassTarget gclass = imported.classTarget;
 
             if (gclass == null)
             {
@@ -1663,12 +1563,12 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
             }
 
             // The class needs to be compiled for the state of the scenario to be correct.
-            pkg.compile(gclass, CompileReason.LOADED, CompileType.INDIRECT_USER_COMPILE);
+            controller.compileAddedClass(gclass);
 
-            if (librariesImportedFlag)
+            if (imported.librariesImported)
             {
                 // Must restart debug VM to load the imported library:
-                project.restartVM();
+                controller.restartVM();
             }
         }
     }
@@ -1702,25 +1602,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
     private LocalGClassNode createNewClass(Package pkg, String superClassName, String className, SourceType language,
             String templateFileName)
     {
-        try
-        {
-            File dir = project.getProjectDir();
-            final String extension = language.getExtension();
-            File newFile = new File(dir, className + "." + extension);
-            ProjectUtils.createSkeleton(className, superClassName, newFile,
-                    templateFileName, project.getProjectCharset().toString());
-            ClassTarget newClass = pkg.addClass(className);
-
-            // The stride class needs to be compiled to be placed correctly on the class diagram.
-            pkg.compile(newClass, CompileReason.LOADED, CompileType.INDIRECT_USER_COMPILE);
-
-            return classDiagram.addClass(newClass);
-        }
-        catch (IOException ioe)
-        {
-            Debug.reportError(ioe);
-            return null;
-        }
+        ClassTarget newClass = controller.createClassFile(pkg, superClassName, className, language, templateFileName);
+        return newClass == null ? null : classDiagram.addClass(newClass);
     }
 
     private static String getNormalTemplateFileName(SourceType language)
@@ -1816,7 +1699,10 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
      */
     public void openGreenfootDocTab(String qualifiedClassName)
     {
-        project.getDefaultFXTabbedEditor().openGreenfootDocTab(qualifiedClassName);
+        if (controller != null)
+        {
+            controller.openGreenfootDocTab(qualifiedClassName);
+        }
     }
 
     /**
@@ -1950,14 +1836,9 @@ public class GreenfootStage extends Stage implements ControlPanelListener, Scena
      */
     public void openReadme()
     {
-        ReadmeTarget target = project.getUnnamedPackage().getReadmeTarget();
-        if (target.getEditor() == null)
+        if (controller != null)
         {
-            DialogManager.showErrorFX(this, "error-open-readme");
-        }
-        else
-        {
-            target.getEditor().setEditorVisible(true, false);
+            controller.openReadme();
         }
     }
 

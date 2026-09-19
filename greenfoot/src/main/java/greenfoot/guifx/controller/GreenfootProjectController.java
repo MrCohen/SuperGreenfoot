@@ -22,6 +22,7 @@
  */
 package greenfoot.guifx.controller;
 
+import bluej.Boot;
 import bluej.Config;
 import bluej.collect.DataCollector;
 import bluej.collect.GreenfootInterfaceEvent;
@@ -43,29 +44,37 @@ import bluej.debugmgr.ResultWatcher;
 import bluej.debugmgr.objectbench.InvokeListener;
 import bluej.debugmgr.objectbench.ObjectWrapper;
 import bluej.debugmgr.objectbench.ResultWatcherBase;
+import bluej.editor.Editor;
+import bluej.extensions2.SourceType;
 import bluej.pkgmgr.Package;
 import bluej.pkgmgr.PackageUI;
 import bluej.pkgmgr.Project;
 import bluej.pkgmgr.ProjectUtils;
 import bluej.pkgmgr.target.ClassTarget;
+import bluej.pkgmgr.target.ReadmeTarget;
 import bluej.pkgmgr.target.Target;
 import bluej.prefmgr.PrefMgr;
 import bluej.testmgr.record.InvokerRecord;
 import bluej.testmgr.record.ObjectInspectInvokerRecord;
 import bluej.utility.Debug;
 import bluej.utility.DialogManager;
+import bluej.utility.FileUtility;
 import bluej.utility.JavaReflective;
 import bluej.utility.Utility;
+import bluej.utility.javafx.FXPlatformFunction;
 import bluej.utility.javafx.FXPlatformRunnable;
 import bluej.utility.javafx.JavaFXUtil;
 import bluej.views.CallableView;
 import bluej.views.ConstructorView;
 import bluej.views.MethodView;
 import greenfoot.Actor;
+import greenfoot.core.ProjectManager;
+import greenfoot.export.ScenarioSaver;
 import greenfoot.export.mygame.ScenarioInfo;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
 import greenfoot.guifx.FullScreenView;
 import greenfoot.record.GreenfootRecorder;
+import greenfoot.util.GreenfootUtil;
 import greenfoot.vmcomm.DisplayState;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import greenfoot.vmcomm.GreenfootDebugHandler.SimulationStateListener;
@@ -96,6 +105,8 @@ import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -117,17 +128,19 @@ import static greenfoot.vmcomm.Command.*;
  * keyboard and mouse input to the world, picking and dragging actors and their
  * context menus, interactive method and constructor calls (it is the package's
  * {@link PackageUI}), the full-screen play window and the display state the
- * scenario sees, the save-the-world recorder, the scenario details, and the
- * work waiting for the debug VM to be ready.
+ * scenario sees, saving the project, creating, duplicating and importing class
+ * files and their images, the save-the-world recorder, the scenario details, and
+ * the work waiting for the debug VM to be ready.
  *
  * <p>One controller exists per open project, for as long as the project is open.
- * A window ({@link ProjectView}) attaches to it to show the project.  This is
- * being split out of GreenfootStage a piece at a time so that the Classic
- * Greenfoot IDE and the new SuperGreenfoot IDE can share it.
+ * A window ({@link ProjectView}) attaches to it to show the project, and can be
+ * replaced by another window while the project stays open (the new window is
+ * brought up to date: see {@link #attachView}).  The Classic Greenfoot IDE window
+ * and the new SuperGreenfoot IDE window are both such views.
  */
 @OnThread(Tag.FXPlatform)
 public class GreenfootProjectController implements VMCommsMain.CommsListener,
-        SimulationStateListener, FXCompileObserver, PackageUI, ControlPanelListener
+        SimulationStateListener, FXCompileObserver, PackageUI, ControlPanelListener, ScenarioSaver
 {
     private final Project project;
     private final GreenfootDebugHandler debugHandler;
@@ -142,6 +155,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
 
     // The window showing the project:
     private ProjectView view;
+    // Set once start() has run (the project is live and being shown):
+    private boolean started = false;
     // Set once the window has stopped showing the project; late callbacks are then ignored:
     private boolean disposed = false;
 
@@ -169,6 +184,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     private int lastUserSetSpeed;
     // Used to stop an infinite loop if we set the speed slider in response to a programmatic change:
     private boolean settingSpeedFromSimulation = false;
+    // The speed last shown on the speed slider (by the user or the simulation):
+    private int shownSpeed = 50;
 
     // The world image, double-buffered (the one not showing is written next):
     private final WritableImage[] worldImg = new WritableImage[2];
@@ -250,20 +267,63 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     }
 
     /**
-     * Set the window that shows this project.
+     * Set the window that shows this project.  If the project is already being shown
+     * (another window showed it until now), the new window is brought up to date:
+     * the simulation state, speed, world image (and whether it is greyed out or
+     * hidden), any ask prompt, the execution twirler and the message shown in place
+     * of the world.  All of this happens in one FX turn, so nothing from the debug VM
+     * can arrive between the old window letting go and the new one catching up.
      */
     public void attachView(ProjectView view)
     {
         this.view = view;
+        if (started && !disposed)
+        {
+            view.stateChanged(stateProperty.get(), atBreakpoint);
+            view.showSpeed(shownSpeed);
+            if (lastWorldImage != null)
+            {
+                view.worldImageSizeChanged(lastWorldImage.getWidth(), lastWorldImage.getHeight());
+                view.showWorldImage(lastWorldImage);
+            }
+            if (greyedOut && !asking)
+            {
+                view.greyOutWorld();
+            }
+            view.setWorldVisible(worldVisible);
+            if (asking)
+            {
+                int askId = currentAskId;
+                view.showAsk(currentAskPrompt, answer -> answerAsk(askId, answer));
+            }
+            view.setExecutionTwirling(twirling);
+            view.worldStatusChanged();
+        }
     }
 
     /**
-     * Start talking to the debug VM (the attached view receives its callbacks), pass
-     * player-name changes on to it, send it the project properties, and start creating
-     * the world that was showing when the project was last saved.
+     * Whether start() has run: the project is live (a window has shown it).
+     */
+    public boolean isStarted()
+    {
+        return started;
+    }
+
+    /**
+     * Start looking after the project: become the package's UI, observe its
+     * compilation, listen to the simulation, start talking to the debug VM (the
+     * attached view is told what to show), pass player-name changes on to it, send
+     * it the project properties, and start creating the world that was showing
+     * when the project was last saved.
      */
     public void start()
     {
+        started = true;
+        project.getPackage("").setUI(this);
+        project.getUnnamedPackage().addCompileObserver(this);
+        debugHandler.setPickListener(this::pickResults);
+        debugHandler.setSimulationListener(this);
+
         vmCommsHandler = new AnimationTimer()
         {
             @Override
@@ -1124,6 +1184,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     private void showSpeed(int speed, boolean includeFullScreen)
     {
+        shownSpeed = speed;
         view.showSpeed(speed);
         if (includeFullScreen && fullScreenView != null)
         {
@@ -2112,5 +2173,302 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 && f.getName().equals(fieldName))
             .mapToInt(f -> Integer.parseInt(f.getValueString()))
             .findFirst();
+    }
+
+    // ---- Saving and closing ----
+
+    /**
+     * Save the project (all editors and all project information).
+     */
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void doSave()
+    {
+        try
+        {
+            // Collect the various properties to be written out:
+            Properties p = project.getProjectPropertiesCopy();
+            p.setProperty("simulation.speed", Integer.toString(lastUserSetSpeed));
+            // Only save if not default:
+            if (debugHandler.getShmFileSize() != VMCommsMain.DEFAULT_MAPPED_SIZE)
+            {
+                p.setProperty("shm.size", Integer.toString(debugHandler.getShmFileSize()));
+            }
+            view.writeViewProperties(p);
+            p.put("version", Boot.GREENFOOT_API_VERSION);
+            if (currentWorld != null)
+            {
+                p.put("world.lastInstantiated", currentWorld.getQualifiedName());
+            }
+            project.saveEditorLocations(p);
+            scenarioInfo.store(p);
+
+            // Actually write out the properties to disk:
+            project.getUnnamedPackage().save(p);
+
+            // Save editor contents, etc:
+            project.getImportScanner().saveCachedImports();
+            project.saveAllEditors();
+        }
+        catch (IOException ioe)
+        {
+            // The exception is logged earlier, so we won't bother logging again.
+            // However, alert the user:
+            DialogManager.showMessageFX(view.getWindow(), "error-saving-project");
+        }
+    }
+
+    /**
+     * Prompt for a location, save the scenario to the chosen location, and re-open the scenario
+     * from its new location.
+     */
+    public void doSaveAs()
+    {
+        Stage window = view.getWindow();
+        File choice = FileUtility.getSaveProjectFX(project, window, Config.getString("project.saveAs.title"));
+        if (choice == null)
+        {
+            return;
+        }
+
+        if (! ProjectUtils.saveProjectCopy(project, choice, window))
+        {
+            return;
+        }
+
+        ProjectRegistry.close(this, true);
+
+        Project p = Project.openProject(choice.getAbsolutePath());
+        if (p == null) {
+            // This shouldn't happen, but log an error just in case:
+            Debug.reportError("Project save-as succeeded, but new project could not be opened");
+            return;
+        }
+
+        ProjectManager.instance().launchProject(p);
+    }
+
+    /**
+     * The project is being closed: save it, and close its inspectors, terminal and editors.
+     */
+    public void closeProject()
+    {
+        doSave();
+        Project.cleanUp(project);
+        project.getPackage("").closeAllEditors();
+    }
+
+    // ---- Save the world ----
+
+    /**
+     * Write the code for the interactions recorded since the world was created
+     * (actors added, moved and removed, methods called) into the world class, then compile.
+     *
+     * @param fetchEditorByName  finds the editor of the class to write into, by class name
+     */
+    public void saveTheWorld(FXPlatformFunction<String, Editor> fetchEditorByName)
+    {
+        if (!saveTheWorldRecorder.writeCode(fetchEditorByName))
+        {
+            DialogManager.showErrorFX(view.getWindow(), "cannot-save-world");
+        }
+        else
+        {
+            project.scheduleCompilation(true, CompileReason.USER,
+                    CompileType.INDIRECT_USER_COMPILE, project.getUnnamedPackage());
+        }
+    }
+
+    // ---- Class files and class images ----
+
+    /**
+     * Save image file name for the given class to the project file, and mirror to the debug VM.
+     * @param qualifiedName The qualified name of the class
+     * @param imageFileName The file name of the image to use for that class.
+     */
+    public void saveAndMirrorClassImageFilename(String qualifiedName, String imageFileName)
+    {
+        doSave();
+        sendPropertyToDebugVM("class." + qualifiedName + ".image", imageFileName);
+    }
+
+    /**
+     * Make sure an image file is in the project's images folder, copying it there if it
+     * is somewhere else.
+     *
+     * @param originalImageFile  The image's file
+     * @return  the name of the image file in the images folder
+     */
+    public String installClassImage(File originalImageFile)
+    {
+        File localImageFile;
+        File imagesDir = new File(project.getProjectDir(), "images");
+        if (originalImageFile.getParentFile().equals(imagesDir))
+        {
+            // The file is already in the project's images dir
+            localImageFile = originalImageFile;
+        }
+        else
+        {
+            // Copy the image file to the project's images dir
+            localImageFile = new File(imagesDir, originalImageFile.getName());
+            GreenfootUtil.copyFile(originalImageFile, localImageFile);
+        }
+        return localImageFile.getName();
+    }
+
+    /**
+     * Create a new class file from a template, add the class to the package and compile it.
+     *
+     * @param pkg            The package that should contain the new class.
+     * @param superClassName The full qualified name of the super class.
+     * @param className      The class's name, which will be created.
+     * @param language       The source type of the class, e.g. Java or Stride.
+     * @param templateFileName  The name of the template file to use
+     * @return  the new class, or null if the file could not be written.
+     */
+    public ClassTarget createClassFile(Package pkg, String superClassName, String className, SourceType language,
+            String templateFileName)
+    {
+        try
+        {
+            File dir = project.getProjectDir();
+            final String extension = language.getExtension();
+            File newFile = new File(dir, className + "." + extension);
+            ProjectUtils.createSkeleton(className, superClassName, newFile,
+                    templateFileName, project.getProjectCharset().toString());
+            ClassTarget newClass = pkg.addClass(className);
+
+            // The stride class needs to be compiled to be placed correctly on the class diagram.
+            pkg.compile(newClass, CompileReason.LOADED, CompileType.INDIRECT_USER_COMPILE);
+
+            return newClass;
+        }
+        catch (IOException ioe)
+        {
+            Debug.reportError(ioe);
+            return null;
+        }
+    }
+
+    /**
+     * Copy a class's source file under a new class name and add the new class to the package
+     * (it still needs compiling: see compileAddedClass).
+     *
+     * @return  the new class, or null if the file could not be copied.
+     */
+    public ClassTarget duplicateClassFile(ClassTarget originalClassTarget, String newClassName)
+    {
+        String originalClassName = originalClassTarget.getDisplayName();
+        SourceType sourceType = originalClassTarget.getSourceType();
+        final String extension = sourceType.getExtension();
+        final Package pkg = originalClassTarget.getPackage();
+        final File dir = pkg.getProject().getProjectDir();
+        final File originalFile = new File(dir, originalClassName + "." + extension);
+        final File newFile = new File(dir, newClassName + "." + extension);
+        try
+        {
+            ProjectUtils.duplicate(originalClassName, newClassName, originalFile, newFile, sourceType);
+            return pkg.addClass(newClassName);
+        }
+        catch (IOException ioe)
+        {
+            Debug.reportError(ioe);
+            return null;
+        }
+    }
+
+    /**
+     * Compile a class that has just been added to the project, so that the state of
+     * the scenario is correct.
+     */
+    public void compileAddedClass(ClassTarget classTarget)
+    {
+        classTarget.getPackage().compile(classTarget, CompileReason.LOADED, CompileType.INDIRECT_USER_COMPILE);
+    }
+
+    /**
+     * The result of copying a class (and any libraries it needs) into the project.
+     */
+    public static class ImportedClass
+    {
+        /** The imported class, or null if it could not be found after copying. */
+        public final ClassTarget classTarget;
+        /** Whether libraries were copied as well (the debug VM must restart to load them). */
+        public final boolean librariesImported;
+
+        private ImportedClass(ClassTarget classTarget, boolean librariesImported)
+        {
+            this.classTarget = classTarget;
+            this.librariesImported = librariesImported;
+        }
+    }
+
+    /**
+     * Copy a class's source or class file into the project, along with the libraries
+     * in the "className/lib" folder beside it, and add it to the package.
+     *
+     * @param srcFile    The class's file
+     * @param className  The class's name
+     */
+    public ImportedClass importClassFiles(File srcFile, String className)
+    {
+        boolean librariesImportedFlag = false;
+        final Package pkg = project.getUnnamedPackage();
+
+        // Copy the java/class file cross:
+        File destFile = new File(project.getProjectDir(), srcFile.getName());
+        GreenfootUtil.copyFile(srcFile, destFile);
+
+        // Copy the lib files cross:
+        File libFolder = new File(srcFile.getParentFile(), className + "/lib");
+        if ( (libFolder.exists()) && (libFolder.listFiles().length > 0) )
+        {
+            for (File srcLibFile : libFolder.listFiles())
+            {
+                File destLibFile = new File(project.getProjectDir(), "+libs/" + srcLibFile.getName());
+                GreenfootUtil.copyFile(srcLibFile, destLibFile);
+            }
+            librariesImportedFlag = true;
+        }
+
+        // We must reload the package to be able to access the GClass object:
+        pkg.reload();
+        return new ImportedClass((ClassTarget)pkg.getTarget(className), librariesImportedFlag);
+    }
+
+    /**
+     * Restart the debug VM (for example to load newly imported libraries).
+     */
+    public void restartVM()
+    {
+        project.restartVM();
+    }
+
+    // ---- Documentation ----
+
+    /**
+     * Show the readme file for this project in an editor window.
+     */
+    public void openReadme()
+    {
+        ReadmeTarget target = project.getUnnamedPackage().getReadmeTarget();
+        if (target.getEditor() == null)
+        {
+            DialogManager.showErrorFX(view.getWindow(), "error-open-readme");
+        }
+        else
+        {
+            target.getEditor().setEditorVisible(true, false);
+        }
+    }
+
+    /**
+     * Opens a browser tab (in an editor window) for the given fully qualified class name
+     * of a built-in Greenfoot class (e.g. greenfoot.Actor)
+     */
+    public void openGreenfootDocTab(String qualifiedClassName)
+    {
+        project.getDefaultFXTabbedEditor().openGreenfootDocTab(qualifiedClassName);
     }
 }
