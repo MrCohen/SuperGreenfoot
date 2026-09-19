@@ -137,6 +137,35 @@ public class SuperIdeShellTest extends TestCase
                 names(ClassTreeModel.unfiled(folders, classes())));
     }
 
+    public void testInheritanceInsideAFolder()
+    {
+        ClassFolders folders = new ClassFolders();
+        folders.addFolder("Characters");
+        folders.addFolder("Enemies");
+        for (String name : List.of("Player", "Enemy", "Slime", "Bat"))
+        {
+            folders.setFolder(name, "Characters");
+        }
+        List<ClassTreeModel.FolderGroup> groups = ClassTreeModel.folderGroups(folders, classes());
+        // Folder rows start one level in; subclasses follow their superclass, one deeper.
+        assertEquals(List.of("Enemy:1", "Bat:2", "Slime:2", "Player:1"),
+                describe(ClassTreeModel.nested(groups.get(0).classes, 1)));
+
+        // A superclass in another folder leaves its subclasses as roots here.
+        folders.setFolder("Enemy", "Enemies");
+        groups = ClassTreeModel.folderGroups(folders, classes());
+        assertEquals(List.of("Bat:1", "Player:1", "Slime:1"), describe(ClassTreeModel.nested(groups.get(0).classes, 1)));
+        assertEquals(List.of("Enemy:1"), describe(ClassTreeModel.nested(groups.get(1).classes, 1)));
+
+        // The unfiled classes nest the same way, from depth 0.
+        assertEquals(List.of("MyWorld:0", "Level1:1", "Level2:1", "Stack:0", "Utility:0", "Helper:1"),
+                describe(ClassTreeModel.nested(ClassTreeModel.unfiled(folders, classes()), 0)));
+
+        // A superclass cycle is listed flat, not lost.
+        List<ClassEntry> cycle = List.of(new ClassEntry("A", "B", null), new ClassEntry("B", "A", null));
+        assertEquals(List.of("A:1", "B:1"), describe(ClassTreeModel.nested(cycle, 1)));
+    }
+
     public void testClassHelpers()
     {
         List<ClassEntry> list = classes();
@@ -155,8 +184,13 @@ public class SuperIdeShellTest extends TestCase
 
     private static List<String> describe(ClassTreeModel.InheritanceGroup group)
     {
+        return describe(group.rows);
+    }
+
+    private static List<String> describe(List<ClassTreeModel.InheritanceRow> rows)
+    {
         List<String> result = new ArrayList<>();
-        for (ClassTreeModel.InheritanceRow row : group.rows)
+        for (ClassTreeModel.InheritanceRow row : rows)
         {
             result.add(row.entry.getName() + ":" + row.depth);
         }

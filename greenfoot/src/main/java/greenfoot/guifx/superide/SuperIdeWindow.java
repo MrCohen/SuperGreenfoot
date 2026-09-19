@@ -153,6 +153,8 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
 {
     /** The user preference for the dark palette. */
     private static final String DARK_PREF = "supergreenfoot.ui.dark";
+    // A personal viewing choice, so a preference rather than a per-scenario setting:
+    private static final String INHERITANCE_IN_FOLDERS_PREF = "supergreenfoot.ui.classes.inheritanceInFolders";
 
     // This window's settings in supergreenfoot.properties:
     private static final String KEY_X = "ui.window.x";
@@ -363,6 +365,15 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         ClassBrowserPane browser = getClassBrowser();
         browser.setOnShowClassMenu(this::showClassMenu);
         browser.setOnShowBuiltInMenu(this::showBuiltInMenu);
+        browser.setOnOpenBuiltIn(name -> {
+            if (controller != null)
+            {
+                controller.openGreenfootDocTab("greenfoot." + name);
+            }
+        });
+        browser.inheritanceInFoldersProperty().set(Config.getPropBoolean(INHERITANCE_IN_FOLDERS_PREF, false));
+        JavaFXUtil.addChangeListenerPlatform(browser.inheritanceInFoldersProperty(),
+                on -> Config.putPropString(INHERITANCE_IN_FOLDERS_PREF, Boolean.toString(on)));
         browser.setOnNewClass(this::showNewClassMenu);
         JavaFXUtil.addChangeListenerPlatform(browser.selectedClassProperty(), name -> {
             if (name != null)
@@ -2555,6 +2566,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
                 new SeparatorMenuItem(),
                 JavaFXUtil.makeMenuItem("Show Folders", () -> getClassBrowser().viewProperty().set(ClassBrowserPane.View.FOLDERS), null),
                 JavaFXUtil.makeMenuItem("Show Inheritance", () -> getClassBrowser().viewProperty().set(ClassBrowserPane.View.INHERITANCE), null),
+                JavaFXUtil.makeCheckMenuItem("Inheritance Inside Folders", getClassBrowser().inheritanceInFoldersProperty(), null),
                 new SeparatorMenuItem(),
                 JavaFXUtil.makeMenuItem("Fit World to Window", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.FIT), null),
                 JavaFXUtil.makeMenuItem("Pixel-Perfect World", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.PIXEL_PERFECT), null),
@@ -2886,6 +2898,10 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
             if (customUrl != null)
             {
                 openWebBrowser(customUrl);
+            }
+            else
+            {
+                DialogManager.showErrorWithTextFX(this, "cannot-read-apidoc", Config.getBlueJLibDir() + "/doc/API");
             }
         }
         catch (IOException ioe)

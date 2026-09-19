@@ -23,11 +23,14 @@ package greenfoot.guifx.superide;
 
 import bluej.utility.javafx.JavaFXUtil;
 import greenfoot.guifx.superide.folders.ClassFolders;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.ContextMenu;
@@ -58,8 +61,10 @@ import java.util.function.Consumer;
 
 /**
  * The SuperGreenfoot IDE's Classes panel: the scenario's classes grouped into
- * virtual folders, or by inheritance as in the Classic IDE. Classes are dragged
- * onto a folder (or onto "Not in a folder") to move them.
+ * virtual folders, or by inheritance as in the Classic IDE. Folders can also show
+ * inheritance: inside a folder, a subclass sits under its superclass when both
+ * are in that folder. Classes are dragged onto a folder (or onto "Not in a
+ * folder") to move them.
  */
 @OnThread(Tag.FXPlatform)
 public class ClassBrowserPane extends VBox
@@ -84,6 +89,7 @@ public class ClassBrowserPane extends VBox
     static final double WIDTH = 272;
 
     private final ObjectProperty<View> view = new SimpleObjectProperty<>(View.FOLDERS);
+    private final BooleanProperty inheritanceInFolders = new SimpleBooleanProperty(false);
     private final StringProperty selectedClass = new SimpleStringProperty(null);
     private final VBox list = new VBox();
     private final ClassFolders.Listener foldersListener = this::rebuild;
@@ -92,6 +98,7 @@ public class ClassBrowserPane extends VBox
     private Consumer<String> onOpenClass = name -> {};
     private ClassMenuHandler onShowClassMenu = (name, anchor, x, y) -> {};
     private ClassMenuHandler onShowBuiltInMenu = (name, anchor, x, y) -> {};
+    private Consumer<String> onOpenBuiltIn = name -> {};
     private Runnable onNewClass = () -> {};
     private Runnable onCollapse = () -> {};
     private String dragging;
@@ -129,7 +136,21 @@ public class ClassBrowserPane extends VBox
         });
         HBox segments = new HBox(foldersButton, inheritanceButton);
         segments.getStyleClass().add("sg-seg-box");
-        HBox segmentsRow = new HBox(segments);
+
+        String treeTip = "Show inheritance inside folders";
+        ToggleButton treeButton = new ToggleButton();
+        treeButton.setGraphic(SuperIcons.icon(SuperIcons.TREE, 16));
+        treeButton.getStyleClass().add("sg-icon-toggle");
+        treeButton.setTooltip(new Tooltip(treeTip + ": a subclass sits under its superclass when both are in the folder"));
+        treeButton.setAccessibleText(treeTip);
+        treeButton.selectedProperty().bindBidirectional(inheritanceInFolders);
+        // Only the folder view uses it (the inheritance view always shows inheritance):
+        treeButton.visibleProperty().bind(view.isEqualTo(View.FOLDERS));
+        treeButton.managedProperty().bind(treeButton.visibleProperty());
+        JavaFXUtil.addChangeListenerPlatform(inheritanceInFolders, on -> rebuild());
+
+        HBox segmentsRow = new HBox(6, segments, treeButton);
+        segmentsRow.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(segments, Priority.ALWAYS);
         segmentsRow.setPadding(new Insets(10, 12, 6, 12));
 
@@ -199,6 +220,12 @@ public class ClassBrowserPane extends VBox
         return view;
     }
 
+    /** Whether the folder view nests each subclass under its superclass within a folder. */
+    public BooleanProperty inheritanceInFoldersProperty()
+    {
+        return inheritanceInFolders;
+    }
+
     /** The selected class's name, or null. */
     public StringProperty selectedClassProperty()
     {
@@ -221,6 +248,12 @@ public class ClassBrowserPane extends VBox
     public void setOnShowBuiltInMenu(ClassMenuHandler action)
     {
         onShowBuiltInMenu = action;
+    }
+
+    /** Double-click or Enter on the built-in World or Actor row ("World" or "Actor"). */
+    public void setOnOpenBuiltIn(Consumer<String> action)
+    {
+        onOpenBuiltIn = action;
     }
 
     public void setOnNewClass(Runnable action)
@@ -262,10 +295,7 @@ public class ClassBrowserPane extends VBox
             Label label = new Label("NOT IN A FOLDER");
             label.getStyleClass().add("sg-group-label");
             unfiled.getChildren().add(label);
-            for (ClassEntry entry : ClassTreeModel.unfiled(folders, classes))
-            {
-                unfiled.getChildren().add(classRow(entry, 0, true));
-            }
+            addClassRows(unfiled, ClassTreeModel.unfiled(folders, classes), 0);
             makeDropTarget(unfiled, "");
             list.getChildren().add(unfiled);
         }
@@ -284,7 +314,24 @@ public class ClassBrowserPane extends VBox
                     HBox row = new HBox(Widgets.builtinTile(20), base, builtIn);
                     row.getStyleClass().addAll("sg-row", "sg-builtin");
                     String baseName = group.base;
+                    row.setFocusTraversable(true);
+                    row.setAccessibleRole(AccessibleRole.BUTTON);
+                    row.setAccessibleText(baseName + ", built in");
+                    Tooltip.install(row, new Tooltip("Double-click for the " + baseName + " documentation."));
                     row.setOnContextMenuRequested(e -> onShowBuiltInMenu.showMenu(baseName, row, e.getScreenX(), e.getScreenY()));
+                    row.setOnMouseClicked(e -> {
+                        if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2)
+                        {
+                            onOpenBuiltIn.accept(baseName);
+                        }
+                    });
+                    row.setOnKeyPressed(e -> {
+                        if (e.getCode() == KeyCode.ENTER)
+                        {
+                            onOpenBuiltIn.accept(baseName);
+                            e.consume();
+                        }
+                    });
                     list.getChildren().add(row);
                 }
                 for (ClassTreeModel.InheritanceRow row : group.rows)
@@ -359,10 +406,7 @@ public class ClassBrowserPane extends VBox
 
         if (group.open)
         {
-            for (ClassEntry entry : group.classes)
-            {
-                box.getChildren().add(classRow(entry, 1, true));
-            }
+            addClassRows(box, group.classes, 1);
             if (group.classes.isEmpty())
             {
                 Label empty = new Label("Drag classes here");
@@ -427,6 +471,29 @@ public class ClassBrowserPane extends VBox
             field.selectAll();
         });
         return field;
+    }
+
+    /**
+     * Add a folder's (or the unfiled) classes, nested by inheritance if that is
+     * turned on. A nested class doesn't repeat its superclass's name, which is
+     * the row above it.
+     */
+    private void addClassRows(VBox box, List<ClassEntry> entries, int depth)
+    {
+        if (inheritanceInFolders.get())
+        {
+            for (ClassTreeModel.InheritanceRow row : ClassTreeModel.nested(entries, depth))
+            {
+                box.getChildren().add(classRow(row.entry, row.depth, row.depth == depth));
+            }
+        }
+        else
+        {
+            for (ClassEntry entry : entries)
+            {
+                box.getChildren().add(classRow(entry, depth, true));
+            }
+        }
     }
 
     private Node classRow(ClassEntry entry, int depth, boolean showSuper)

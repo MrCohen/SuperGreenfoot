@@ -55,6 +55,8 @@ public final class SuperIcons
     public static final String PLUS = "M8 3v10 M3 8h10";
     public static final String FOLDER = "M1.8 4.2h4.3l1.5 1.6h6.6v7H1.8z";
     public static final String FOLDER_PLUS = FOLDER + " M8 7.6v3.4 M6.3 9.3h3.4";
+    /** A row with two rows branching below it: subclasses under their superclass. */
+    public static final String TREE = "M2.5 3.5h11 M4.5 3.5v8 M4.5 7.5h2 M4.5 11.5h2 M9 7.5h4.5 M9 11.5h4.5";
     /** Arrow into a bar on the right: collapse a left-hand panel. */
     public static final String COLLAPSE_LEFT = "M9.5 4L5.5 8l4 4 M12.5 3v10";
     /** Arrow into a bar on the left: expand a left-hand panel, or collapse a right-hand one. */

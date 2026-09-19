@@ -21,6 +21,7 @@
  */
 package greenfoot.guifx.superide;
 
+import bluej.Config;
 import greenfoot.guifx.superide.folders.ClassFolders;
 import javafx.application.Application;
 import javafx.scene.canvas.Canvas;
@@ -40,15 +41,19 @@ import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Dev only: opens the SuperGreenfoot IDE window shell with the approved
  * mockup's sample scenario, without a project or debug VM.
  *
- * <pre>./gradlew :greenfoot:runSuperIdePreview -PpreviewArgs="dark collapsed inherit class=Enemy editor pixel"</pre>
+ * <pre>./gradlew :greenfoot:runSuperIdePreview -PpreviewArgs="dark collapsed inherit tree class=Enemy editor pixel"</pre>
  *
  * The first argument (added by the Gradle task) is the lib directory.
  */
@@ -66,6 +71,18 @@ public class SuperStagePreview
         {
             List<String> args = new ArrayList<>(getParameters().getRaw());
             File libDir = new File(args.remove(0));
+            // The theme sets the editor font through BlueJ's preferences, which need
+            // Config. A throwaway user home keeps the real preferences untouched.
+            Properties props = new Properties();
+            try
+            {
+                props.setProperty("bluej.userHome", Files.createTempDirectory("sg-preview").toString());
+            }
+            catch (IOException e)
+            {
+                throw new UncheckedIOException(e);
+            }
+            Config.initialise(libDir, props, true);
             SuperTheme.init(libDir);
             SuperTheme.darkProperty().set(args.contains("dark"));
             SuperTheme.activate();
@@ -123,6 +140,10 @@ public class SuperStagePreview
             if (args.contains("inherit"))
             {
                 stage.getClassBrowser().viewProperty().set(ClassBrowserPane.View.INHERITANCE);
+            }
+            if (args.contains("tree"))
+            {
+                stage.getClassBrowser().inheritanceInFoldersProperty().set(true);
             }
 
             ImageView world = new ImageView(worldImage());

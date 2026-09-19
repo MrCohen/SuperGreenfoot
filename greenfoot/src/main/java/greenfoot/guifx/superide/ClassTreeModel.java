@@ -66,7 +66,10 @@ public final class ClassTreeModel
         }
     }
 
-    /** A class in the inheritance view, indented by its depth below the group's base. */
+    /**
+     * A class in the inheritance view (or in a folder showing inheritance),
+     * indented by its depth below the group's base.
+     */
     @OnThread(Tag.Any)
     public static final class InheritanceRow
     {
@@ -184,6 +187,54 @@ public final class ClassTreeModel
         }
         groups.add(new InheritanceGroup("Other classes", null, other));
         return groups;
+    }
+
+    /**
+     * One folder's classes (or the unfiled ones) as a tree: a class whose
+     * superclass is in the same list follows it, one level deeper. A class
+     * whose superclass is elsewhere is a root at the given depth. Siblings are
+     * sorted by name.
+     */
+    @OnThread(Tag.Any)
+    public static List<InheritanceRow> nested(List<ClassEntry> classes, int depth)
+    {
+        Map<String, ClassEntry> byName = byName(classes);
+        Map<String, List<ClassEntry>> children = new HashMap<>();
+        List<ClassEntry> roots = new ArrayList<>();
+        for (ClassEntry entry : classes)
+        {
+            String sup = entry.getSuperName();
+            if (sup != null && byName.containsKey(sup) && !sup.equals(entry.getName()))
+            {
+                children.computeIfAbsent(sup, k -> new ArrayList<>()).add(entry);
+            }
+            else
+            {
+                roots.add(entry);
+            }
+        }
+        Comparator<ClassEntry> byNameOrder = Comparator.comparing(ClassEntry::getName);
+        for (List<ClassEntry> list : children.values())
+        {
+            list.sort(byNameOrder);
+        }
+        Set<String> placed = new HashSet<>();
+        List<InheritanceRow> rows = walk(roots, depth, children, placed, byNameOrder);
+        // Classes in a superclass cycle are never reached from a root; list them flat.
+        List<ClassEntry> leftover = new ArrayList<>();
+        for (ClassEntry entry : classes)
+        {
+            if (!placed.contains(entry.getName()))
+            {
+                leftover.add(entry);
+            }
+        }
+        leftover.sort(byNameOrder);
+        for (ClassEntry entry : leftover)
+        {
+            rows.add(new InheritanceRow(entry, depth));
+        }
+        return rows;
     }
 
     @OnThread(Tag.Any)

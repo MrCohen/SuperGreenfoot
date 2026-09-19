@@ -310,6 +310,31 @@
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.14), 3, 0, 0, 1);
 }
 
+/* An icon-only on/off button beside the segments (inheritance inside folders);
+   32 px tall like the segment box, and drawn like it when on. */
+.toggle-button.sg-icon-toggle {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-effect: null;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
+    -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
+}
+.toggle-button.sg-icon-toggle:hover { -fx-background-color: -sg-hover; }
+.toggle-button.sg-icon-toggle:hover .sg-icon { -fx-stroke: -sg-text; }
+.toggle-button.sg-icon-toggle:selected {
+    -fx-background-color: -sg-panel2;
+    -fx-border-color: -sg-line;
+}
+.toggle-button.sg-icon-toggle:selected .sg-icon { -fx-stroke: -sg-accent; }
+.toggle-button.sg-icon-toggle:focus-visible { -fx-effect: null; }
+
 .sg-scroll, .sg-scroll > .viewport, .sg-scroll > .corner {
     -fx-background-color: transparent;
     -fx-background-insets: 0;
@@ -334,8 +359,6 @@
 .sg-row.sg-selected .label { -fx-text-fill: -sg-sel-text; }
 .sg-row.sg-dragging { -fx-opacity: 0.45; }
 .sg-row .sg-sup { -fx-text-fill: -sg-faint; -fx-font-size: 11.5px; }
-.sg-row.sg-builtin { -fx-cursor: default; }
-.sg-row.sg-builtin:hover { -fx-background-color: transparent; }
 .sg-row.sg-builtin .label { -fx-text-fill: -sg-muted; }
 .sg-row.sg-builtin .sg-sup { -fx-text-fill: -sg-faint; }
 .sg-folder-row .sg-folder-name { -fx-font-family: "IBM Plex Sans Medm"; }
