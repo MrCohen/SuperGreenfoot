@@ -1241,6 +1241,43 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         destination.addTab(tab, true, true, true);
     }
 
+    /**
+     * Moves every tab except pinned ones into the given host or window, keeping each
+     * editor as it is (text, undo history, unsaved changes).  The tab that was selected
+     * here is selected there.
+     */
+    @OnThread(Tag.FXPlatform)
+    public void moveEditorTabsTo(FXTabbedEditor destination)
+    {
+        Tab selected = tabPane.getSelectionModel().getSelectedItem();
+        List<FXTab> moving = new ArrayList<>();
+        for (Tab t : tabPane.getTabs())
+        {
+            if (!(t instanceof PinnedTab))
+            {
+                moving.add((FXTab) t);
+            }
+        }
+        for (FXTab tab : moving)
+        {
+            moveTabTo(tab, destination);
+        }
+        if (selected instanceof FXTab && moving.contains(selected))
+        {
+            destination.bringToFront(selected);
+        }
+    }
+
+    /**
+     * Whether the host has tabs other than pinned ones (open editors, readme or
+     * documentation tabs).
+     */
+    @OnThread(Tag.FXPlatform)
+    public boolean hasEditorTabs()
+    {
+        return tabPane.getTabs().stream().anyMatch(t -> !(t instanceof PinnedTab));
+    }
+
     @OnThread(Tag.FXPlatform)
     public void updateMoveMenus()
     {
@@ -1265,6 +1302,14 @@ public @OnThread(Tag.FX) class FXTabbedEditor
         else
         {
             tabPane.getTabs().forEach(t -> updateMenusForTab((FXTab)t));
+            // That leaves the last tab's menus in the menu bar.  While the new IDE docks
+            // editors (so editor windows are torn off and move often), show the selected
+            // tab's menus, so that "Move tab" moves the tab the user is looking at:
+            Tab selected = tabPane.getSelectionModel().getSelectedItem();
+            if (project.getEmbeddedFXTabbedEditor() != null && selected != null)
+            {
+                updateMenusForTab((FXTab) selected);
+            }
         }
     }
 

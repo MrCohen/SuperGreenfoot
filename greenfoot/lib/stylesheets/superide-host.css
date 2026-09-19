@@ -62,3 +62,10 @@
     -fx-background-color: -sg-world-bg;
     -fx-padding: 0;
 }
+
+/* The editor stylesheets make the host's default font their own; the tab strip and
+   the world area keep the new IDE's. */
+.sg-editor-host .tabbed-editor > .tab-header-area,
+.sg-editor-host .sg-world-area {
+    -fx-font-family: "IBM Plex Sans";
+}

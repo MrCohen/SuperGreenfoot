@@ -31,6 +31,7 @@ import bluej.debugger.DebuggerObject;
 import bluej.debugger.gentype.JavaType;
 import bluej.debugger.gentype.Reflective;
 import bluej.editor.Editor;
+import bluej.editor.stride.EditorHostSite;
 import bluej.extensions2.SourceType;
 import bluej.parser.SourceLocation;
 import bluej.pkgmgr.Package;
@@ -86,6 +87,9 @@ import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.beans.value.ObservableStringValue;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
@@ -144,7 +148,7 @@ import java.util.Properties;
  * scenario's supergreenfoot.properties file rather than in project.greenfoot.
  */
 @OnThread(Tag.FXPlatform)
-public class SuperIdeWindow extends SuperStage implements IdeWindow
+public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostSite
 {
     /** The user preference for the dark palette. */
     private static final String DARK_PREF = "supergreenfoot.ui.dark";
@@ -198,6 +202,20 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     private ContextMenu classMenu;
     private Point2D lastMousePosInScene = new Point2D(0, 0);
     private PlacingActor placingActor;
+
+    /** The project's editors, docked in the centre with the World tab (null without a project) */
+    private DockedEditors docked;
+    /** Whether editors open in windows of their own rather than docked (a user preference) */
+    private final BooleanProperty editorsInOwnWindow = new SimpleBooleanProperty(DockedEditors.isOwnWindowPreferred());
+    /** This window's name when editors offer to move to it */
+    private final StringProperty hostTitle = new SimpleStringProperty("Main Window");
+    private MenuBar mainMenuBar;
+    private Menu scenarioMenu;
+    private Menu controlsMenu;
+    private Menu viewMenu;
+    private Menu helpMenu;
+    /** The main window's own menus (without a docked editor's) */
+    private List<Menu> mainMenus = new ArrayList<>();
     private boolean compiling = false;
     /** The actor shown in the Inspector (clicked in the world), or null. */
     private DebuggerObject selectedActor;
@@ -382,10 +400,17 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                 this.controller.screenMayHaveChanged();
             }
         });
-        JavaFXUtil.addChangeListenerPlatform(focusedProperty(), focused -> {
-            if (focused && this.controller != null)
+        // Coming back to the world (selecting the World tab, or focusing the window while
+        // it is selected) compiles or resets as returning to the Classic window does; see
+        // showProject.  Editors opened from now on follow the preference:
+        JavaFXUtil.addChangeListenerPlatform(editorsInOwnWindow, ownWindow -> {
+            if (docked != null)
             {
-                this.controller.windowActivated();
+                docked.setOwnWindowPreferred(ownWindow);
+            }
+            else
+            {
+                Config.putPropString(DockedEditors.OWN_WINDOW_PREF, Boolean.toString(ownWindow));
             }
         });
 
@@ -453,6 +478,17 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         loadSettings(project);
         refreshClasses();
 
+        // The World tab and the project's editors share the centre:
+        docked = new DockedEditors(project, this, makeWorldTabGraphic(), getWorldArea(),
+                () -> {
+                    if (this.controller != null)
+                    {
+                        this.controller.windowActivated();
+                    }
+                },
+                () -> worldDisplay.requestFocus());
+        setCentreContent(docked.getNode());
+
         // A new project: the controller starts looking after it.  A live project: the
         // controller brings this window up to date.
         controller.attachView(this);
@@ -490,6 +526,13 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
      */
     private void clearProject()
     {
+        if (docked != null)
+        {
+            // Open editors move to a window of their own; the world area comes back here:
+            docked.dispose();
+            docked = null;
+        }
+        setCentreContent(null);
         if (project != null)
         {
             showingDebugger.unbindBidirectional(project.debuggerShowing());
@@ -1272,7 +1315,70 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
     @OnThread(Tag.FXPlatform)
     public boolean isWindowFocused()
     {
-        return isFocused();
+        // As in the Classic IDE, where the world is in its own window: the user is at the
+        // world only if the World tab (not an editor) is showing.
+        return isFocused() && isWorldTabShowing();
+    }
+
+    /**
+     * Whether the World tab, rather than a docked editor, is showing.
+     */
+    private boolean isWorldTabShowing()
+    {
+        return docked == null || docked.isWorldSelected();
+    }
+
+    // ------------------------------------------------------------ docked editors
+
+    @Override
+    @OnThread(Tag.FX)
+    public Stage getStage()
+    {
+        return this;
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void showEditorMenus(List<Menu> menus)
+    {
+        if (mainMenuBar == null)
+        {
+            return;
+        }
+        if (menus.isEmpty())
+        {
+            MenuMerge.restore(mainMenus);
+            mainMenuBar.getMenus().setAll(mainMenus);
+        }
+        else
+        {
+            // Scenario, the editor's menus (Class, Edit, ...), then Controls, Window and Help;
+            // the editor gets the shortcuts that both use:
+            List<Menu> alongside = Arrays.asList(scenarioMenu, controlsMenu, viewMenu, helpMenu);
+            MenuMerge.removeClashes(alongside, menus, MenuMerge.EDITOR_KEYS);
+            List<Menu> shown = new ArrayList<>();
+            shown.add(scenarioMenu);
+            shown.addAll(menus);
+            shown.add(controlsMenu);
+            shown.add(viewMenu);
+            shown.add(helpMenu);
+            mainMenuBar.getMenus().setAll(shown);
+        }
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void bringHostToFront()
+    {
+        setIconified(false);
+        toFront();
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public ObservableStringValue hostTitle()
+    {
+        return hostTitle;
     }
 
     @Override
@@ -2283,6 +2389,12 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
             {
                 return;
             }
+            // Keys typed into a docked editor are the editor's (typing a capital must not
+            // start placing an actor):
+            if (!isWorldTabShowing())
+            {
+                return;
+            }
             if (e.getEventType() == KeyEvent.KEY_PRESSED)
             {
                 if (e.getCode() == KeyCode.ESCAPE && placingActor != null)
@@ -2327,7 +2439,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
         recentProjectsMenu.setOnShowing(e -> updateRecentProjects(recentProjectsMenu));
         updateRecentProjects(recentProjectsMenu);
 
-        Menu scenarioMenu = new Menu(Config.getString("menu.scenario"), null,
+        scenarioMenu = new Menu(Config.getString("menu.scenario"), null,
                 JavaFXUtil.makeMenuItem("java.new.project", new KeyCodeCombination(KeyCode.J, KeyCombination.SHORTCUT_DOWN),
                         () -> doNewProject(SourceType.Java), null),
                 JavaFXUtil.makeMenuItem("stride.new.project", new KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN),
@@ -2363,7 +2475,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                 new SeparatorMenuItem(),
                 withDisable(JavaFXUtil.makeMenuItem("New Folder", () -> getClassBrowser().newFolder(), null), hasNoProject));
 
-        Menu controlsMenu = new Menu(Config.getString("menu.controls"), null,
+        controlsMenu = new Menu(Config.getString("menu.controls"), null,
                 JavaFXUtil.makeMenuItem("run.once", new KeyCodeCombination(KeyCode.A, KeyCombination.SHORTCUT_DOWN),
                         () -> {
                             if (controller != null)
@@ -2403,7 +2515,8 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                             }
                         }, hasNoProject));
 
-        Menu viewMenu = new Menu("View", null,
+        // "Window" rather than "View", so it never clashes with a docked Stride editor's View menu:
+        viewMenu = new Menu("Window", null,
                 JavaFXUtil.makeCheckMenuItem("Classes Panel", leftOpenProperty(), null),
                 JavaFXUtil.makeCheckMenuItem("Inspector", rightOpenProperty(), null),
                 JavaFXUtil.makeCheckMenuItem("Output Panel", bottomOpenProperty(), null),
@@ -2414,6 +2527,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                 JavaFXUtil.makeMenuItem("Fit World to Window", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.FIT), null),
                 JavaFXUtil.makeMenuItem("Pixel-Perfect World", () -> getWorldHost().zoomProperty().set(WorldHost.Zoom.PIXEL_PERFECT), null),
                 new SeparatorMenuItem(),
+                JavaFXUtil.makeCheckMenuItem("Open Editors in Their Own Window", editorsInOwnWindow, null),
                 JavaFXUtil.makeCheckMenuItem("Dark Theme", SuperTheme.darkProperty(), null));
 
         CheckMenuItem soundRecorderItem = JavaFXUtil.makeCheckMenuItem(Config.getString("menu.soundRecorder"),
@@ -2444,7 +2558,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                     GreenfootStage::showPreferences, null));
         }
 
-        Menu helpMenu = new Menu(Config.getString("menu.help"), null);
+        helpMenu = new Menu(Config.getString("menu.help"), null);
         if (!Config.isMacOS())
         {
             helpMenu.getItems().add(JavaFXUtil.makeMenuItem("menu.help.about", null,
@@ -2464,9 +2578,10 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow
                 JavaFXUtil.makeMenuItem("menu.help.moreScenarios", null,
                         () -> openWebBrowser(Config.getPropString("greenfoot.url.scenarios")), null));
 
-        MenuBar menuBar = new MenuBar(scenarioMenu, editMenu, controlsMenu, viewMenu, toolsMenu, helpMenu);
-        menuBar.setUseSystemMenuBar(true);
-        return menuBar;
+        mainMenus = Arrays.asList(scenarioMenu, editMenu, controlsMenu, viewMenu, toolsMenu, helpMenu);
+        mainMenuBar = new MenuBar(scenarioMenu, editMenu, controlsMenu, viewMenu, toolsMenu, helpMenu);
+        mainMenuBar.setUseSystemMenuBar(true);
+        return mainMenuBar;
     }
 
     private static MenuItem withDisable(MenuItem item, BooleanProperty disabled)

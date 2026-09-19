@@ -76,6 +76,8 @@ public final class SuperTheme
 
     private static final BooleanProperty dark = new SimpleBooleanProperty(false);
     private static final List<WeakReference<Scene>> scenes = new ArrayList<>();
+    /** Nodes that hold docked editors, which act as a scene root for the editors' stylesheets */
+    private static final List<WeakReference<Parent>> editorHosts = new ArrayList<>();
     private static File libDir;
     private static boolean fontsLoaded = false;
     private static boolean active = false;
@@ -88,6 +90,7 @@ public final class SuperTheme
                 applyUserAgentStylesheet();
             }
             forEachScene(SuperTheme::updateRoot);
+            forEachEditorHost(SuperTheme::updatePaletteClass);
         });
     }
 
@@ -201,11 +204,20 @@ public final class SuperTheme
     public static final String EDITOR_HOST_STYLESHEET = "stylesheets/superide-host.css";
 
     /**
-     * Give the node that holds the new IDE's docked editors (and its World tab) our
-     * look for the tab strip.  It must come after the editor stylesheets on that node.
+     * Prepare the node that holds the new IDE's docked editors (and its World tab).
+     * The editors' stylesheets are on that node rather than on a scene, and they define
+     * their colours on ".root", so the node gets the root style class (and, like a scene
+     * root, the light or dark palette class).  It also gets our look for the tab strip,
+     * which must come after the editor stylesheets on that node.
      */
     public static void installEditorHost(Parent host)
     {
+        if (!host.getStyleClass().contains("root"))
+        {
+            host.getStyleClass().add("root");
+        }
+        editorHosts.add(new WeakReference<>(host));
+        updatePaletteClass(host);
         if (libDir == null)
         {
             Debug.reportError("SuperTheme used before init(libDir)");
@@ -214,6 +226,28 @@ public final class SuperTheme
         String url = new File(libDir, EDITOR_HOST_STYLESHEET).toURI().toString();
         host.getStylesheets().remove(url);
         host.getStylesheets().add(url);
+    }
+
+    private static void updatePaletteClass(Parent node)
+    {
+        node.getStyleClass().removeAll(LIGHT_CLASS, DARK_CLASS);
+        node.getStyleClass().add(dark.get() ? DARK_CLASS : LIGHT_CLASS);
+    }
+
+    private static void forEachEditorHost(java.util.function.Consumer<Parent> action)
+    {
+        for (Iterator<WeakReference<Parent>> it = editorHosts.iterator(); it.hasNext(); )
+        {
+            Parent host = it.next().get();
+            if (host == null)
+            {
+                it.remove();
+            }
+            else
+            {
+                action.accept(host);
+            }
+        }
     }
 
     private static void updateRoot(Scene scene)
