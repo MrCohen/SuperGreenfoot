@@ -140,6 +140,9 @@ public class VMCommsMain implements Closeable
     private int displayRequestSeq = 0;
     private int displayRequestFlags = 0;
     private int lastDisplayRequestSeen = 0;
+    /** SuperGreenfoot: requests to take the keyboard back from a closed scenario window, and the last handled. */
+    private int focusReturnSeq = 0;
+    private int lastFocusReturnSeen = 0;
     private int askId = -1;
     private boolean workerWaiting = false;
 
@@ -348,6 +351,11 @@ public class VMCommsMain implements Closeable
             lastDisplayRequestSeen = displayRequestSeq;
             stage.receivedDisplayRequest(displayRequestSeq, displayRequestFlags);
         }
+        if (focusReturnSeq > lastFocusReturnSeen)
+        {
+            lastFocusReturnSeen = focusReturnSeq;
+            stage.scenarioWindowClosed();
+        }
             
         checkingIO = false;
         
@@ -465,6 +473,7 @@ public class VMCommsMain implements Closeable
                     // SuperGreenfoot: display request (seq, flags)
                     displayRequestSeq = sharedMemory.get();
                     displayRequestFlags = sharedMemory.get();
+                    focusReturnSeq = sharedMemory.get();
                 }
             }
         }
@@ -674,6 +683,8 @@ public class VMCommsMain implements Closeable
         vmReadyNotified = false;
         displayRequestSeq = 0;
         lastDisplayRequestSeen = 0;
+        focusReturnSeq = 0;
+        lastFocusReturnSeen = 0;
         
         // Zero the buffer:
         sharedMemoryByte.position(0);

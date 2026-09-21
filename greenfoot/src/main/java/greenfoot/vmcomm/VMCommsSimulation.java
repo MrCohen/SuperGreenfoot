@@ -94,6 +94,9 @@ public class VMCommsSimulation
     /** SuperGreenfoot: requested display values and mask, see DisplayState */
     @OnThread(value = Tag.Any, requireSynchronized = true)
     private int displayRequestFlags = 0;
+    /** SuperGreenfoot: bumped each time the IDE should take the keyboard back from a closed scenario window */
+    @OnThread(value = Tag.Any, requireSynchronized = true)
+    private int focusReturnSeq = 0;
     /** SuperGreenfoot: the display state the IDE last sent us (null until the first arrives) */
     private volatile int[] displayState = null;
 
@@ -153,6 +156,8 @@ public class VMCommsSimulation
      * Pos 13+(W*H)+P: SuperGreenfoot: sequence number of the latest display request
      *                 (full screen etc.) from scenario code, 0 if none.
      * Pos 14+(W*H)+P: SuperGreenfoot: the request's value and mask bits (see DisplayState).
+     * Pos 15+(W*H)+P: SuperGreenfoot: count of requests for the IDE to take the keyboard back
+     *                 after a window opened by scenario code closed (see ScenarioWindows).
      */
     private final IntBuffer sharedMemory;
     private int seq = 1;
@@ -418,6 +423,7 @@ public class VMCommsSimulation
                 // SuperGreenfoot: pending display request (seq, flags)
                 sharedMemory.put(displayRequestSeq);
                 sharedMemory.put(displayRequestFlags);
+                sharedMemory.put(focusReturnSeq);
             }
 
             putLock.release();
@@ -612,6 +618,16 @@ public class VMCommsSimulation
     {
         displayRequestFlags = DisplayState.withRequest(displayRequestFlags, field, value);
         displayRequestSeq++;
+    }
+
+    /**
+     * SuperGreenfoot: a window opened by scenario code closed while it had the
+     * keyboard; ask the IDE to take the keyboard back.
+     */
+    @OnThread(Tag.Any)
+    public synchronized void requestIdeFocus()
+    {
+        focusReturnSeq++;
     }
 
     /**

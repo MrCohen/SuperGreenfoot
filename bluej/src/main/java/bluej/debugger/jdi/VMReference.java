@@ -246,6 +246,14 @@ public class VMReference
         if (Config.isMacOS()) {
             paramList.add("-Xdock:icon=" + Config.getBlueJIconPath() + "/" + Config.getVMIconsName());
             paramList.add("-Xdock:name=" + Config.getVMDockName());
+            if (Config.isGreenfoot()) {
+                // SuperGreenfoot: the world is drawn in the IDE, so the debug VM has no window
+                // of its own. As a UI element it stays out of the Dock and the app switcher,
+                // leaving one app on screen instead of two. GreenfootMain brings windows
+                // opened by scenario code (JOptionPane, JFrame) to the front; they still
+                // show the icon above.
+                paramList.add("-Dapple.awt.UIElement=true");
+            }
         }
 
         // Index for where the transport parameter is to be added

@@ -140,6 +140,7 @@ import javafx.util.Duration;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
+import java.awt.EventQueue;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Modifier;
@@ -1785,6 +1786,22 @@ public class GreenfootStage extends Stage implements FXCompileObserver,
             worldDisplay.requestFocus();
             sendDisplayState();
         }
+    }
+
+    /**
+     * SuperGreenfoot: a window opened by scenario code (a JOptionPane, say) closed
+     * while it had the keyboard. The debug VM has no Dock icon and now no window
+     * either, so take the keyboard back, for the full-screen view if it is up.
+     */
+    public void scenarioWindowClosed()
+    {
+        Utility.appToFront();
+        // appToFront works on the AWT thread; focus the window once it has run:
+        EventQueue.invokeLater(() -> Platform.runLater(() -> {
+            Stage target = fullScreenView != null ? fullScreenView : this;
+            target.toFront();
+            target.requestFocus();
+        }));
     }
 
     /**

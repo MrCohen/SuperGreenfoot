@@ -67,6 +67,7 @@ from source with [one extra step](#run-from-source).
 | **Export as an app** | Share a game as a runnable `.jar`, or on a Mac as a signed `.app`. |
 | **Saving** | Store scores and progress with simple `Save.putInt` and `Save.getInt` calls, with no slot limits. |
 | **Text measuring** | Find the width and height of text, and draw it centred, without scanning pixels. |
+| **One app on the Mac** | One Super Greenfoot icon in the Dock and the app switcher, not two. A `JOptionPane` from your code pops up in front, ready to type. |
 
 A taste of the new calls:
 
