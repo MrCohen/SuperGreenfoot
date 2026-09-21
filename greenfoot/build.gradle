@@ -180,7 +180,10 @@ task runGreenfoot(type: JavaExec) {
     classpath = files('build/resources/main/lib/boot.jar') + sourceSets.main.runtimeClasspath + files('build/resources/main/lib/greenfoot.jar')
     main = "bluej.Boot"
     args "-bluej.debug=true", "-greenfoot=true"
-    
+    // SuperGreenfoot: without these a run from source shows in the Dock as a generic "java"
+    if (System.getProperty('os.name').contains('Mac')) {
+        jvmArgs "-Xdock:name=SuperGreenfoot", "-Xdock:icon=" + file('resources/images/greenfoot.icns').absolutePath
+    }
 }
 runGreenfoot.dependsOn build
 
