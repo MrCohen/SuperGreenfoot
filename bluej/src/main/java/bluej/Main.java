@@ -251,7 +251,8 @@ public class Main
             Debug.message("Disabling App Nap");
             try
             {
-                Runtime.getRuntime().exec("defaults write org.greenfoot NSAppSleepDisabled -bool YES");
+                // SuperGreenfoot: our own bundle identifier (installer/mac/build-dmg.sh), not upstream's org.greenfoot
+                Runtime.getRuntime().exec("defaults write org.supergreenfoot.SuperGreenfoot NSAppSleepDisabled -bool YES");
             }
             catch (IOException e)
             {

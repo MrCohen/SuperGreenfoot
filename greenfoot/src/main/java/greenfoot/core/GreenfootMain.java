@@ -126,6 +126,12 @@ public class GreenfootMain
 
                     // Some first-time initializations
                     VMCommsSimulation vmComms = new VMCommsSimulation(projectProperties, shmFilePath, shmFileSize, seqStart);
+                    // SuperGreenfoot: on macOS this VM runs without a Dock icon (see VMReference),
+                    // so windows opened by scenario code need bringing forward
+                    if (Boolean.getBoolean("apple.awt.UIElement"))
+                    {
+                        greenfoot.platforms.ide.ScenarioWindows.install(vmComms);
+                    }
 
                     WorldHandlerDelegateIDE worldHandlerDelegate = new WorldHandlerDelegateIDE(vmComms);
                     WorldHandler.initialise(worldHandlerDelegate);
