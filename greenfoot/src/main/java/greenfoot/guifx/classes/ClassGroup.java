@@ -21,6 +21,7 @@
  */
 package greenfoot.guifx.classes;
 
+import bluej.utility.javafx.FXPlatformConsumer;
 import greenfoot.guifx.GreenfootStage;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -32,7 +33,9 @@ import threadchecker.Tag;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -52,6 +55,14 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
     // For Actor and World groups, just those base classes.  For other, can be many top-level:
     private final List<GClassNode> topLevel = new ArrayList<>();
     private final GreenfootStage greenfootStage;
+    // SuperGreenfoot: which classes are folded (null: no folding, as in the import dialog),
+    // what clicking a fold arrow does, what each tile's fold controls show now, and the
+    // fold arrows, in a layer of their own above the inheritance lines they sit on:
+    private ClassFolds folds = null;
+    private FXPlatformConsumer<String> toggleFold = null;
+    private final Map<ClassDisplay, String> shownFoldState = new IdentityHashMap<>();
+    private final Map<ClassDisplay, Node> foldArrows = new IdentityHashMap<>();
+    private final Pane foldLayer = new Pane();
 
     public ClassGroup(GreenfootStage greenfootStage)
     {
@@ -63,6 +74,33 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
         
         setMaxWidth(Double.MAX_VALUE);
         setMaxHeight(Double.MAX_VALUE);
+        // SuperGreenfoot: the arrows' layer takes no part in sizing, and lets clicks
+        // through except on the arrows themselves.  It is drawn above the inheritance
+        // lines and below the class tiles (see addDisplay), so an arrow covers the arm
+        // it sits on but never a tile's border, which is drawn outside the tile:
+        foldLayer.setManaged(false);
+        foldLayer.setPickOnBounds(false);
+        foldLayer.setViewOrder(-1);
+    }
+
+    /**
+     * SuperGreenfoot: let superclasses in this group be folded.
+     *
+     * @param folds  which classes are folded
+     * @param toggleFold  what clicking a class's fold arrow does, given the class's qualified name
+     */
+    public void setFolding(ClassFolds folds, FXPlatformConsumer<String> toggleFold)
+    {
+        this.folds = folds;
+        this.toggleFold = toggleFold;
+    }
+
+    /**
+     * SuperGreenfoot: lay the classes out again after classes were folded or unfolded.
+     */
+    public void refreshFolds()
+    {
+        redisplay();
     }
 
     /**
@@ -80,6 +118,9 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
             }
         }
         getChildren().clear();
+        shownFoldState.clear();
+        foldArrows.clear();
+        foldLayer.getChildren().clear();
         for (GClassNode classInfo : this.topLevel)
         {
             classInfo.tidyup();
@@ -134,6 +175,10 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
         // Left indent by same amount as top indent:
         int leftIndent = VERTICAL_SPACING;
         redisplay(null, topLevel, leftIndent, 0);
+        if (folds != null && !getChildren().contains(foldLayer))
+        {
+            getChildren().add(foldLayer);
+        }
         requestLayout();
     }
 
@@ -157,16 +202,11 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
         {
             y += VERTICAL_SPACING;
             
-            // Make sure display is in our children:
-            ClassDisplay classDisplay = classInfo.getDisplay(greenfootStage);
-            if (!getChildren().contains(classDisplay))
-            {
-                getChildren().add(classDisplay);
-                // Often, the width or height is zero at this point, so we need to listen
-                // for when it gets set right in order to re-layout:
-                classDisplay.widthProperty().addListener(this);
-                classDisplay.heightProperty().addListener(this);
-            }
+            ClassDisplay classDisplay = addDisplay(classInfo);
+            classDisplay.setVisible(true);
+            // SuperGreenfoot: a folded superclass hides its subclasses instead of laying them out:
+            boolean folded = isFolded(classInfo);
+            showFoldControls(classInfo, classDisplay, folded, x, y);
             // The inherit arrow arm should point to the vertical midpoint of the class:
             double halfHeight = Math.floor(classDisplay.getHeight() / 2.0);
             arrowArms.add(y + halfHeight - startY);
@@ -176,7 +216,7 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
             // If height changes, we will layout again because of the listener added above:
             y += classDisplay.getHeight();
             
-            if (!classInfo.getSubClasses().isEmpty())
+            if (!classInfo.getSubClasses().isEmpty() && !folded)
             {
                 // If no existing arrow, make one and add to children:
                 if (!getChildren().contains(classInfo.getArrowFromSub()))
@@ -192,8 +232,9 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
             }
             else
             {
-                // If no longer have any subclasses, clean up any previous arrow:
+                // If no longer have any subclasses (or they are folded away), clean up any previous arrow:
                 getChildren().remove(classInfo.getArrowFromSub());
+                hide(classInfo.getSubClasses());
             }
         }
         
@@ -205,6 +246,103 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
         return y;
     }
 
+    /**
+     * Make sure a class's display exists and is one of our children, and return it.
+     */
+    private ClassDisplay addDisplay(GClassNode classInfo)
+    {
+        ClassDisplay classDisplay = classInfo.getDisplay(greenfootStage);
+        if (!getChildren().contains(classDisplay))
+        {
+            // SuperGreenfoot: tiles are drawn above the fold arrows (see the constructor):
+            classDisplay.setViewOrder(-2);
+            getChildren().add(classDisplay);
+            // Often, the width or height is zero at this point, so we need to listen
+            // for when it gets set right in order to re-layout:
+            classDisplay.widthProperty().addListener(this);
+            classDisplay.heightProperty().addListener(this);
+        }
+        return classDisplay;
+    }
+
+    /**
+     * SuperGreenfoot: hide the given classes and everything beneath them, because a
+     * class above them is folded.  Their displays are still made and kept: making a
+     * class's display is what starts it listening for its compile state (see
+     * LocalGClassNode.setupClassDisplay), and a hidden class that stopped listening
+     * would no longer mark the scenario as needing a compile when it is edited.
+     */
+    private void hide(List<GClassNode> classes)
+    {
+        for (GClassNode classInfo : classes)
+        {
+            ClassDisplay classDisplay = addDisplay(classInfo);
+            classDisplay.setVisible(false);
+            Node foldArrow = foldArrows.get(classDisplay);
+            if (foldArrow != null)
+            {
+                foldArrow.setVisible(false);
+            }
+            getChildren().remove(classInfo.getArrowFromSub());
+            hide(classInfo.getSubClasses());
+        }
+    }
+
+    /**
+     * SuperGreenfoot: is this class folded (and so drawn without its subclasses)?
+     */
+    private boolean isFolded(GClassNode classInfo)
+    {
+        return folds != null && !classInfo.getSubClasses().isEmpty()
+                && folds.isFolded(classInfo.getQualifiedName());
+    }
+
+    /**
+     * SuperGreenfoot: give a class the fold controls it needs now, making new ones only
+     * when what they show has changed, and put its fold arrow on the inheritance line
+     * beside its tile: in the indent, centred where the line from its superclass meets
+     * the tile (World, Actor and other top-level classes have the same place, with no
+     * line to sit on).
+     *
+     * @param x  the tile's left edge
+     * @param y  the tile's top edge
+     */
+    private void showFoldControls(GClassNode classInfo, ClassDisplay classDisplay, boolean folded, int x, int y)
+    {
+        if (folds == null)
+        {
+            return;
+        }
+        String state = FoldControls.stateOf(classInfo, folded);
+        if (!state.equals(shownFoldState.get(classDisplay)))
+        {
+            shownFoldState.put(classDisplay, state);
+            Node oldArrow = foldArrows.remove(classDisplay);
+            if (oldArrow != null)
+            {
+                foldLayer.getChildren().remove(oldArrow);
+            }
+            classDisplay.setFoldSummary(folded ? FoldControls.foldedSummary(classInfo) : null);
+            if (!state.isEmpty())
+            {
+                String name = classInfo.getQualifiedName();
+                Node arrow = FoldControls.arrow(classInfo.getDisplayName(), folded, () -> toggleFold.accept(name));
+                foldArrows.put(classDisplay, arrow);
+                foldLayer.getChildren().add(arrow);
+            }
+        }
+        Node arrow = foldArrows.get(classDisplay);
+        if (arrow != null)
+        {
+            arrow.setVisible(true);
+            // From the superclass's line to the tile, centred on the arm (InheritArrow draws
+            // the line 9.5 pixels left of the tile, and each arm half a pixel below the
+            // tile's middle):
+            arrow.setLayoutX(x - FoldControls.ARROW_WIDTH);
+            arrow.setLayoutY(y + Math.floor(classDisplay.getHeight() / 2.0) + 0.5 - FoldControls.ARROW_HEIGHT / 2.0);
+        }
+    }
+
     @Override
     @OnThread(value = Tag.FXPlatform, ignoreParent = true)
     protected double computePrefHeight(double width)
@@ -212,9 +350,10 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
         // The total height of class displays, plus that many vertical spacing items
         // (Note: we have spacing at the top as well, not just inbetween)
         // We don't just sum all children, because we don't want to include the height
-        // of the arrows that sit alongside the ClassDisplay items:
+        // of the arrows that sit alongside the ClassDisplay items.
+        // SuperGreenfoot: nor the classes hidden beneath a folded superclass:
         return getChildren().stream()
-                .filter(c -> c instanceof ClassDisplay)
+                .filter(c -> c instanceof ClassDisplay && c.isVisible())
                 .mapToDouble(c -> VERTICAL_SPACING + c.prefHeight(width))
                 .sum();
     }
@@ -224,7 +363,7 @@ public class ClassGroup extends Pane implements ChangeListener<Number>
     protected double computePrefWidth(double height)
     {
         return getChildren().stream()
-                .filter(c -> c instanceof ClassDisplay)
+                .filter(c -> c instanceof ClassDisplay && c.isVisible())
                 .mapToDouble(c -> c.getLayoutX() + c.prefWidth(-1))
                 .max().orElse(0.0)
                 + VERTICAL_SPACING; // Use vertical spacing for right spacer

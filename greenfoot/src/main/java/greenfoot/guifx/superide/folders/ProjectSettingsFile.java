@@ -46,10 +46,12 @@ import java.util.Properties;
  * The per-project settings file of the SuperGreenfoot IDE,
  * {@value #FILE_NAME} in the scenario folder.
  *
- * <p>It holds state that only the SuperGreenfoot IDE uses (class folders, and
- * later the new IDE's view state). The Classic Greenfoot IDE and stock
- * Greenfoot never read it, and it is kept out of project.greenfoot because
- * they rewrite that file from scratch and would drop keys they don't know.
+ * <p>It holds state that only SuperGreenfoot uses: the new IDE's class folders
+ * and view state, and the classes folded in either IDE's class list (the
+ * Classic IDE reads and writes only those, through
+ * {@link greenfoot.guifx.classes.ClassFolds}). Stock Greenfoot never reads it,
+ * and it is kept out of project.greenfoot because the Classic IDE and stock
+ * Greenfoot rewrite that file from scratch and would drop keys they don't know.
  *
  * <p>The file is a Java properties file. Keys this version doesn't know are
  * kept and written back unchanged. Saving is atomic and deterministic
@@ -68,8 +70,8 @@ public class ProjectSettingsFile
     public static final String VERSION_KEY = "version";
 
     private static final String HEADER =
-        "# Super Greenfoot IDE settings for this scenario (class folders and view state).\n"
-        + "# The Classic Greenfoot IDE ignores this file. Safe to delete: folders are then lost,\n"
+        "# Super Greenfoot settings for this scenario (class folders, folded classes, view state).\n"
+        + "# Stock Greenfoot ignores this file. Safe to delete: folders and folds are then lost,\n"
         + "# but no code is affected.\n";
 
     private final File file;

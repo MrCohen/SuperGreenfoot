@@ -24,6 +24,7 @@ package greenfoot.guifx.classes;
 import bluej.utility.javafx.JavaFXUtil;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -52,6 +53,8 @@ public class ClassDisplay extends StackPane
     // We make child panes mainly so that we can apply
     // the stripe fill to the background but not to the content:
     private final BorderPane stripePane;
+    // SuperGreenfoot: kept, so that a folded class can show its summary right of the name:
+    private final BorderPane content;
     private final Label contentLabel;
 
     /**
@@ -66,7 +69,7 @@ public class ClassDisplay extends StackPane
         getStyleClass().add("class-display");
         setSnapToPixel(true);
         contentLabel = new Label(displayName);
-        BorderPane content = new BorderPane(contentLabel);
+        content = new BorderPane(contentLabel);
         setImage(image);
         JavaFXUtil.addStyleClass(content, "class-display-content");
         stripePane = new BorderPane();
@@ -122,6 +125,15 @@ public class ClassDisplay extends StackPane
             imageView.setPreserveRatio(true);
             contentLabel.setGraphic(imageView);
         }
+    }
+
+    /**
+     * SuperGreenfoot: show, right of the name, the summary of a folded class's hidden
+     * subclasses (null for none).  See {@link FoldControls}.
+     */
+    public void setFoldSummary(Node summary)
+    {
+        content.setRight(summary);
     }
 
     /**

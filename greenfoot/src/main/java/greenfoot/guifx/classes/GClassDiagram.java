@@ -58,6 +58,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The class diagram on the right-hand side of the Greenfoot window.
@@ -127,6 +129,8 @@ public class GClassDiagram extends BorderPane
     private final ClassGroup otherClasses;
     private final GreenfootStage greenfootStage;
     private Project project;
+    // SuperGreenfoot: which superclasses are folded, for the scenario shown:
+    private final ClassFolds folds = new ClassFolds();
 
     /**
      * Construct a GClassDiagram for the given stage.
@@ -141,6 +145,12 @@ public class GClassDiagram extends BorderPane
         setTop(worldClasses);
         setCenter(actorClasses);
         setBottom(otherClasses);
+        // SuperGreenfoot: superclasses (World and Actor too) can be folded:
+        for (ClassGroup group : groups())
+        {
+            group.setFolding(folds, name -> folds.setFolded(name, !folds.isFolded(name), allClassNames()));
+        }
+        folds.addListener(this::foldsChanged);
         // Actor classes will expand to fill middle, but content will be positioned at the top of that area:
         BorderPane.setAlignment(actorClasses, Pos.TOP_LEFT);
         BorderPane.setAlignment(otherClasses, Pos.BOTTOM_LEFT);
@@ -187,6 +197,8 @@ public class GClassDiagram extends BorderPane
     public void setProject(Project project)
     {
         this.project = project;
+        // SuperGreenfoot: the folds are read before the classes are laid out:
+        folds.load(project == null ? null : project.getProjectDir());
         if (project != null)
         {
             recalculateGroups();
@@ -314,6 +326,17 @@ public class GClassDiagram extends BorderPane
      */
     public LocalGClassNode addClass(ClassTarget classTarget)
     {
+        LocalGClassNode classInfo = addClassNode(classTarget);
+        // SuperGreenfoot: a new class is never born hidden beneath a folded superclass:
+        revealClass(classInfo.getQualifiedName());
+        return classInfo;
+    }
+
+    /**
+     * Adds a new class to the diagram at the appropriate place (see addClass).
+     */
+    private LocalGClassNode addClassNode(ClassTarget classTarget)
+    {
         String superClass = null;
         bluej.parser.symtab.ClassInfo info = classTarget.analyseSource();
         if (info != null)
@@ -360,6 +383,72 @@ public class GClassDiagram extends BorderPane
         otherClasses.getLiveTopLevelClasses().add(classInfo);
         otherClasses.updateAfterAdd();
         return classInfo;
+    }
+
+    /**
+     * SuperGreenfoot: the three groups of classes, World's first.
+     */
+    private List<ClassGroup> groups()
+    {
+        return List.of(worldClasses, actorClasses, otherClasses);
+    }
+
+    /**
+     * SuperGreenfoot: the qualified names of every class in the diagram, World and Actor included.
+     */
+    private Set<String> allClassNames()
+    {
+        return groups().stream().flatMap(ClassGroup::streamAllClasses)
+                .map(GClassNode::getQualifiedName).collect(Collectors.toSet());
+    }
+
+    /**
+     * SuperGreenfoot: unfold every class above the given one, so that it shows.
+     */
+    private void revealClass(String qualifiedName)
+    {
+        for (ClassGroup group : groups())
+        {
+            List<GClassNode> path = ClassFolds.pathTo(group.getLiveTopLevelClasses(), qualifiedName);
+            if (path != null)
+            {
+                folds.unfoldAll(path.subList(0, path.size() - 1).stream()
+                        .map(GClassNode::getQualifiedName).collect(Collectors.toList()), allClassNames());
+                return;
+            }
+        }
+    }
+
+    /**
+     * SuperGreenfoot: classes were folded or unfolded.  A class that is now hidden
+     * cannot stay selected (the window's class actions would act on a class nobody can
+     * see), so the folded class shown in its place is selected instead.  Then the
+     * diagram is laid out again.
+     */
+    private void foldsChanged()
+    {
+        ClassDisplay selected = selectionManager.getSelected();
+        if (selected != null)
+        {
+            String selectedName = selected.getQualifiedName();
+            for (ClassGroup group : groups())
+            {
+                String shown = folds.shownInPlaceOf(group.getLiveTopLevelClasses(), selectedName);
+                if (shown != null)
+                {
+                    if (!shown.equals(selectedName))
+                    {
+                        group.streamAllClasses().filter(c -> c.getQualifiedName().equals(shown)).findFirst()
+                                .ifPresent(c -> selectionManager.select(c.getDisplay(greenfootStage)));
+                    }
+                    break;
+                }
+            }
+        }
+        for (ClassGroup group : groups())
+        {
+            group.refreshFolds();
+        }
     }
 
     /**
