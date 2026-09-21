@@ -390,6 +390,8 @@ export.app.noRuntime=Export failed: supergreenfoot-runtime.jar is missing from t
 
 # SuperGreenfoot: switching between the Classic IDE and the SuperGreenfoot IDE
 menu.tools.switchToSuper=Switch to Super Greenfoot IDE
+button.switchToSuper=Super IDE
+button.switchToSuper.tooltip=Switch to the Super Greenfoot IDE. Your open scenarios move across and keep running.
 menu.tools.switchToClassic=Switch to Classic Greenfoot IDE
 prefmgr.uimode.title=Main window
 prefmgr.uimode.super=Super Greenfoot IDE

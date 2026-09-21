@@ -22,9 +22,9 @@
 
 package greenfoot.guifx;
 
-import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Region;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -38,7 +38,8 @@ class GreenfootStageContentPane extends Pane
     private static final int CLASS_DIAGRAM_PADDING = 12;
     private static final int IDEAL_WORLD_PADDING = 30;
     private final Pane worldViewScroll;
-    private final Button shareButton;
+    // SuperGreenfoot: upstream's Share button, in a bar that also holds our own controls.
+    private final Region topBar;
     private final ScrollPane classDiagramScroll;
     private final Pane controlPanel;
 
@@ -46,13 +47,13 @@ class GreenfootStageContentPane extends Pane
      * Construct a content pane for the three major components: the world view,
      * the class diagram, and the control panel.
      */
-    public GreenfootStageContentPane(Pane worldViewScroll, Button shareButton, ScrollPane classDiagramScroll, ControlPanel controlPanel)
+    public GreenfootStageContentPane(Pane worldViewScroll, Region topBar, ScrollPane classDiagramScroll, ControlPanel controlPanel)
     {
         this.worldViewScroll = worldViewScroll;
-        this.shareButton = shareButton;
+        this.topBar = topBar;
         this.classDiagramScroll = classDiagramScroll;
         this.controlPanel = controlPanel;
-        getChildren().addAll(worldViewScroll, shareButton, classDiagramScroll, controlPanel);
+        getChildren().addAll(worldViewScroll, topBar, classDiagramScroll, controlPanel);
     }
 
     @Override
@@ -64,12 +65,15 @@ class GreenfootStageContentPane extends Pane
         
         final double idealWorldWidth = worldViewScroll.prefWidth(-1);
 
-        // The share button gets its ideal width and height:
-        final double shareButtonWidth = shareButton.prefWidth(-1);
-        final double shareButtonHeight = shareButton.prefHeight(-1);
+        // The top bar gets its ideal height, and the width it cannot do without.
+        // SuperGreenfoot: this was the share button's preferred width, but the bar now
+        // holds more than one control, and using the preferred width would widen the
+        // floor below (and so narrow the world) by everything we have added:
+        final double topBarWidth = topBar.minWidth(-1);
+        final double topBarHeight = topBar.prefHeight(-1);
         
-        // Class diagram height is known: our height minus padding minus shareButtonHeight
-        final double classDiagramHeight = ourHeight - 3 * CLASS_DIAGRAM_PADDING - shareButtonHeight;
+        // Class diagram height is known: our height minus padding minus topBarHeight
+        final double classDiagramHeight = ourHeight - 3 * CLASS_DIAGRAM_PADDING - topBarHeight;
         final double idealClassDiagramWidth = classDiagramScroll.prefWidth(classDiagramHeight);
         
         double classDiagramWidth;
@@ -90,18 +94,18 @@ class GreenfootStageContentPane extends Pane
         classDiagramWidth = snapSizeX(classDiagramWidth);
         
         // Make sure the width is not smaller than a minimum required
-        // to show the share button properly.
-        classDiagramWidth = Math.max(classDiagramWidth, shareButtonWidth + 2 * CLASS_DIAGRAM_PADDING);
+        // to show the top bar properly.
+        classDiagramWidth = Math.max(classDiagramWidth, topBarWidth + 2 * CLASS_DIAGRAM_PADDING);
         
         // The control panel is always its preferred height:
         final double worldWidth = ourWidth - (classDiagramWidth + 2 * CLASS_DIAGRAM_PADDING);
         final double controlPanelHeight = controlPanel.prefHeight(worldWidth);
         
         worldViewScroll.resizeRelocate(0, 0, worldWidth, ourHeight - controlPanelHeight);
-        shareButton.resizeRelocate(worldWidth + CLASS_DIAGRAM_PADDING, CLASS_DIAGRAM_PADDING,
-                classDiagramWidth, shareButtonHeight);
+        topBar.resizeRelocate(worldWidth + CLASS_DIAGRAM_PADDING, CLASS_DIAGRAM_PADDING,
+                classDiagramWidth, topBarHeight);
         classDiagramScroll.resizeRelocate(worldWidth + CLASS_DIAGRAM_PADDING, 
-                2 * CLASS_DIAGRAM_PADDING + shareButtonHeight,
+                2 * CLASS_DIAGRAM_PADDING + topBarHeight,
                 classDiagramWidth, classDiagramHeight);
         controlPanel.resizeRelocate(0, ourHeight - controlPanelHeight, worldWidth, controlPanelHeight);
     }
@@ -113,7 +117,7 @@ class GreenfootStageContentPane extends Pane
         // Not quite accurate, but shouldn't matter when we have no real parent.
         // This is really just for calculating the initial window size:
         return worldViewScroll.prefWidth(height) + 2 * IDEAL_WORLD_PADDING /* Some world spacing */ 
-                + Math.max(shareButton.prefWidth(-1), classDiagramScroll.prefWidth(height)) + 2 * CLASS_DIAGRAM_PADDING;
+                + Math.max(topBar.prefWidth(-1), classDiagramScroll.prefWidth(height)) + 2 * CLASS_DIAGRAM_PADDING;
     }
 
     @Override
@@ -121,7 +125,7 @@ class GreenfootStageContentPane extends Pane
     protected double computePrefHeight(double width)
     {
         // Again, not quite accurate, but should be close enough when we are topmost container:
-        return Math.max(shareButton.prefHeight(-1) + classDiagramScroll.prefHeight(-1) + 3 * CLASS_DIAGRAM_PADDING, 
+        return Math.max(topBar.prefHeight(-1) + classDiagramScroll.prefHeight(-1) + 3 * CLASS_DIAGRAM_PADDING, 
             worldViewScroll.prefHeight(-1) + 2 * IDEAL_WORLD_PADDING + controlPanel.prefHeight(-1));
     }
 }

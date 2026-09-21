@@ -295,8 +295,10 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         shareButton.setFocusTraversable(false);
         shareButton.disableProperty().bind(hasNoProject);
         shareButton.setOnAction(e -> doShare());
+        // SuperGreenfoot: Share now shares its bar with our own controls:
+        SuperToolBar topBar = new SuperToolBar(shareButton);
         GreenfootStageContentPane contentPane = new GreenfootStageContentPane(
-                worldPane, shareButton, classDiagramScroll, controlPanel);
+                worldPane, topBar, classDiagramScroll, controlPanel);
         BorderPane root = new BorderPane(contentPane, makeMenu(), null, null, null);
         glassPane = new Pane();
         glassPane.setMouseTransparent(true);
