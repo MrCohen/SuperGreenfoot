@@ -40,6 +40,10 @@ javafx {
 
 test {
     useJUnit()
+    // SuperGreenfoot: ImportableTemplatesTest compiles these itself, so a change to
+    // them must rerun the tests:
+    inputs.dir 'common'
+    inputs.dir 'src/test/templates'
 }
 
 compileJava {
@@ -200,6 +204,16 @@ task runSuperIdePreview(type: JavaExec) {
     }
 }
 runSuperIdePreview.dependsOn copyLibToBuild, testClasses
+
+task renderTemplateThumbnails(type: JavaExec) {
+    group = 'application'
+    description = 'Dev only: redraw the Import Class thumbnails of the templates that draw themselves, from the real classes.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'greenfoot.templates.RenderTemplateThumbnails'
+    workingDir = projectDir
+    systemProperty 'java.awt.headless', 'true'
+}
+renderTemplateThumbnails.dependsOn testClasses
 
 
 group = 'org.bluej'
