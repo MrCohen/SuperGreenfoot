@@ -42,18 +42,22 @@ class GreenfootStageContentPane extends Pane
     private final Region topBar;
     private final ScrollPane classDiagramScroll;
     private final Pane controlPanel;
+    // SuperGreenfoot: the class-diagram column's width, and the handle that sets it:
+    private final ClassColumn classColumn;
 
     /**
      * Construct a content pane for the three major components: the world view,
      * the class diagram, and the control panel.
      */
-    public GreenfootStageContentPane(Pane worldViewScroll, Region topBar, ScrollPane classDiagramScroll, ControlPanel controlPanel)
+    public GreenfootStageContentPane(Pane worldViewScroll, Region topBar, ScrollPane classDiagramScroll,
+                                     ControlPanel controlPanel, ClassColumn classColumn)
     {
         this.worldViewScroll = worldViewScroll;
         this.topBar = topBar;
         this.classDiagramScroll = classDiagramScroll;
         this.controlPanel = controlPanel;
-        getChildren().addAll(worldViewScroll, topBar, classDiagramScroll, controlPanel);
+        this.classColumn = classColumn;
+        getChildren().addAll(worldViewScroll, topBar, classDiagramScroll, controlPanel, classColumn.getHandle());
     }
 
     @Override
@@ -74,7 +78,10 @@ class GreenfootStageContentPane extends Pane
         
         // Class diagram height is known: our height minus padding minus topBarHeight
         final double classDiagramHeight = ourHeight - 3 * CLASS_DIAGRAM_PADDING - topBarHeight;
-        final double idealClassDiagramWidth = classDiagramScroll.prefWidth(classDiagramHeight);
+        // SuperGreenfoot: the column keeps the width the user gave it, and otherwise grows
+        // to fit the classes but never shrinks back, so that folding a class doesn't move
+        // the world; see ClassColumn.  (Upstream used the classes' width as it is now.)
+        final double idealClassDiagramWidth = classColumn.widthFor(classDiagramScroll.prefWidth(classDiagramHeight));
         
         double classDiagramWidth;
         if (idealClassDiagramWidth + 2 * CLASS_DIAGRAM_PADDING + idealWorldWidth > ourWidth)
@@ -86,8 +93,9 @@ class GreenfootStageContentPane extends Pane
         }
         else
         {
-            // Everyone can have what they want, width-wise:
-            classDiagramWidth = idealClassDiagramWidth;
+            // Everyone can have what they want, width-wise
+            // (SuperGreenfoot: but a user's width is never below the column's minimum):
+            classDiagramWidth = Math.max(idealClassDiagramWidth, classDiagramScroll.minWidth(classDiagramHeight));
         }
         
         // To avoid some wrong GUI effect when OS scaling is not to 100%:
@@ -102,6 +110,9 @@ class GreenfootStageContentPane extends Pane
         final double controlPanelHeight = controlPanel.prefHeight(worldWidth);
         
         worldViewScroll.resizeRelocate(0, 0, worldWidth, ourHeight - controlPanelHeight);
+        // SuperGreenfoot: the handle fills the gap between the world and the column:
+        classColumn.shown(classDiagramWidth);
+        classColumn.getHandle().resizeRelocate(worldWidth, 0, CLASS_DIAGRAM_PADDING, ourHeight);
         topBar.resizeRelocate(worldWidth + CLASS_DIAGRAM_PADDING, CLASS_DIAGRAM_PADDING,
                 classDiagramWidth, topBarHeight);
         classDiagramScroll.resizeRelocate(worldWidth + CLASS_DIAGRAM_PADDING, 

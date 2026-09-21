@@ -137,6 +137,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
     // The scroll pane to host the world display
     private final UnfocusableScrollPane worldViewScroll;
     private final GClassDiagram classDiagram;
+    // SuperGreenfoot: the class diagram column's width, which the user can set:
+    private final ClassColumn classColumn = new ClassColumn();
     // The currently-showing context menu, or null if none
     private ContextMenu contextMenu;
     // Last mouse position, in scene coordinates:
@@ -295,10 +297,11 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         shareButton.setFocusTraversable(false);
         shareButton.disableProperty().bind(hasNoProject);
         shareButton.setOnAction(e -> doShare());
-        // SuperGreenfoot: Share now shares its bar with our own controls:
+        // SuperGreenfoot: Share now shares its bar with our own controls, and the class
+        // column keeps a width the user can set:
         SuperToolBar topBar = new SuperToolBar(shareButton);
         GreenfootStageContentPane contentPane = new GreenfootStageContentPane(
-                worldPane, topBar, classDiagramScroll, controlPanel);
+                worldPane, topBar, classDiagramScroll, controlPanel, classColumn);
         BorderPane root = new BorderPane(contentPane, makeMenu(), null, null, null);
         glassPane = new Pane();
         glassPane.setMouseTransparent(true);
@@ -388,6 +391,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         showingDebugger.bindBidirectional(project.debuggerShowing());
         
         classDiagram.setProject(project);
+        classColumn.setProject(project.getProjectDir());
         soundRecorder.setProject(project);
         executionTwirler.setProject(project, controller.getDebugHandler());
 
@@ -685,6 +689,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         worldDisplay.setImage(null);
         worldVisible.set(false);
         classDiagram.setProject(null);
+        classColumn.setProject(null);
         // Showing the state will update background message:
         stateChanged(SimulationState.NO_PROJECT, false);
         setTitle(STAGE_TITLE);

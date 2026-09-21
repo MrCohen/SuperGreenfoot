@@ -49,7 +49,8 @@ import java.util.Properties;
  * <p>It holds state that only SuperGreenfoot uses: the new IDE's class folders
  * and view state, and the classes folded in either IDE's class list (the
  * Classic IDE reads and writes only those, through
- * {@link greenfoot.guifx.classes.ClassFolds}). Stock Greenfoot never reads it,
+ * {@link greenfoot.guifx.classes.ClassFolds}, and its class column's width,
+ * through {@code greenfoot.guifx.ClassColumn}). Stock Greenfoot never reads it,
  * and it is kept out of project.greenfoot because the Classic IDE and stock
  * Greenfoot rewrite that file from scratch and would drop keys they don't know.
  *
