@@ -22,6 +22,7 @@
 package bluej.utility;
 
 import java.io.BufferedReader;
+import java.awt.EventQueue;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -440,21 +441,23 @@ public class Utility
         }
         else if (Config.isMacOS())
         {
-            // Use Applescript to activate us:
-            try
-            {
-                // So ordinarily, when running fully packaged, we will always be running and the if statement
-                // is redundant.  But in development mode, our application name is not set, and without the
-                // surrounding if-statement, the development BlueJ/Greenfoot launches the installed BlueJ/Greenfoot
-                // to activate it, which is quite annoying.  So only activate us if we're running as our
-                // proper application name.  (This will still activate installed BlueJ/Greenfoot if it's running
-                // while developing, but we'll just live with that.)
-                Runtime.getRuntime().exec (new String[] {"osascript", "-e", "if application \"" + Config.getApplicationName() + "\" is running then activate application \"" + Config.getApplicationName() + "\" end if"});
-            }
-            catch (IOException e)
-            {
-                Debug.reportError(e);
-            }
+            // SuperGreenfoot: activate this process itself, on the AWT thread. The upstream
+            // AppleScript activated the app *named* Greenfoot, which is upstream Greenfoot
+            // whenever that is running too, and nothing at all for a run from source.
+            EventQueue.invokeLater(() -> {
+                try
+                {
+                    if (java.awt.Desktop.isDesktopSupported() && java.awt.Desktop.getDesktop()
+                            .isSupported(java.awt.Desktop.Action.APP_REQUEST_FOREGROUND))
+                    {
+                        java.awt.Desktop.getDesktop().requestForeground(true);
+                    }
+                }
+                catch (RuntimeException e)
+                {
+                    Debug.reportError(e);
+                }
+            });
         }
     }
 
