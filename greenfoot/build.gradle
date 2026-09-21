@@ -61,8 +61,11 @@ task copyImagelibToBuild(type: Copy) {
     from 'imagelib'
     into new File(sourceSets.main.output.resourcesDir, 'lib/greenfoot/imagelib')
 }
-// The classes offered by Edit > Import Class (the installers copy them too):
-task copyCommonToBuild(type: Copy) {
+// The classes offered by Edit > Import Class (the installers copy them too).
+// Sync, not Copy: a plain Copy never deletes a destination file whose source
+// was removed or moved (e.g. by the Import Class category reorg), which left
+// stale duplicate/ghost templates in the build output.
+task copyCommonToBuild(type: Sync) {
     from 'common'
     into new File(sourceSets.main.output.resourcesDir, 'lib/greenfoot/common')
 }

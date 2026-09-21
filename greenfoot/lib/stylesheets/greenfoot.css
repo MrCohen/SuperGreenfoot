@@ -47,6 +47,26 @@
     -fx-border-width: 1;
     -fx-border-style: solid inside;
 }
+.import-class-dialog .template-preview {
+    -fx-padding: 12px;
+    -fx-spacing: 8px;
+}
+.import-class-dialog .template-preview-image-frame {
+    -fx-background-color: rgb(244, 244, 244);
+    -fx-background-radius: 6px;
+    -fx-padding: 8px;
+    -fx-alignment: center;
+}
+.import-class-dialog .template-preview-name {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+.import-class-dialog .template-preview-short-description {
+    -fx-font-style: italic;
+}
+.import-class-dialog .template-preview-long-description {
+    -fx-wrap-text: true;
+}
 
 .export-dialog .content {
     -fx-padding: 10px 10px 0 10px;

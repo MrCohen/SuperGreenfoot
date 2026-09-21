@@ -23,16 +23,19 @@ package greenfoot.guifx.classes;
 
 import bluej.Config;
 import bluej.extensions2.SourceType;
-import bluej.utility.Debug;
 import bluej.utility.javafx.JavaFXUtil;
 import greenfoot.guifx.GreenfootStage;
 import greenfoot.util.GreenfootUtil;
 import javafx.geometry.Insets;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.web.WebView;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Window;
 import threadchecker.OnThread;
@@ -40,7 +43,6 @@ import threadchecker.Tag;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.net.MalformedURLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,7 +52,8 @@ import java.util.Map;
 
 /**
  * A dialog showing the possible importable classes in the "common" directory in the Greenfoot
- * installation.  The user can select a class and see the documentation.
+ * installation.  The user can select a class and see its preview thumbnail and description
+ * (from its {@link TemplateManifest}, if it has one).
  */
 @OnThread(Tag.FXPlatform)
 public class ImportClassDialog extends Dialog<File>
@@ -58,6 +61,8 @@ public class ImportClassDialog extends Dialog<File>
     private final ClassDisplaySelectionManager classDisplaySelectionManager = new ClassDisplaySelectionManager();
     // Maps fully-qualified class names to originating files:
     private final Map<String, File> filesForQualifiedClasses = new HashMap<>();
+    // Maps fully-qualified class names to their (possibly empty) manifest:
+    private final Map<String, TemplateManifest> manifestsForQualifiedClasses = new HashMap<>();
 
     /**
      * Create a dialog, with the given parent GreenfootStage
@@ -89,38 +94,54 @@ public class ImportClassDialog extends Dialog<File>
         for (ImportableGClassNode foundClass : foundClasses)
         {
             filesForQualifiedClasses.put(foundClass.getQualifiedName(), foundClass.file);
+            manifestsForQualifiedClasses.put(foundClass.getQualifiedName(), TemplateManifest.load(foundClass.file));
         }
-        
-        WebView docView = new WebView();
+
+        // The detail/preview pane: a thumbnail (if the template has one) plus its
+        // name and descriptions, driven by the template's TemplateManifest.
+        ImageView previewImageView = new ImageView();
+        previewImageView.setPreserveRatio(true);
+        previewImageView.setFitWidth(240);
+        StackPane previewImageFrame = new StackPane(previewImageView);
+        JavaFXUtil.addStyleClass(previewImageFrame, "template-preview-image-frame");
+        Label previewName = new Label();
+        JavaFXUtil.addStyleClass(previewName, "template-preview-name");
+        Label previewShortDescription = new Label();
+        previewShortDescription.setWrapText(true);
+        JavaFXUtil.addStyleClass(previewShortDescription, "template-preview-short-description");
+        Label previewLongDescription = new Label();
+        previewLongDescription.setWrapText(true);
+        JavaFXUtil.addStyleClass(previewLongDescription, "template-preview-long-description");
+        VBox previewPane = new VBox(previewImageFrame, previewName, previewShortDescription, previewLongDescription);
+        JavaFXUtil.addStyleClass(previewPane, "template-preview");
+        previewPane.setPrefWidth(260);
+
         classDisplaySelectionManager.addSelectionListener(selection -> {
-            File file = selection == null ? null : filesForQualifiedClasses.get(selection.getQualifiedName());
-            // Hide doc view unless we successfully load:
-            docView.setVisible(false);
-            if (file != null)
+            TemplateManifest manifest = selection == null ? null
+                    : manifestsForQualifiedClasses.get(selection.getQualifiedName());
+            if (manifest == null)
             {
-                File htmlFile = new File(GreenfootUtil.removeExtension(file.getAbsolutePath()) + ".html");
-                if (htmlFile.exists())
-                {
-                    try
-                    {
-                        docView.getEngine().load(htmlFile.toURI().toURL().toExternalForm());
-                        docView.setVisible(true);
-                    }
-                    catch (MalformedURLException e)
-                    {
-                        Debug.reportError(e);
-                    }
-                }
+                previewImageFrame.setVisible(false);
+                previewName.setText("");
+                previewShortDescription.setText("");
+                previewLongDescription.setText("");
+                return;
             }
+            Image image = JavaFXUtil.loadImage(manifest.getPreviewImageFile());
+            previewImageView.setImage(image);
+            previewImageFrame.setVisible(image != null);
+            previewName.setText(manifest.getDisplayName());
+            previewShortDescription.setText(manifest.getShortDescription());
+            previewLongDescription.setText(manifest.getLongDescription());
         });
         // Must do this after adding the selection listener:
         if (!foundClasses.isEmpty())
         {
             classDisplaySelectionManager.select(foundClasses.get(0).getDisplay(greenfootStage));
         }
-        
-        
-        getDialogPane().setContent(new BorderPane(docView, null, null, null, classGroup));
+
+
+        getDialogPane().setContent(new BorderPane(previewPane, null, null, null, classGroup));
         BorderPane.setMargin(classGroup, new Insets(0, 8, 0, 0));
         getDialogPane().getButtonTypes().setAll(ButtonType.OK, ButtonType.CANCEL);
         JavaFXUtil.addStyleClass(getDialogPane(), "import-class-dialog");
