@@ -96,6 +96,11 @@ public class Simulation extends Thread
     @OnThread(value = Tag.Any, requireSynchronized = true)
     private int speed; // the simulation speed in range (1..100)
 
+    /**
+     * When the most recent act round was due (System.nanoTime()). The next one is due
+     * one delay later, so a late wake-up is made up by the following round instead of
+     * accumulating. Only touched by the simulation thread.
+     */
     private long lastDelayTime;
     private long delay; // the speed translated into delay (nanoseconds)
 
@@ -131,7 +136,6 @@ public class Simulation extends Thread
         paused = true;
         speed = 50;
         delay = calculateDelay(speed);
-        HDTimer.init();
     }
     
     /**
@@ -835,26 +839,39 @@ public class Simulation extends Thread
         }
     }
 
+    /** Delay at speed 50, the default: 60 acts a second. */
+    private static final long DELAY_AT_SPEED_50 = 1_000_000_000L / 60;
+    /** Delay at speed 99; speed 100 has no delay at all. */
+    private static final long MIN_DELAY = 30 * 1000L;
+    /** Delay at speed 1, the slowest. */
+    private static final long MAX_DELAY = 10000 * 1000L * 1000L;
+
     /**
      * Returns the delay as a function of the speed.
+     *
+     * <p>SuperGreenfoot: the curve is anchored so that speed 50 is exactly 1/60 s.
+     * Greenfoot's single exponential from 10 s (speed 1) to 30 µs (speed 99) put
+     * speed 50 at 16.24 ms, which is 61.6 acts a second, and no speed at all gave 60.
+     * The two halves are still exponential, from 10 s to 1/60 s and from 1/60 s to
+     * 30 µs, so every other speed is within a few percent of where Greenfoot had it.
      * 
      * @return The delay in nanoseconds.
      */
     @OnThread(Tag.Any)
     private static long calculateDelay(int curSpeed)
     {
-        // Make the speed into a delay
-        long rawDelay = MAX_SIMULATION_SPEED - curSpeed;
-
-        long min = 30 * 1000L; // Delay at MAX_SIMULATION_SPEED - 1
-        long max = 10000 * 1000L * 1000L; // Delay at slowest speed
-
-        double a = Math.pow(max / (double) min, 1D / (MAX_SIMULATION_SPEED - 1));
-        long calcDelay = 0;
-        if (rawDelay > 0) {
-            calcDelay = (long) (Math.pow(a, rawDelay - 1) * min);
+        if (curSpeed >= MAX_SIMULATION_SPEED) {
+            return 0;
         }
-        return calcDelay;
+        int halfRange = MAX_SIMULATION_SPEED / 2 - 1; // 49 steps on each side of speed 50
+        if (curSpeed >= MAX_SIMULATION_SPEED / 2) {
+            int steps = curSpeed - MAX_SIMULATION_SPEED / 2;
+            return (long) (DELAY_AT_SPEED_50 * Math.pow(MIN_DELAY / (double) DELAY_AT_SPEED_50, steps / (double) halfRange));
+        }
+        else {
+            int steps = MAX_SIMULATION_SPEED / 2 - curSpeed;
+            return (long) (DELAY_AT_SPEED_50 * Math.pow(MAX_DELAY / (double) DELAY_AT_SPEED_50, steps / (double) halfRange));
+        }
     }
 
     /**
@@ -921,9 +938,11 @@ public class Simulation extends Thread
         {
             // If we will be asleep for more than 1/100th of a second, force repaint, otherwise rely on usual if-due mechanism.
             worldHandler.paint(numCycles * delay > 100_000_000L);
+            long deadline = System.nanoTime();
             for (int i = 0; i < numCycles; i++)
             {
-                HDTimer.sleep(delay);
+                deadline += delay;
+                HDTimer.sleepUntil(deadline);
             }
         }
         catch (InterruptedException e)
@@ -957,8 +976,7 @@ public class Simulation extends Thread
     private void delay()
     {
         long currentTime = System.nanoTime();
-        long timeElapsed = currentTime - lastDelayTime;
-        long actualDelay = Math.max(delay - timeElapsed, 0L);
+        long deadline = nextDeadline(currentTime);
         
         synchronized (this)
         {
@@ -980,11 +998,11 @@ public class Simulation extends Thread
 
         fireSimulationEventSync(SyncEvent.DELAY_LOOP_ENTERED);
 
-        while (actualDelay > 0)
+        while (System.nanoTime() < deadline)
         {
             try
             {
-                HDTimer.sleep(actualDelay);
+                HDTimer.sleepUntil(deadline);
             }
             catch (InterruptedException ie)
             {
@@ -995,17 +1013,15 @@ public class Simulation extends Thread
                 {
                     if (!enabled || paused || abort)
                     {
+                        deadline = System.nanoTime();
                         break;
                     }
                 }
+                deadline = nextDeadline(System.nanoTime());
             }
-
-            currentTime = System.nanoTime();
-            timeElapsed = currentTime - lastDelayTime;
-            actualDelay = delay - timeElapsed;
         }
 
-        lastDelayTime = currentTime;
+        lastDelayTime = deadline;
         synchronized (interruptLock)
         {
             Thread.interrupted(); // clear interrupt, in case we were interrupted just after the delay
@@ -1013,6 +1029,22 @@ public class Simulation extends Thread
             delaying = false;
         }
         fireSimulationEventSync(SyncEvent.DELAY_LOOP_COMPLETED);
+    }
+
+    /**
+     * When the next act round is due: one delay after the previous one was due, so
+     * that a late wake-up (the OS timer, a garbage collection) is made up by the next
+     * round and the average rate stays exact. If we are already more than a whole
+     * delay behind (a slow act, a breakpoint), no catching up: the next round is due now.
+     */
+    private long nextDeadline(long now)
+    {
+        long deadline = lastDelayTime + delay;
+        if (deadline < now - delay)
+        {
+            deadline = now;
+        }
+        return deadline;
     }
 
     /**

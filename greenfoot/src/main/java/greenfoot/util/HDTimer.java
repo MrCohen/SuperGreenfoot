@@ -1,6 +1,7 @@
 /*
  This file is part of the Greenfoot program. 
  Copyright (C) 2005-2009,2012,2018  Poul Henriksen and Michael Kolling 
+ Copyright (C) 2026 SuperGreenfoot contributors
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -21,78 +22,28 @@
  */
 package greenfoot.util;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-
 /**
- * Timer to do high precision sleeps and waits.
+ * Timer to do high precision sleeps.
+ *
+ * <p>SuperGreenfoot: rewritten to sleep until a deadline without overshooting
+ * it. The original measured the cost of a 1 ns {@code Thread.sleep} and then
+ * trusted one long sleep for almost the whole delay. On macOS a timed sleep
+ * of 16 ms wakes up about 4 ms late (the kernel coalesces timers, and the
+ * overshoot grows with the length of the sleep), and on Windows the timer
+ * ticks in 1 ms steps, so a 60 acts-a-second scenario ran at 52-53 on a Mac
+ * and 61 on a PC. This version sleeps in shrinking steps, always asking for
+ * less than the time left, and spins for the last fraction of a millisecond.
+ * It costs about 2% of one core at 60 acts a second.
  * 
  * @author Poul Henriksen
  */
 public class HDTimer
 {
-    private static Long sleepPrecision;
-    private static long worstYieldTime;
-    private static boolean inited;
-    private static Long waitPrecision;
+    /** Below this much remaining time we spin instead of sleeping. */
+    private static final long SPIN_TAIL_NANOS = 1_000_000L;
 
-    static {
-        init();
-    }
-
-    public synchronized static void init()
-    {
-        if (!inited) {
-            measureSleepPrecision();
-            measureWaitPrecision();
-            inited = true;
-        }
-    }
-
-    private static void measureSleepPrecision()
-    {
-        int testSize = 11;
-        List<Long> tests = new ArrayList<Long>();
-
-        try {
-            for (int i = 0; i < testSize; i++) {
-                long t1 = System.nanoTime();
-                Thread.sleep(0, 1);
-                long t2 = System.nanoTime();
-                tests.add((t2 - t1));
-            }
-        }
-        catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        Collections.sort(tests);
-        sleepPrecision = tests.get(testSize / 2);
-    }
-
-    private static void measureWaitPrecision()
-    {
-        int testSize = 11;
-        List<Long> tests = new ArrayList<Long>();
-        Object lock = new Object();
-        try {
-            synchronized (lock) {
-                for (int i = 0; i < testSize; i++) {
-                    long t1 = System.nanoTime();
-                    lock.wait(0, 1);
-                    long t2 = System.nanoTime();
-                    tests.add((t2 - t1));
-                }
-            }
-        }
-        catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        Collections.sort(tests);
-        waitPrecision = tests.get(testSize / 2);
-    }
+    /** Fraction of the remaining time to ask the OS for in each step. */
+    private static final double SLEEP_FRACTION = 0.7;
 
     /**
      * Sleep for the specified amount of time.
@@ -105,52 +56,35 @@ public class HDTimer
     public static void sleep(long nanos)
         throws InterruptedException
     {
-        long tStart = System.nanoTime();
-        sleepFromTime(nanos, tStart);
+        sleepUntil(System.nanoTime() + nanos);
     }
 
     /**
-     * Sleep for the specified amount of time.
-     * 
-     * @param nanos
-     *            Time to wait in nanoseconds.
-     * @param tStart The tiem from which the wainting should start.
-     * 
+     * Sleep until {@code System.nanoTime()} reaches the given deadline. Returns
+     * at once if the deadline has already passed.
+     *
+     * @param deadline  The time to wake up, in {@code System.nanoTime()} terms.
      * @throws InterruptedException
      *             if another thread has interrupted the current thread
      */
-    private static void sleepFromTime(long nanos, long tStart)
+    public static void sleepUntil(long deadline)
         throws InterruptedException
     {
-        long sleepNanos = nanos - sleepPrecision;
-
-        // First, use Java's Thread.sleep() if it is precise enough
-        if (nanos / sleepPrecision >= 2) {
-            long actualDelayMillis = (sleepNanos) / 1000000L;
-            int nanoRest = (int) (sleepNanos % 1000000L);
-            if(Thread.interrupted()) {
-                throw new InterruptedException("HDTimer.sleepFromTime interrupted in sleep.");
+        long remaining;
+        // First, timed sleeps for a fraction of what is left. Each one may wake
+        // late by a good part of what was asked for, so never ask for all of it.
+        while ((remaining = deadline - System.nanoTime()) > SPIN_TAIL_NANOS) {
+            if (Thread.interrupted()) {
+                throw new InterruptedException("HDTimer.sleepUntil interrupted in sleep.");
             }
-            Thread.sleep(actualDelayMillis, nanoRest);
+            long chunk = (long) (remaining * SLEEP_FRACTION);
+            Thread.sleep(chunk / 1_000_000L, (int) (chunk % 1_000_000L));
         }
 
-        // Second, yield in a busy loop if precise enough
-        while ((System.nanoTime() - tStart + worstYieldTime) < nanos) {
-            long t1 = System.nanoTime();
-            if(Thread.interrupted()) {
-                throw new InterruptedException("HDTimer.sleepFromTime interrupted in yield.");
-            }
-            Thread.yield();
-            long yieldTime = System.nanoTime() - t1;
-            if (yieldTime > worstYieldTime) {
-                worstYieldTime = yieldTime;
-            }
-        }
-
-        // Third, run a busy loop for the rest of the time
-        while ((System.nanoTime() - tStart) < nanos) {
-            if(Thread.interrupted()) {
-                throw new InterruptedException("HDTimer.sleepFromTime interrupted in busy loop.");
+        // Then busy-wait for the last fraction of a millisecond.
+        while (System.nanoTime() < deadline) {
+            if (Thread.interrupted()) {
+                throw new InterruptedException("HDTimer.sleepUntil interrupted in busy loop.");
             }
         }
     }
