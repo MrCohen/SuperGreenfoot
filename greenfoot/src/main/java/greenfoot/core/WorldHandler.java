@@ -350,6 +350,9 @@ public class WorldHandler
     @OnThread(Tag.Any)
     public void discardWorld()
     {
+        // SuperGreenfoot: a reset frees the ports and connections the scenario
+        // had open, so the next run can bind them again.
+        greenfoot.Network.closeAll();
         final World discardedWorld;
         synchronized (this)
         {

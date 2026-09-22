@@ -233,6 +233,10 @@ task userJavadoc(type: Javadoc) {
                 'greenfoot/MouseInfo.java',
                 'greenfoot/ScaleMode.java',
                 'greenfoot/SuperWindow.java',
+                'greenfoot/Network.java',
+                'greenfoot/NetServer.java',
+                'greenfoot/NetClient.java',
+                'greenfoot/NetEvent.java',
                 'greenfoot/UserInfo.java',
                 'greenfoot/World.java']
     destinationDir = file("../bluej/doc/API")

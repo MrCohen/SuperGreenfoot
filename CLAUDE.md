@@ -25,12 +25,15 @@ for the upstream base and every upstream file we change.
   phase. Never edit it to make a test pass; fix the engine.
 - New engine code is TeaVM-clean: no `java.awt` outside
   `greenfoot.backend.awt` (Phase 3 onward), no reflection, no new threads
-  outside `Simulation` and the sound mixer.
+  outside `Simulation`, the sound mixer and the network module
+  (`greenfoot.net`, whose threads never call scenario code; the browser
+  build replaces it with the browser's WebSocket).
 - Public API changes: keep `getX()/getY()/getRotation()` returning `int`;
   add new methods rather than changing signatures; regenerate the user
-  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the ten API classes change
-  (the nine upstream classes plus `SuperWindow`; its API is in
-  `docs/api/superwindow.md`).
+  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the fourteen API classes
+  change (the nine upstream classes, `SuperWindow`, and the network module's
+  `Network`, `NetServer`, `NetClient` and `NetEvent`; their APIs are in
+  `docs/api/superwindow.md` and `docs/api/network.md`).
 - Commit messages end with a `Co-Authored-By:` line naming the Claude model
   that actually did the work in that session, for example
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
@@ -40,7 +43,7 @@ for the upstream base and every upstream file we change.
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew :greenfoot:compileJava      # engine + IDE
-./gradlew :greenfoot:test             # headless engine tests (200 pass on 2026-09-22)
+./gradlew :greenfoot:test             # headless engine tests (215 pass on 2026-09-22)
 ./gradlew runGreenfoot                # launch the IDE
 ```
 
@@ -56,7 +59,8 @@ fails the build on thread-tag violations.
 
 | Concern | Path |
 |---|---|
-| Public API (nine upstream classes + `SuperWindow`) | `greenfoot/src/main/java/greenfoot/*.java` |
+| Public API (nine upstream classes + `SuperWindow` + `Network`, `NetServer`, `NetClient`, `NetEvent`) | `greenfoot/src/main/java/greenfoot/*.java` |
+| Network module (WebSocket over `java.net`, its threads) | `greenfoot/src/main/java/greenfoot/net/` |
 | Act loop / speed | `greenfoot/src/main/java/greenfoot/core/Simulation.java` |
 | Paint order sets | `greenfoot/src/main/java/greenfoot/{TreeActorSet,ActorSet}.java` |
 | Renderer | `greenfoot/src/main/java/greenfoot/gui/WorldRenderer.java` |
@@ -65,6 +69,6 @@ fails the build on thread-tag violations.
 | Debug-VM to IDE frames | `greenfoot/src/main/java/greenfoot/vmcomm/` |
 | IDE window / world view | `greenfoot/src/main/java/greenfoot/guifx/{GreenfootStage,WorldDisplay,ControlPanel}.java` |
 | Export | `greenfoot/src/main/java/greenfoot/export/`, `guifx/export/` |
-| Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`) |
+| Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`); `NetworkTest` runs real sockets on loopback |
 | Regression scenario | `super-scenarios/MrCohenLibrary150/` |
 | Window demo | `super-scenarios/SuperWindowDemo/` |

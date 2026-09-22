@@ -372,7 +372,13 @@ public final class Save
                 System.err.println("Save: could not read " + VALUES_FILE + ": " + e.getMessage());
             }
         }
-        Runtime.getRuntime().addShutdownHook(new Thread(Save::flush, "SuperGreenfoot-Save-flush"));
+        try {
+            Runtime.getRuntime().addShutdownHook(new Thread(Save::flush, "SuperGreenfoot-Save-flush"));
+        }
+        catch (IllegalStateException e) {
+            // Already shutting down (a dedicated server saving on Ctrl-C): the
+            // server's own shutdown hook flushes, so nothing is lost.
+        }
     }
 
     private static void markDirty()

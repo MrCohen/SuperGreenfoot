@@ -24,9 +24,13 @@ package greenfoot.player;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
+import greenfoot.net.ServerMode;
+
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -47,6 +51,16 @@ import java.util.Properties;
  * (also implied by scenario.hideControls), {@code --headless N} run N act
  * cycles without a window (tests/tools), {@code --no-render} run without
  * drawing the world at all.
+ *
+ * <p>{@code --server} runs the scenario as a dedicated server: no window,
+ * nothing drawn, paced at the scenario's speed, until the world stops itself
+ * (or Ctrl-C or a TERM signal, which put the command {@code stop} on the
+ * console queue and give the world five seconds to save). Settings come from
+ * {@code server.properties} next to the jar (or in the scenario folder), or
+ * the file named by {@code --server-properties FILE}; {@code --server-setting key=value}
+ * overrides one. The setting {@code server.world} names the world to run
+ * (default: the scenario's main world). The scenario reads them through
+ * {@code Network.getServerSetting}.</p>
  */
 @OnThread(Tag.Any)
 public final class PlayerMain
@@ -62,6 +76,9 @@ public final class PlayerMain
         boolean autoRun = false;
         int headlessCycles = -1;
         boolean noRender = false;
+        boolean server = false;
+        File serverPropertiesFile = null;
+        Properties serverOverrides = new Properties();
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--fullscreen")) {
@@ -75,6 +92,19 @@ public final class PlayerMain
             }
             else if (a.equals("--headless") && i + 1 < args.length) {
                 headlessCycles = Integer.parseInt(args[++i]);
+            }
+            else if (a.equals("--server")) {
+                server = true;
+            }
+            else if (a.equals("--server-properties") && i + 1 < args.length) {
+                serverPropertiesFile = new File(args[++i]);
+            }
+            else if (a.equals("--server-setting") && i + 1 < args.length) {
+                String kv = args[++i];
+                int eq = kv.indexOf('=');
+                if (eq > 0) {
+                    serverOverrides.setProperty(kv.substring(0, eq).trim(), kv.substring(eq + 1).trim());
+                }
             }
             else if (!a.startsWith("-")) {
                 scenarioDir = new File(a);
@@ -97,6 +127,11 @@ public final class PlayerMain
             saveName = p.getProperty("project.name", "scenario");
         }
         File saveDir = scenarioDir != null ? new File(scenarioDir, "saves") : defaultSaveDir(saveName);
+
+        if (server) {
+            runServer(loader, scenarioDir, serverPropertiesFile, serverOverrides);
+            return;
+        }
 
         if (headlessCycles >= 0) {
             System.setProperty("java.awt.headless", "true");
@@ -141,6 +176,96 @@ public final class PlayerMain
                 session.run();
             }
         });
+    }
+
+    /**
+     * A dedicated server: no window, nothing drawn, paced at the scenario's
+     * speed, until the world stops itself. Ctrl-C or a TERM signal queues the
+     * console command "stop" and gives the world five seconds to save and stop.
+     */
+    private static void runServer(ClassLoader loader, File scenarioDir, File propertiesFile,
+                                  Properties overrides) throws Exception
+    {
+        System.setProperty("java.awt.headless", "true");
+        File home = scenarioDir != null ? scenarioDir : jarDirectory();
+        if (propertiesFile == null) {
+            propertiesFile = new File(home, "server.properties");
+        }
+        Properties settings = new Properties();
+        if (propertiesFile.isFile()) {
+            try (InputStream in = new FileInputStream(propertiesFile)) {
+                settings.load(in);
+            }
+            System.out.println("Server settings: " + propertiesFile);
+        }
+        else {
+            System.out.println("No " + propertiesFile + ": using the scenario's own defaults");
+        }
+        settings.putAll(overrides);
+        ServerMode.enable(settings);
+        ServerMode.startConsole();
+
+        Properties props = PlayerSession.loadProperties(loader);
+        String world = settings.getProperty("server.world");
+        if (world != null && !world.isEmpty()) {
+            props.setProperty("main.class", world);
+        }
+        PlayerSession session = PlayerSession.create(loader, props, new File(home, "saves"), null);
+        session.setRenderingEnabled(false);
+        System.out.println("SuperGreenfoot dedicated server: " + session.getTitle() + ", world "
+                + session.getWorldClassName() + ", speed " + session.getSpeed() + ". Type stop to stop.");
+        session.startRunning();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            // Ctrl-C or TERM: the world gets the console command "stop" and a
+            // few seconds to save and stop itself. The JVM halts as soon as
+            // this hook returns, so this is the last word.
+            ServerMode.pushCommand("stop");
+            long started = System.currentTimeMillis();
+            while (session.isRunning() && System.currentTimeMillis() - started < 5000) {
+                try {
+                    Thread.sleep(50);
+                }
+                catch (InterruptedException e) {
+                    break;
+                }
+            }
+            greenfoot.Save.flush();
+            System.out.println(session.isRunning()
+                    ? "SuperGreenfoot dedicated server: the world did not stop within 5 seconds; stopping anyway."
+                    : "SuperGreenfoot dedicated server: stopped.");
+        }, "SuperGreenfoot-server-shutdown"));
+
+        long startBy = System.currentTimeMillis() + 30000;
+        while (!session.isRunning() && System.currentTimeMillis() < startBy) {
+            Thread.sleep(50);
+        }
+        if (!session.isRunning()) {
+            System.err.println("The world did not start.");
+            System.exit(1);
+        }
+        while (session.isRunning()) {
+            Thread.sleep(100);
+        }
+        System.out.println("SuperGreenfoot dedicated server: the world has stopped.");
+        session.shutdown();
+        greenfoot.Network.closeAll();
+        System.exit(0);
+    }
+
+    /** The folder the running jar is in, or the working directory when not run from a jar. */
+    private static File jarDirectory()
+    {
+        try {
+            File jar = new File(PlayerMain.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            if (jar.isFile()) {
+                return jar.getParentFile();
+            }
+        }
+        catch (Exception e) {
+            // fall through
+        }
+        return new File(".").getAbsoluteFile();
     }
 
     /** A class loader over a scenario folder (classes + images/ + sounds/) and any +libs jars. */
