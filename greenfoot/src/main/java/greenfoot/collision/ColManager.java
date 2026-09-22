@@ -91,7 +91,7 @@ public class ColManager implements CollisionChecker
             }
         }
 
-        if (includeSubclasses) {
+        if (includeSubclasses && ! freeObjects.isEmpty()) {
             // Clone it to avoid concurrent modification:
             Set<Entry<Class<? extends Actor>, LinkedList<Actor>>> entries = 
                     new HashSet<Entry<Class<? extends Actor>, LinkedList<Actor>>>(freeObjects.entrySet());

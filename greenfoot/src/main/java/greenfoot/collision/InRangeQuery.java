@@ -59,11 +59,19 @@ public class InRangeQuery
         int actorX = ActorVisitor.toPixelX(actor, ActorVisitor.getX(actor));
         int actorY = ActorVisitor.toPixelY(actor, ActorVisitor.getY(actor));   
         
-        int dx = actorX - x;
-        int dy = actorY - y;
-        int dist = (int) Math.sqrt(dx * dx + dy * dy);
+        if (r < 0) {
+            // No distance can be within a negative radius. Guarded because the
+            // comparison below would square it and let some actors through.
+            return false;
+        }
 
-        return (dist) <= r;
+        long dx = actorX - x;
+        long dy = actorY - y;
+        // Same result as (int) Math.sqrt(dx*dx + dy*dy) <= r, without the square root:
+        // floor(sqrt(d2)) <= r  <=>  d2 < (r + 1)^2
+        long d2 = dx * dx + dy * dy;
+        long lim = (long) r + 1;
+        return d2 < lim * lim;
     }
 
 }

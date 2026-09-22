@@ -547,7 +547,7 @@ public class IBSPColChecker implements CollisionChecker
     
     private void getIntersectingObjects(Rect r, CollisionQuery query, Set<Actor> resultSet, BSPNode startNode)
     {
-        LinkedList<BSPNode> nodeStack = new LinkedList<BSPNode>();
+        ArrayDeque<BSPNode> nodeStack = new ArrayDeque<BSPNode>();
         
         if (startNode != null) {
             nodeStack.add(startNode);
@@ -560,9 +560,7 @@ public class IBSPColChecker implements CollisionChecker
                 while (i.hasNext()) {
                     Actor actor = i.next();
                     if (query.checkCollision(actor)) {
-                        if (! resultSet.contains(actor)) {
-                            resultSet.add(actor);
-                        }
+                        resultSet.add(actor);
                     }
                 }
                 
@@ -613,7 +611,7 @@ public class IBSPColChecker implements CollisionChecker
             return null;
         }
         
-        LinkedList<BSPNode> nodeStack = new LinkedList<BSPNode>();
+        ArrayDeque<BSPNode> nodeStack = new ArrayDeque<BSPNode>();
         nodeStack.add(startNode);
         
         while (! nodeStack.isEmpty()) {
@@ -651,7 +649,7 @@ public class IBSPColChecker implements CollisionChecker
             return null;
         }
         
-        LinkedList<BSPNode> nodeStack = new LinkedList<BSPNode>();
+        ArrayDeque<BSPNode> nodeStack = new ArrayDeque<BSPNode>();
         nodeStack.add(bspTree);
         
         while (! nodeStack.isEmpty()) {
@@ -730,23 +728,13 @@ public class IBSPColChecker implements CollisionChecker
                 size,
                 size);
         
-        List<T> result;
-        synchronized (actorQuery) {
-            actorQuery.init(cls, null);
-            result = (List<T>) getIntersectingObjects(rect, actorQuery);
-        }
-        
-        Iterator<T> i = result.iterator();
+        // Single pass: class check and distance check while walking the tree,
+        // instead of collecting every actor in the square and filtering afterwards.
         synchronized (inRangeQuery) {
             inRangeQuery.init(x * cellSize + halfCell , y * cellSize + halfCell, r * cellSize);
-            while (i.hasNext()) {
-                if (! inRangeQuery.checkCollision(i.next())) {
-                    i.remove();
-                }
-            }
+            CollisionQuery query = cls == null ? inRangeQuery : new ClassQuery(cls, inRangeQuery);
+            return (List<T>) getIntersectingObjects(rect, query);
         }
-        
-        return result;
     }
 
     @SuppressWarnings("unchecked")
@@ -781,7 +769,7 @@ public class IBSPColChecker implements CollisionChecker
     public <T extends Actor> List<T> getObjects(Class<T> cls)
     {
         Set<T> set = new HashSet<T>();
-        LinkedList<BSPNode> nodeStack = new LinkedList<BSPNode>();
+        ArrayDeque<BSPNode> nodeStack = new ArrayDeque<BSPNode>();
         
         if (bspTree != null) {
             nodeStack.add(bspTree);

@@ -351,7 +351,8 @@ public class VMCommsSimulation
             }
             
             BufferedImage img = doUpdateImage ? worldImageForSending.getAndSet(null) : null;
-            int [] raw = (img == null) ? null : ((DataBufferInt) img.getData().getDataBuffer()).getData();
+            // getRaster() reads the live pixels; getData() would first copy the whole frame.
+            int [] raw = (img == null) ? null : ((DataBufferInt) img.getRaster().getDataBuffer()).getData();
 
             int imageWidth = 0;
             int imageHeight = 0;
@@ -376,10 +377,7 @@ public class VMCommsSimulation
                 sharedMemory.put(lastPaintSeq);
                 sharedMemory.put(imageWidth);
                 sharedMemory.put(imageHeight);
-                for (int i = 0; i < raw.length; i++)
-                {
-                    sharedMemory.put(raw[i]);
-                }
+                sharedMemory.put(raw, 0, raw.length);
                 lastPaintSize = raw.length;
                 
                 // Now that we've rendered from it, put it back into the old images for re-use:

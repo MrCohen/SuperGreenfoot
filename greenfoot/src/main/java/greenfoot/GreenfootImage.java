@@ -100,7 +100,10 @@ public class GreenfootImage
         GreenfootImage gImage = GreenfootUtil.getCachedImage(filename);
         if (gImage != null)
         {
+            // Cache hit: share the cached pixels copy-on-write. The cache already
+            // holds an equivalent entry, so there is nothing to add.
             createClone(gImage);
+            return;
         }
         else 
         {
