@@ -115,6 +115,7 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -829,6 +830,15 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
             {
                 Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
                 controller.forwardWorldMouseEvent(e, worldPos, true);
+            }
+        });
+        // The mouse wheel reaches the scenario too (SuperWindow scrolling).
+        worldDisplay.getImageView().addEventFilter(ScrollEvent.SCROLL, e -> {
+            if (controller != null)
+            {
+                Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+                controller.forwardWorldScrollEvent(e, worldPos);
+                e.consume();
             }
         });
     }

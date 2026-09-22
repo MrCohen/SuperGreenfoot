@@ -58,6 +58,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
@@ -537,9 +538,28 @@ public class PlayerFrame implements DisplayDelegate
             {
                 mouseManager().mouseExited();
             }
+
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e)
+            {
+                // Positive rotation is towards the user (scroll down), matching the IDE.
+                Point p = worldPanel.toWorld(e.getPoint());
+                int amount;
+                if (e.getScrollType() == MouseWheelEvent.WHEEL_BLOCK_SCROLL) {
+                    amount = e.getWheelRotation() * 100;
+                }
+                else {
+                    amount = (int) Math.round(e.getPreciseWheelRotation() * 30);
+                }
+                if (amount == 0 && e.getWheelRotation() != 0) {
+                    amount = e.getWheelRotation() * 30;
+                }
+                mouseManager().mouseScrolled(p.x, p.y, amount);
+            }
         };
         target.addMouseListener(mouse);
         target.addMouseMotionListener(mouse);
+        target.addMouseWheelListener(mouse);
     }
 
     /** Escape shows/hides controls (hold 2 s to force + unlock); Shortcut+Shift+F toggles full screen. */

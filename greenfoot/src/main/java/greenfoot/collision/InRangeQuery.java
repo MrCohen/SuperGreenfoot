@@ -56,8 +56,8 @@ public class InRangeQuery
      */
     public boolean checkCollision(Actor actor)
     {
-        int actorX = ActorVisitor.toPixel(actor, ActorVisitor.getX(actor));
-        int actorY = ActorVisitor.toPixel(actor, ActorVisitor.getY(actor));   
+        int actorX = ActorVisitor.toPixelX(actor, ActorVisitor.getX(actor));
+        int actorY = ActorVisitor.toPixelY(actor, ActorVisitor.getY(actor));   
         
         int dx = actorX - x;
         int dy = actorY - y;

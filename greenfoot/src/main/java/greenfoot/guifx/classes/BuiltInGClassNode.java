@@ -39,6 +39,9 @@ public class BuiltInGClassNode extends GClassNode
     // Will always be ACTOR or WORLD, never OTHER
     private final GClassType type;
     private final GClassDiagram classDiagram;
+    // SuperGreenfoot: the short class name; "Actor"/"World" for the two roots, or
+    // another built-in greenfoot class shown inside a group (SuperWindow under Actor).
+    private final String shortName;
 
     /**
      * Constructor for a GClassNode for one of the API base classes: World or Actor.
@@ -49,21 +52,31 @@ public class BuiltInGClassNode extends GClassNode
      */
     public BuiltInGClassNode(GClassType type, List<GClassNode> subClasses, GClassDiagram classDiagram)
     {
+        this(type, shortName(type), subClasses, classDiagram);
+    }
+
+    /**
+     * SuperGreenfoot: a built-in greenfoot class other than the group root, such as
+     * SuperWindow under Actor.
+     */
+    public BuiltInGClassNode(GClassType type, String shortName, List<GClassNode> subClasses, GClassDiagram classDiagram)
+    {
         super(null, subClasses, classDiagram.getSelectionManager());
         this.type = type;
+        this.shortName = shortName;
         this.classDiagram = classDiagram;
     }
 
     @Override
     public String getQualifiedName()
     {
-        return "greenfoot." + shortName(type);
+        return "greenfoot." + shortName;
     }
 
     @Override
     public String getDisplayName()
     {
-        return shortName(type);
+        return shortName;
     }
 
     /**

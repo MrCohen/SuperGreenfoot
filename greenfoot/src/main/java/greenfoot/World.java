@@ -27,6 +27,7 @@ import greenfoot.collision.CollisionChecker;
 import greenfoot.collision.ibsp.Rect;
 import greenfoot.core.TextLabel;
 import greenfoot.core.WorldHandler;
+import greenfoot.gui.input.mouse.MousePollingManager;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -96,6 +97,10 @@ public abstract class World
     
     /** Whether actors are bound to stay inside the world */
     private boolean isBounded;
+
+    // ---- SuperGreenfoot windows (see SuperWindow) ----
+    /** The windows in this world, in the order they were added. */
+    final List<SuperWindow> windows = new ArrayList<SuperWindow>();
 
     // ---- SuperGreenfoot paint ordering and rendering options ----
 
@@ -443,12 +448,34 @@ public abstract class World
     public void addObject(Actor object, int x, int y)
     {
         if (object.world != null) {
-            if (object.world == this) {
+            if (object.world == this && object.window == null) {
                 return;  // Actor is already in the world
             }
+            // Either another world, or (SuperGreenfoot) a window in this world:
+            // take it out first, then place it at the given world position.
             object.world.removeObject(object);
         }
-        
+        if (object.window != null) {
+            // SuperGreenfoot: adding an actor straight to a world takes it out of its window.
+            object.window.detach(object);
+        }
+        addObjectImpl(object, x, y);
+    }
+
+    /**
+     * SuperGreenfoot: add an actor that belongs to a window in this world. The
+     * actor's window is already set and x, y are local to that window.
+     */
+    void addObjectFromWindow(Actor object, int x, int y)
+    {
+        if (object.world != null) {
+            object.world.removeObject(object);
+        }
+        addObjectImpl(object, x, y);
+    }
+
+    private void addObjectImpl(Actor object, int x, int y)
+    {
         objectsDisordered.add(object);
         addInPaintOrder(object);
         addInActOrder(object);
@@ -458,10 +485,18 @@ public abstract class World
         object.addToWorld(x, y, this);
         
         collisionChecker.addObject(object);
+        if (object instanceof SuperWindow) {
+            // SuperGreenfoot: the window's contents join the world with it.
+            SuperWindow w = (SuperWindow) object;
+            windows.add(w);
+            w.attachedToWorld();
+        }
         object.addedToWorld(this);
         
         WorldHandler whInstance = WorldHandler.getInstance();
-        if (whInstance != null) {
+        if (whInstance != null && object.window == null) {
+            // SuperGreenfoot: actors inside windows are placed by the window, so the
+            // IDE's "Save the World" recorder does not track them.
             WorldHandler.getInstance().objectAddedToWorld(object);
         }
     }
@@ -473,10 +508,33 @@ public abstract class World
      */
     public void removeObject(Actor object)
     {
+        removeObjectImpl(object, true);
+    }
+
+    /**
+     * SuperGreenfoot: remove an actor from this world because its window is
+     * leaving the world; the actor stays in the window.
+     */
+    void removeObjectKeepingWindow(Actor object)
+    {
+        removeObjectImpl(object, false);
+    }
+
+    private void removeObjectImpl(Actor object, boolean detachFromWindow)
+    {
         if (object == null || object.world != this) {
             return;
         }
-        
+        if (object instanceof SuperWindow) {
+            // SuperGreenfoot: the window's contents leave the world with it.
+            SuperWindow w = (SuperWindow) object;
+            w.detachingFromWorld();
+            windows.remove(w);
+        }
+        if (detachFromWindow && object.window != null) {
+            object.window.detach(object);
+        }
+
         objectsDisordered.remove(object);
         collisionChecker.removeObject(object);
         if (objectsDisordered != objectsInActOrder && objectsInActOrder != null) {
@@ -610,7 +668,7 @@ public abstract class World
      */
     public <A> List<A> getObjectsAt(int x, int y, Class<A> cls)
     {
-        return collisionChecker.getObjectsAt(x, y, (Class)cls);
+        return filterVisible(collisionChecker.getObjectsAt(x, y, (Class)cls), cls);
     }
 
     /**
@@ -676,7 +734,16 @@ public abstract class World
      */
     <A> List<A> getIntersectingObjects(Actor actor, Class<A> cls)
     {
-        return collisionChecker.getIntersectingObjects(actor, (Class)cls);
+        return filterFor(actor, collisionChecker.getIntersectingObjects(actor, (Class)cls), cls);
+    }
+
+    /**
+     * SuperGreenfoot: the objects at a world cell, as seen by the given actor (only
+     * actors in the same window, and none in a closed or minimised window).
+     */
+    <A> List<A> getObjectsAtFor(Actor actor, int x, int y, Class<A> cls)
+    {
+        return filterFor(actor, collisionChecker.getObjectsAt(x, y, (Class)cls), cls);
     }
 
     /**
@@ -690,9 +757,9 @@ public abstract class World
      * @param cls Class of objects to look for (null or Object.class will find
      *            all classes)
      */
-    <A> List<A> getObjectsInRange(int x, int y, int r, Class<A> cls)
+    <A> List<A> getObjectsInRange(Actor actor, int x, int y, int r, Class<A> cls)
     {
-        return collisionChecker.getObjectsInRange(x, y, r, (Class)cls);
+        return filterFor(actor, collisionChecker.getObjectsInRange(x, y, r, (Class)cls), cls);
     }
 
     /**
@@ -712,7 +779,7 @@ public abstract class World
         if(distance < 0) {
             throw new IllegalArgumentException("Distance must not be less than 0. It was: " + distance);
         }
-        return collisionChecker.getNeighbours(actor, distance, diag, (Class)cls);
+        return filterFor(actor, collisionChecker.getNeighbours(actor, distance, diag, (Class)cls), cls);
     }
 
     /**
@@ -788,7 +855,18 @@ public abstract class World
         
         List<Actor> result = new LinkedList<Actor>();
         TreeActorSet objects = getObjectsListInPaintOrder();
+        boolean anyWindows = !windows.isEmpty();
         for (Actor actor : objects) {
+            if (anyWindows) {
+                // SuperGreenfoot: nothing in a closed or minimised window can be hit, and an
+                // actor inside a window is only visible within the window's content area.
+                if (!actor.isActive()) {
+                    continue;
+                }
+                if (actor.window != null && !actor.window.contentContainsPixel(x, y)) {
+                    continue;
+                }
+            }
             Rect bounds = actor.getBoundingRect();
             if (x >= bounds.getX()  && x <= bounds.getRight() && y>=bounds.getY() && y<= bounds.getTop()) {
                 if (actor.containsPoint(x, y)) {
@@ -796,6 +874,13 @@ public abstract class World
                 }
             }
         } 
+        if (anyWindows && result.size() > 1) {
+            // Callers take the last entry as the topmost; with windows painted after
+            // everything else, paint sequence is the reliable order.
+            List<Actor> sorted = new ArrayList<Actor>(result);
+            sorted.sort(Comparator.comparingInt(Actor::getLastPaintSeqNum));
+            return sorted;
+        }
       
         return result;
     }
@@ -823,12 +908,64 @@ public abstract class World
 
     Actor getOneObjectAt(Actor object, int dx, int dy, Class<?> cls)
     {
-        return collisionChecker.getOneObjectAt(object, dx, dy, (Class)cls);
+        if (windows.isEmpty()) {
+            return collisionChecker.getOneObjectAt(object, dx, dy, (Class)cls);
+        }
+        List<Actor> found = filterFor(object, collisionChecker.getObjectsAt(dx, dy, (Class)cls), cls);
+        found.remove(object);
+        return found.isEmpty() ? null : found.get(0);
     }
 
     Actor getOneIntersectingObject(Actor object, Class<?> cls)
     {
-        return collisionChecker.getOneIntersectingObject(object, (Class) cls);
+        if (windows.isEmpty()) {
+            return collisionChecker.getOneIntersectingObject(object, (Class) cls);
+        }
+        List<Actor> found = filterFor(object, collisionChecker.getIntersectingObjects(object, (Class)cls), cls);
+        found.remove(object);
+        return found.isEmpty() ? null : found.get(0);
+    }
+
+    /**
+     * SuperGreenfoot: keep only the actors the requester can interact with: those in
+     * the same window (or, for an actor in the world, those not in any window), and
+     * never actors in a closed or minimised window. Windows themselves are left out
+     * unless the query asked for windows by class. Free of cost while the world has
+     * no windows.
+     */
+    private <A> List<A> filterFor(Actor requester, List<A> list, Class<?> cls)
+    {
+        if (windows.isEmpty()) {
+            return list;
+        }
+        SuperWindow w = requester.window;
+        boolean windowsWanted = cls != null && SuperWindow.class.isAssignableFrom(cls);
+        for (Iterator<A> i = list.iterator(); i.hasNext(); ) {
+            Actor a = (Actor) i.next();
+            if (a.window != w || !a.isActive() || (!windowsWanted && a instanceof SuperWindow)) {
+                i.remove();
+            }
+        }
+        return list;
+    }
+
+    /**
+     * SuperGreenfoot: drop actors in closed or minimised windows, and windows
+     * themselves unless the query asked for windows by class.
+     */
+    private <A> List<A> filterVisible(List<A> list, Class<?> cls)
+    {
+        if (windows.isEmpty()) {
+            return list;
+        }
+        boolean windowsWanted = cls != null && SuperWindow.class.isAssignableFrom(cls);
+        for (Iterator<A> i = list.iterator(); i.hasNext(); ) {
+            Actor a = (Actor) i.next();
+            if (!a.isActive() || (!windowsWanted && a instanceof SuperWindow)) {
+                i.remove();
+            }
+        }
+        return list;
     }
     
     /**
@@ -941,6 +1078,102 @@ public abstract class World
     /**
      * Whether the paint order needs sorting beyond the class-group iteration order.
      */
+    // ==================================
+    //
+    // SuperGreenfoot: windows
+    //
+    // ==================================
+
+    /**
+     * Get the windows in this world, from the back to the front.
+     *
+     * @return A new list of the windows in paint order (empty if none).
+     * @since SuperGreenfoot 1.0
+     */
+    public List<SuperWindow> getWindows()
+    {
+        return getWindowsInPaintOrder();
+    }
+
+    /**
+     * Get the front-most open window at the given world position, if any. Handy for
+     * telling whether a mouse position is over a window (see also
+     * {@link MouseInfo#getWindow()}).
+     *
+     * @param x The x position in the world, in cells.
+     * @param y The y position in the world, in cells.
+     * @return The window whose frame covers that position, or null.
+     * @since SuperGreenfoot 1.0
+     */
+    public SuperWindow getWindowAt(int x, int y)
+    {
+        return getWindowAtPixel(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
+    }
+
+    /** True if this world contains any windows (open or closed). */
+    boolean hasWindows()
+    {
+        return !windows.isEmpty();
+    }
+
+    /** The windows sorted back to front: normal windows by z, then always-on-top windows by z. */
+    List<SuperWindow> getWindowsInPaintOrder()
+    {
+        List<SuperWindow> sorted = new ArrayList<SuperWindow>(windows);
+        if (sorted.size() > 1) {
+            sorted.sort(SuperWindow::compareOrder);
+        }
+        return sorted;
+    }
+
+    /** The front-most open window whose frame covers the given world pixel, or null. */
+    SuperWindow getWindowAtPixel(int px, int py)
+    {
+        if (windows.isEmpty()) {
+            return null;
+        }
+        List<SuperWindow> order = getWindowsInPaintOrder();
+        for (int i = order.size() - 1; i >= 0; i--) {
+            SuperWindow w = order.get(i);
+            if (w.isOpen() && w.frameContainsPixel(px, py)) {
+                return w;
+            }
+        }
+        return null;
+    }
+
+    /** The front-most open modal window, or null. */
+    SuperWindow getModalWindow()
+    {
+        if (windows.isEmpty()) {
+            return null;
+        }
+        List<SuperWindow> order = getWindowsInPaintOrder();
+        for (int i = order.size() - 1; i >= 0; i--) {
+            SuperWindow w = order.get(i);
+            if (w.isOpen() && w.isModal()) {
+                return w;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Give every window its turn at this act's mouse events (dragging, buttons,
+     * scrolling). Called by the simulation before the world and the actors act.
+     */
+    void processWindows(MousePollingManager mouseManager)
+    {
+        if (windows.isEmpty()) {
+            return;
+        }
+        for (SuperWindow w : new ArrayList<SuperWindow>(windows)) {
+            if (w.world == this) {
+                w.handleInput(mouseManager);
+            }
+        }
+    }
+
     boolean isPaintSortNeeded()
     {
         return zUsed || zSortByY || globalZOrder;

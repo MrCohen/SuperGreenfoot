@@ -269,6 +269,23 @@ public class Greenfoot
     }
 
     /**
+     * True if the mouse wheel was turned (or a trackpad scrolled) while the mouse
+     * was over the given object during this act. The amount and direction come from
+     * {@link MouseInfo#getScrollAmount()}.
+     *
+     * @param obj Typically one of Actor, World or null. If null, it will return true
+     *            if the wheel was used anywhere. If World, it will return true if
+     *            the wheel was used over the world background (not over an actor).
+     *            If an Actor, it will return true if the wheel was used over that actor.
+     * @return True if the mouse wheel was used as explained above.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean mouseScrolled(Object obj)
+    {
+        return WorldHandler.getInstance().getMouseManager().isMouseScrolled(obj);
+    }
+
+    /**
      * Return a mouse info object with information about the state of the
      * mouse.
      * 

@@ -22,6 +22,7 @@
 package greenfoot;
 
 import greenfoot.core.TextLabel;
+import greenfoot.gui.input.mouse.MousePollingManager;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -129,6 +130,36 @@ public class WorldVisitor
     public static boolean isSmoothRendering(World world)
     {
         return world.isSmoothRendering();
+    }
+
+    /** SuperGreenfoot: true if the world contains any windows. */
+    public static boolean hasWindows(World world)
+    {
+        return world.hasWindows();
+    }
+
+    /** SuperGreenfoot: the windows from back to front. */
+    public static List<SuperWindow> getWindowsInPaintOrder(World world)
+    {
+        return world.getWindowsInPaintOrder();
+    }
+
+    /** SuperGreenfoot: the front-most open modal window, or null. */
+    public static SuperWindow getModalWindow(World world)
+    {
+        return world.getModalWindow();
+    }
+
+    /** SuperGreenfoot: the front-most open window covering a world pixel, or null. */
+    public static SuperWindow getWindowAtPixel(World world, int px, int py)
+    {
+        return world.getWindowAtPixel(px, py);
+    }
+
+    /** SuperGreenfoot: let the windows handle this act's mouse events. */
+    public static void processWindows(World world, MousePollingManager mouseManager)
+    {
+        world.processWindows(mouseManager);
     }
     
     /**

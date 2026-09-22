@@ -50,6 +50,8 @@ public class Command
     public static final int MOUSE_RELEASED = 14;
     public static final int MOUSE_MOVED = 15;
     public static final int MOUSE_EXITED = 16;
+    // SuperGreenfoot: followed by X, Y, scroll amount in pixels (positive = down), 0
+    public static final int MOUSE_SCROLLED = 17;
 
     /*
      * Commands or requests.  Unless otherwise specified,
@@ -109,6 +111,6 @@ public class Command
      */
     public static boolean isMouseEvent(int event)
     {
-        return event >= MOUSE_CLICKED && event <= MOUSE_EXITED;
+        return event >= MOUSE_CLICKED && event <= MOUSE_SCROLLED;
     }
 }

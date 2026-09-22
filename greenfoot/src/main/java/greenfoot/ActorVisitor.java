@@ -126,6 +126,62 @@ public class ActorVisitor
     {
         return actor.toPixel(x);
     }
+
+    /** SuperGreenfoot: world-pixel x of the centre of the actor's local cell x (window aware). */
+    public static int toPixelX(Actor actor, int x)
+    {
+        return actor.toPixelX(x);
+    }
+
+    /** SuperGreenfoot: world-pixel y of the centre of the actor's local cell y (window aware). */
+    public static int toPixelY(Actor actor, int y)
+    {
+        return actor.toPixelY(y);
+    }
+
+    /** SuperGreenfoot: the window containing the actor, or null. */
+    public static SuperWindow getWindow(Actor actor)
+    {
+        return actor.window;
+    }
+
+    /** SuperGreenfoot: false while the actor sits in a closed or minimised window. */
+    public static boolean isActive(Actor actor)
+    {
+        return actor.isActive();
+    }
+
+    /** SuperGreenfoot: false while the actor sits in a closed or minimised window (windows themselves always act). */
+    public static boolean isActing(Actor actor)
+    {
+        return actor.window == null || actor.window.isContentActive();
+    }
+
+    /**
+     * SuperGreenfoot: move the actor to the given world pixel position through its
+     * public setLocation (so overrides see one final call), converting to the
+     * actor's own (possibly window-local) cell coordinates.
+     */
+    public static void setLocationFromPixels(Actor actor, int px, int py)
+    {
+        World w = actor.world;
+        if (w == null) {
+            return;
+        }
+        actor.setLocation(w.toCellFloor(px - actor.originPixelX()), w.toCellFloor(py - actor.originPixelY()));
+    }
+
+    /** SuperGreenfoot: world-pixel x of the left edge of the actor's local cell 0. */
+    public static int getOriginPixelX(Actor actor)
+    {
+        return actor.originPixelX();
+    }
+
+    /** SuperGreenfoot: world-pixel y of the top edge of the actor's local cell 0. */
+    public static int getOriginPixelY(Actor actor)
+    {
+        return actor.originPixelY();
+    }
     
     public static Rect getBoundingRect(Actor actor) 
     {

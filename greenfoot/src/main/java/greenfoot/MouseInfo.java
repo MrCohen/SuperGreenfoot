@@ -21,6 +21,7 @@
  */
 package greenfoot;
 
+import greenfoot.core.WorldHandler;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -43,6 +44,8 @@ public class MouseInfo
     private int px;
     private int py;
     private int clickCount;;
+    // SuperGreenfoot: mouse wheel movement this act, in pixels (positive = down).
+    private int scrollAmount;
     
     /**
      * Do not create your own MouseInfo objects. Use
@@ -104,7 +107,53 @@ public class MouseInfo
     public int getClickCount() {
         return clickCount;
     }
+
+    /**
+     * How far the mouse wheel was turned during this act, in pixels. Positive means
+     * the wheel was rolled towards you (the content should scroll down); negative
+     * means away. Zero if the wheel was not used. Use
+     * {@link Greenfoot#mouseScrolled(Object)} to find out whether the wheel was used
+     * over a particular actor or window.
+     *
+     * @return The scroll amount, in pixels; 0 if the wheel was not used.
+     * @since SuperGreenfoot 1.0
+     */
+    public int getScrollAmount()
+    {
+        return scrollAmount;
+    }
+
+    /**
+     * The window under the mouse: the {@link SuperWindow} the mouse is over (its
+     * frame or its contents), or null if it is over the plain world. Use it to keep a
+     * click on an inventory window from also reaching the game behind it:
+     * <pre>
+     *   MouseInfo m = Greenfoot.getMouseInfo();
+     *   if (m != null &amp;&amp; m.getWindow() == null) { ... a click on the world ... }
+     * </pre>
+     *
+     * @return The window under the mouse, or null.
+     * @since SuperGreenfoot 1.0
+     */
+    @OnThread(value = Tag.Simulation, ignoreParent = true)
+    public SuperWindow getWindow()
+    {
+        if (actor instanceof SuperWindow) {
+            return (SuperWindow) actor;
+        }
+        if (actor != null && actor.window != null) {
+            return actor.window;
+        }
+        WorldHandler handler = WorldHandler.getInstance();
+        World world = handler == null ? null : handler.getWorld();
+        return world == null ? null : world.getWindowAtPixel(px, py);
+    }
     
+    void setScrollAmount(int amount)
+    {
+        this.scrollAmount = amount;
+    }
+
     void setButton(int button)
     {
         this.button = button;

@@ -696,6 +696,18 @@ public class VMCommsMain implements Closeable
     }
 
     /**
+     * SuperGreenfoot: send a mouse wheel event.
+     *
+     * @param x      The mouse x-coordinate (in pixels)
+     * @param y      The mouse y-coordinate (in pixels)
+     * @param amount The wheel movement in pixels; positive means towards the user (scroll down)
+     */
+    public synchronized void sendScrollEvent(int x, int y, int amount)
+    {
+        pendingCommands.add(new Command(MOUSE_SCROLLED, x, y, amount, 0));
+    }
+
+    /**
      * Set the simulation speed to a specified value
      *
      * @param speed   The speed value

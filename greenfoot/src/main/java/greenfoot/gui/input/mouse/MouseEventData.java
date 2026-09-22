@@ -52,6 +52,10 @@ class MouseEventData
     private MouseInfo mousePressedInfo;
     private MouseInfo mouseDraggedInfo;
     private MouseInfo mouseMovedInfo;
+    // SuperGreenfoot: mouse wheel movement this act. Kept separately from the other
+    // events because it never competes with them for priority.
+    private MouseInfo mouseScrolledInfo;
+    private int scrollTotal;
     private MouseEventData dragStartedBy;
 
     public void init()
@@ -61,6 +65,8 @@ class MouseEventData
         mouseDraggedInfo = null;
         mouseDragEndedInfo = null;
         mouseMovedInfo = null;
+        mouseScrolledInfo = null;
+        scrollTotal = 0;
         if (mouseInfo != null)
         {
             MouseInfo blankedMouseInfo = MouseInfoVisitor.newMouseInfo();
@@ -74,6 +80,9 @@ class MouseEventData
     
     public MouseInfo getMouseInfo()
     {
+        if (mouseInfo != null && scrollTotal != 0 && mouseInfo != mouseScrolledInfo) {
+            MouseInfoVisitor.setScrollAmount(mouseInfo, scrollTotal);
+        }
         return mouseInfo;
     }
 
@@ -98,7 +107,7 @@ class MouseEventData
      */
     public void mousePressed(int x, int y, int px, int py, int button)
     {
-        init();
+        initKeepingScroll();
         mousePressedInfo = MouseInfoVisitor.newMouseInfo();
         mouseInfo = mousePressedInfo;  
         MouseInfoVisitor.setButton(mouseInfo, button);
@@ -133,7 +142,7 @@ class MouseEventData
     public void mouseClicked(int x, int y, int px, int py, int button, int clickCount)
     {
         MouseInfo tempPressedInfo = mousePressedInfo;        
-        init();       
+        initKeepingScroll();       
         mousePressedInfo = tempPressedInfo;
         
         mouseClickedInfo = MouseInfoVisitor.newMouseInfo();;
@@ -165,7 +174,7 @@ class MouseEventData
      */
     public void mouseDragged(int x, int y, int px, int py, int button, Actor actor)
     {
-        init();
+        initKeepingScroll();
         mouseDraggedInfo = MouseInfoVisitor.newMouseInfo();
         mouseInfo = mouseDraggedInfo;
         MouseInfoVisitor.setButton(mouseInfo, button);
@@ -197,7 +206,7 @@ class MouseEventData
     {
         MouseInfo tempPressedInfo = mousePressedInfo;
         MouseInfo tempClickedInfo = mouseClickedInfo;
-        init();
+        initKeepingScroll();
         mousePressedInfo = tempPressedInfo;
         mouseClickedInfo = tempClickedInfo;
         mouseDragEndedInfo = MouseInfoVisitor.newMouseInfo();;
@@ -224,6 +233,48 @@ class MouseEventData
         return checkObject(obj, mouseMovedInfo);
     }
 
+    /** SuperGreenfoot: was the mouse wheel used this act? */
+    public boolean isMouseScrolled()
+    {
+        return mouseScrolledInfo != null;
+    }
+
+    /** SuperGreenfoot: was the mouse wheel used over the given object this act? */
+    public boolean isMouseScrolledOn(Object obj)
+    {
+        return checkObject(obj, mouseScrolledInfo);
+    }
+
+    /**
+     * SuperGreenfoot: the mouse wheel moved. Several wheel events in one act add up.
+     * Other events in the same act keep their priority; the scroll amount is carried
+     * on whichever MouseInfo is current.
+     */
+    public void mouseScrolled(int x, int y, int px, int py, int amount)
+    {
+        if (mouseScrolledInfo == null) {
+            mouseScrolledInfo = MouseInfoVisitor.newMouseInfo();
+        }
+        MouseInfoVisitor.setLoc(mouseScrolledInfo, x, y, px, py);
+        scrollTotal += amount;
+        MouseInfoVisitor.setScrollAmount(mouseScrolledInfo, scrollTotal);
+        if (mouseInfo == null || mouseInfo == mouseScrolledInfo
+                || (mousePressedInfo == null && mouseClickedInfo == null && mouseDraggedInfo == null
+                    && mouseDragEndedInfo == null)) {
+            mouseInfo = mouseScrolledInfo;
+        }
+    }
+
+    /** SuperGreenfoot: like init(), but a wheel movement earlier in this act survives. */
+    private void initKeepingScroll()
+    {
+        MouseInfo scrolled = mouseScrolledInfo;
+        int total = scrollTotal;
+        init();
+        mouseScrolledInfo = scrolled;
+        scrollTotal = total;
+    }
+
     /**
      * Record a mouse movement (with no buttons down) in the event data.
      * 
@@ -234,7 +285,7 @@ class MouseEventData
      */
     public void mouseMoved(int x, int y, int px, int py)
     {
-        init();
+        initKeepingScroll();
         mouseMovedInfo = MouseInfoVisitor.newMouseInfo();;
         mouseInfo = mouseMovedInfo;
         MouseInfoVisitor.setLoc(mouseInfo, x, y, px, py);
@@ -294,6 +345,9 @@ class MouseEventData
         if(mouseMovedInfo != null) {
             s += " moved";
         }
+        if(mouseScrolledInfo != null) {
+            s += " scrolled " + scrollTotal;
+        }
         return s;
     }
 
@@ -306,7 +360,7 @@ class MouseEventData
     public void setActors(WorldLocator locator)
     {
         for (MouseInfo info : Arrays.asList(mouseInfo, mouseClickedInfo, mouseDragEndedInfo,
-                mouseMovedInfo, mousePressedInfo, mouseDraggedInfo))
+                mouseMovedInfo, mousePressedInfo, mouseDraggedInfo, mouseScrolledInfo))
         {
             if (info != null && info.getActor() == null)
             {

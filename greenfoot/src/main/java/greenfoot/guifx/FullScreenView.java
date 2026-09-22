@@ -39,6 +39,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
@@ -213,6 +214,10 @@ public class FullScreenView extends Stage
             if (e.getEventType() == MouseEvent.MOUSE_PRESSED) {
                 imageView.requestFocus();
             }
+        });
+        imageView.addEventFilter(ScrollEvent.SCROLL, e -> {
+            owner.forwardWorldScrollEvent(e, toWorld(e.getSceneX(), e.getSceneY()));
+            e.consume();
         });
 
         setOnCloseRequest(e -> {

@@ -28,7 +28,9 @@ for the upstream base and every upstream file we change.
   outside `Simulation` and the sound mixer.
 - Public API changes: keep `getX()/getY()/getRotation()` returning `int`;
   add new methods rather than changing signatures; regenerate the user
-  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the nine API classes change.
+  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the ten API classes change
+  (the nine upstream classes plus `SuperWindow`; its API is in
+  `docs/api/superwindow.md`).
 - Commit messages end with a `Co-Authored-By:` line naming the Claude model
   that actually did the work in that session, for example
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
@@ -54,7 +56,7 @@ fails the build on thread-tag violations.
 
 | Concern | Path |
 |---|---|
-| Public API (nine classes) | `greenfoot/src/main/java/greenfoot/*.java` |
+| Public API (nine upstream classes + `SuperWindow`) | `greenfoot/src/main/java/greenfoot/*.java` |
 | Act loop / speed | `greenfoot/src/main/java/greenfoot/core/Simulation.java` |
 | Paint order sets | `greenfoot/src/main/java/greenfoot/{TreeActorSet,ActorSet}.java` |
 | Renderer | `greenfoot/src/main/java/greenfoot/gui/WorldRenderer.java` |
@@ -65,3 +67,4 @@ fails the build on thread-tag violations.
 | Export | `greenfoot/src/main/java/greenfoot/export/`, `guifx/export/` |
 | Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`) |
 | Regression scenario | `super-scenarios/MrCohenLibrary150/` |
+| Window demo | `super-scenarios/SuperWindowDemo/` |

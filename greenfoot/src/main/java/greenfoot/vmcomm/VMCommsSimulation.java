@@ -525,11 +525,15 @@ public class VMCommsSimulation
                 int x = data[1];
                 int y = data[2];
                 // The IDE sends the JavaFX MouseButton ordinal; convert to Greenfoot's 1/2/3.
-                int button = fxButtonToGreenfoot(data[3]);
+                // SuperGreenfoot: a scroll event carries the scroll amount, not a button.
+                int button = data[0] == Command.MOUSE_SCROLLED ? 0 : fxButtonToGreenfoot(data[3]);
                 int clickCount = data[4];
                 MousePollingManager mouseManager = WorldHandler.getInstance().getMouseManager();
                 switch (data[0])
                 {
+                    case Command.MOUSE_SCROLLED:
+                        mouseManager.mouseScrolled(x, y, data[3]);
+                        break;
                     case Command.MOUSE_CLICKED:
                         mouseManager.mouseClicked(x, y, button, clickCount);
                         break;

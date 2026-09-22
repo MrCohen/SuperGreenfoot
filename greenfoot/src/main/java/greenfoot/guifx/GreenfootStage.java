@@ -93,6 +93,7 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
@@ -1216,6 +1217,14 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
             {
                 Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
                 controller.forwardWorldMouseEvent(e, worldPos, true);
+            }
+        });
+        // SuperGreenfoot: the mouse wheel reaches the scenario too (SuperWindow scrolling).
+        worldDisplay.getImageView().addEventFilter(ScrollEvent.SCROLL, e -> {
+            if (controller != null)
+            {
+                Point2D worldPos = worldDisplay.sceneToWorld(new Point2D(e.getSceneX(), e.getSceneY()));
+                controller.forwardWorldScrollEvent(e, worldPos);
             }
         });
     }

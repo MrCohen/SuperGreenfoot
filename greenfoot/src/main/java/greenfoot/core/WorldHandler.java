@@ -23,6 +23,7 @@ package greenfoot.core;
 
 import greenfoot.Actor;
 import greenfoot.ActorVisitor;
+import greenfoot.SuperWindow;
 import greenfoot.World;
 import greenfoot.WorldVisitor;
 import greenfoot.core.Simulation.SimulationRunnable;
@@ -211,8 +212,16 @@ public class WorldHandler
     {
         dragActor = actor;
         dragActorMoved = false;
-        dragBeginX = ActorVisitor.getX(actor) * world.getCellSize() + world.getCellSize() / 2;
-        dragBeginY = ActorVisitor.getY(actor) * world.getCellSize() + world.getCellSize() / 2;
+        if (actor instanceof SuperWindow)
+        {
+            // SuperGreenfoot: dragging a window in the paused IDE brings it to the front,
+            // as pressing it in the running scenario would.
+            ((SuperWindow) actor).bringToFront();
+        }
+        // SuperGreenfoot: an actor inside a window has local coordinates; toPixelX/Y
+        // give its world pixel centre either way.
+        dragBeginX = ActorVisitor.toPixelX(actor, ActorVisitor.getX(actor));
+        dragBeginY = ActorVisitor.toPixelY(actor, ActorVisitor.getY(actor));
         dragOffsetX = dragBeginX - p.x;
         dragOffsetY = dragBeginY - p.y;
         this.dragId = dragId;
@@ -244,7 +253,8 @@ public class WorldHandler
         Collection<?> objectsThere = WorldVisitor.getObjectsAtPixel(world, x, y);
         if (objectsThere.isEmpty())
         {
-            return null;
+            // SuperGreenfoot: a modal window swallows events outside it.
+            return WorldVisitor.getModalWindow(world);
         }
 
         Iterator<?> iter = objectsThere.iterator();
@@ -262,6 +272,13 @@ public class WorldHandler
             }
         }
         
+        // SuperGreenfoot: while a modal window is open, everything outside it is
+        // reported as the modal window, so nothing behind it can be interacted with.
+        SuperWindow modal = WorldVisitor.getModalWindow(world);
+        if (modal != null && topmostActor != modal && ActorVisitor.getWindow(topmostActor) != modal)
+        {
+            return modal;
+        }
         return topmostActor;
     }
 
@@ -576,7 +593,17 @@ public class WorldHandler
         if (x < WorldVisitor.getWidthInCells(world) && y < WorldVisitor.getHeightInCells(world)
                 && x >= 0 && y >= 0) {
             Simulation.getInstance().runLater(() -> {
-                world.addObject(actor, x, y);
+                // SuperGreenfoot: dropping a new actor onto an open window puts it in the window.
+                SuperWindow target = actor instanceof SuperWindow ? null
+                        : WorldVisitor.getWindowAtPixel(world, xPixel, yPixel);
+                if (target != null && target.containsWorldPosition(x, y))
+                {
+                    target.addObject(actor, target.toLocalX(x), target.toLocalY(y));
+                }
+                else
+                {
+                    world.addObject(actor, x, y);
+                }
                 // Make sure we repaint after user adds something to the world,
                 // otherwise will look like lag:
                 Simulation.getInstance().paintRemote(true);
@@ -658,7 +685,16 @@ public class WorldHandler
                     // chooses not to call the inherited setLocation, the position
                     // will be as if the drag never happened:
                     ActorVisitor.setLocationInPixels(dragActor, dragBeginX, dragBeginY);
-                    dragActor.setLocation(ax, ay);
+                    if (ActorVisitor.getWindow(dragActor) != null)
+                    {
+                        // SuperGreenfoot: the IDE sends world cells; the actor lives in window cells.
+                        int cs = world.getCellSize();
+                        ActorVisitor.setLocationFromPixels(dragActor, ax * cs + cs / 2, ay * cs + cs / 2);
+                    }
+                    else
+                    {
+                        dragActor.setLocation(ax, ay);
+                    }
                 }
                 dragActor = null;
             }

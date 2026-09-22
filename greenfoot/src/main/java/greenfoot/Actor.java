@@ -114,6 +114,13 @@ public abstract class Actor
 
     /** Reference to the world that this actor is a part of. */
     World world;
+
+    /**
+     * SuperGreenfoot: the window that contains this actor, or null for an actor
+     * placed directly in the world. While inside a window, x, y, preciseX and
+     * preciseY are local to the window's content area (0,0 is its top-left cell).
+     */
+    SuperWindow window;
     
     // The stack trace for when this actor was last removed from a world (null if it has never been in a world).
     private Throwable lastWorldRemovalTrace = null;
@@ -196,7 +203,7 @@ public abstract class Actor
      */
     public int getX() throws IllegalStateException
     {
-        failIfNotInWorld();
+        failIfNotPlaced();
         return x;
     }
 
@@ -209,7 +216,7 @@ public abstract class Actor
      */
     public int getY()
     {
-        failIfNotInWorld();
+        failIfNotPlaced();
         return y;
     }
 
@@ -245,7 +252,7 @@ public abstract class Actor
      */
     public double getPreciseX()
     {
-        failIfNotInWorld();
+        failIfNotPlaced();
         return preciseX;
     }
 
@@ -259,7 +266,7 @@ public abstract class Actor
      */
     public double getPreciseY()
     {
-        failIfNotInWorld();
+        failIfNotPlaced();
         return preciseY;
     }
 
@@ -448,6 +455,23 @@ public abstract class Actor
     }
 
     /**
+     * Get the window that contains this actor, if it was added to a
+     * {@link SuperWindow} rather than directly to the world.
+     *
+     * <p>While an actor is inside a window, its location ({@link #getX()},
+     * {@link #getY()}, {@link #setLocation(int, int)} and friends) is measured in
+     * the window's own coordinates: (0,0) is the top-left cell of the window's
+     * content area, and the actor moves with the window.
+     *
+     * @return The containing window, or null if this actor is not inside a window.
+     * @since SuperGreenfoot 1.0
+     */
+    public SuperWindow getWindow()
+    {
+        return window;
+    }
+
+    /**
      * Round half away from zero, so that -2.5 becomes -3 and 2.5 becomes 3.
      * This is the rounding used to derive the int cell coordinates from the
      * precise coordinates (matching the SuperSmoothMover convention).
@@ -568,6 +592,10 @@ public abstract class Actor
         failIfNotInWorld();
         // We use <=,>= not == because actors can be outside the world bounds, and 
         // the method should still return true in this case
+        if (window != null) {
+            // Inside a window the edge is the edge of the window's content area.
+            return (x <= 0 || y <= 0 || x >= window.contentWidth - 1 || y >= window.contentHeight - 1);
+        }
         return (x <= 0 || y <= 0 || x >= world.getWidth() - 1 || y >= world.getHeight() - 1);
     }
 
@@ -709,11 +737,19 @@ public abstract class Actor
         // Note this should not call user code - because it is called off the
         // simulation thread. We must access world fields (width, height, cellSize) directly.
 
-        if (world != null) {
+        if (world != null || window != null) {
             int oldX = this.x;
             int oldY = this.y;
 
-            if (world.isBounded()) {
+            if (window != null) {
+                // SuperGreenfoot: inside a window the window's content area bounds the
+                // actor (only if the window asks for it); the world's bounds do not apply.
+                if (window.bounded) {
+                    px = limitValue(px, window.contentWidth);
+                    py = limitValue(py, window.contentHeight);
+                }
+            }
+            else if (world.isBounded()) {
                 px = limitValue(px, world.width);
                 py = limitValue(py, world.height);
             }
@@ -723,7 +759,7 @@ public abstract class Actor
             this.y = neutralRound(py);
 
             if (this.x != oldX || this.y != oldY) {
-                if (boundingRect != null) {
+                if (boundingRect != null && world != null) {
                     int dx = (this.x - oldX) * world.cellSize;
                     int dy = (this.y - oldY) * world.cellSize;
 
@@ -736,8 +772,34 @@ public abstract class Actor
                     }
                 }
                 locationChanged(oldX, oldY);
+                movedInWorld();
             }
         }
+    }
+
+    /**
+     * SuperGreenfoot: called after this actor's cell position changed. A window uses
+     * it to refresh the bounds of the actors it contains.
+     */
+    void movedInWorld()
+    {
+    }
+
+    /**
+     * SuperGreenfoot: set the local position of an actor that was just added to a
+     * window which is not (yet) in a world.
+     */
+    void placeInWindow(int x, int y)
+    {
+        if (window != null && window.bounded) {
+            x = limitValue(x, window.contentWidth);
+            y = limitValue(y, window.contentHeight);
+        }
+        this.x = x;
+        this.y = y;
+        this.preciseX = x;
+        this.preciseY = y;
+        boundingRect = null;
     }
 
     /**
@@ -886,8 +948,8 @@ public abstract class Actor
      */
     void setLocationInPixels(int x, int y)
     {
-        int xCell = world.toCellFloor(x);
-        int yCell = world.toCellFloor(y);
+        int xCell = world.toCellFloor(x - originPixelX());
+        int yCell = world.toCellFloor(y - originPixelY());
 
         if (xCell == this.x && yCell == this.y) {
             return;
@@ -914,7 +976,13 @@ public abstract class Actor
      */
     void addToWorld(int x, int y, World world)
     {
-        if (world.isBounded()) {
+        if (window != null) {
+            if (window.bounded) {
+                x = limitValue(x, window.contentWidth);
+                y = limitValue(y, window.contentHeight);
+            }
+        }
+        else if (world.isBounded()) {
             x = limitValue(x, world.getWidth());
             y = limitValue(y, world.getHeight());
         }
@@ -960,10 +1028,12 @@ public abstract class Actor
             return;
         }
         int cellSize = w.getCellSize();
+        int ox = originPixelX();
+        int oy = originPixelY();
         
         if (image == null) {
-            int wx = x * cellSize + cellSize / 2;
-            int wy = y * cellSize + cellSize / 2;
+            int wx = x * cellSize + cellSize / 2 + ox;
+            int wy = y * cellSize + cellSize / 2 + oy;
             boundingRect = new Rect(wx, wy, 0, 0);
             for (int i = 0; i < 4; i++) {
                 boundingXs[i] = wx;
@@ -987,8 +1057,8 @@ public abstract class Actor
                 height = image.getWidth();                
             }
             
-            int x = cellSize * this.x + (cellSize - width - 1) / 2;
-            int y = cellSize * this.y + (cellSize - height - 1) / 2;
+            int x = cellSize * this.x + (cellSize - width - 1) / 2 + ox;
+            int y = cellSize * this.y + (cellSize - height - 1) / 2 + oy;
             boundingRect = new Rect(x, y, width, height);
             boundingXs[0] = x; boundingYs[0] = y;
             boundingXs[1] = x + width - 1; boundingYs[1] = y;
@@ -1048,6 +1118,69 @@ public abstract class Actor
             throw new IllegalStateException(NO_WORLD);
         }
         return x * world.getCellSize() +  world.getCellSize()/2;
+    }
+
+    // ---- SuperGreenfoot: window (container) coordinate helpers ----
+
+    /**
+     * World-pixel x of the left edge of this actor's local cell 0: zero for an actor
+     * placed directly in the world, otherwise the pixel position of the containing
+     * window's content origin (after scrolling).
+     */
+    int originPixelX()
+    {
+        return window == null ? 0 : window.contentOriginPixelX();
+    }
+
+    /** See {@link #originPixelX()}. */
+    int originPixelY()
+    {
+        return window == null ? 0 : window.contentOriginPixelY();
+    }
+
+    /** World-pixel x of the centre of the given local cell x. */
+    int toPixelX(int localX)
+    {
+        return localX * world.cellSize + world.cellSize / 2 + originPixelX();
+    }
+
+    /** World-pixel y of the centre of the given local cell y. */
+    int toPixelY(int localY)
+    {
+        return localY * world.cellSize + world.cellSize / 2 + originPixelY();
+    }
+
+    /** The world cell containing the centre of the given local cell x. */
+    int worldCellX(int localX)
+    {
+        return window == null ? localX : world.toCellFloor(toPixelX(localX));
+    }
+
+    /** The world cell containing the centre of the given local cell y. */
+    int worldCellY(int localY)
+    {
+        return window == null ? localY : world.toCellFloor(toPixelY(localY));
+    }
+
+    /**
+     * Forget the cached bounds (the containing window moved, scrolled or resized)
+     * and tell the collision checker.
+     */
+    void containerMoved()
+    {
+        boundingRect = null;
+        if (world != null) {
+            world.updateObjectSize(this);
+        }
+    }
+
+    /**
+     * Whether this actor should act, be drawn and take part in collision queries:
+     * true unless it sits inside a window that is closed or minimised.
+     */
+    boolean isActive()
+    {
+        return window == null || window.isContentActive();
     }
 
     
@@ -1115,6 +1248,17 @@ public abstract class Actor
                 throw new IllegalStateException(ACTOR_LEFT_WORLD, lastWorldRemovalTrace);
         }
     }
+
+    /**
+     * Like {@link #failIfNotInWorld()}, but an actor inside a window has a
+     * location even before the window itself is in a world.
+     */
+    private void failIfNotPlaced()
+    {
+        if (window == null) {
+            failIfNotInWorld();
+        }
+    }
     
     /**
      * Calculated the co-ordinates of the bounding rectangle after it is rotated
@@ -1143,8 +1287,8 @@ public abstract class Actor
         double sinR = Math.sin(rotR);
         double cosR = Math.cos(rotR);
         
-        double xc = cellSize * x + cellSize / 2.;
-        double yc = cellSize * y + cellSize / 2.;
+        double xc = cellSize * x + cellSize / 2. + originPixelX();
+        double yc = cellSize * y + cellSize / 2. + originPixelY();
         
         // Do the actual rotation
         for (int i = 0; i < 4; i++) {
@@ -1217,15 +1361,12 @@ public abstract class Actor
                 return x == other.x && y == other.y;
             }
             
-            int cellSize = world.getCellSize();
-            
-            // We are a point, the other actor is a rect. Rotate our relative
-            return other.containsPoint(x * cellSize + cellSize / 2, y * cellSize + cellSize / 2);
+            // We are a point, the other actor is a rect.
+            return other.containsPoint(toPixelX(x), toPixelY(y));
         }
         else if (other.image == null) {
             // We are a rectangle, the other is a point
-            int cellSize = world.getCellSize();
-            return containsPoint(other.x * cellSize + cellSize / 2, other.y * cellSize + cellSize / 2);
+            return containsPoint(other.toPixelX(other.x), other.toPixelY(other.y));
         }
         else {
             Rect thisBounds = getBoundingRect();
@@ -1298,7 +1439,7 @@ public abstract class Actor
     protected <A> List<A> getObjectsAtOffset(int dx, int dy, Class<A> cls)
     {
         failIfNotInWorld();
-        return world.getObjectsAt(x + dx, y + dy, cls);
+        return world.getObjectsAtFor(this, worldCellX(x + dx), worldCellY(y + dy), cls);
     }
 
     /**
@@ -1316,7 +1457,7 @@ public abstract class Actor
     protected Actor getOneObjectAtOffset(int dx, int dy, Class<?> cls)
     {
         failIfNotInWorld();
-        return world.getOneObjectAt(this, x + dx, y + dy, cls);        
+        return world.getOneObjectAt(this, worldCellX(x + dx), worldCellY(y + dy), cls);
     }
     
     /**
@@ -1332,7 +1473,7 @@ public abstract class Actor
     protected <A> List<A> getObjectsInRange(int radius, Class<A> cls)
     {
         failIfNotInWorld();
-        List<A> inRange = world.getObjectsInRange(x, y, radius, cls);
+        List<A> inRange = world.getObjectsInRange(this, worldCellX(x), worldCellY(y), radius, cls);
         inRange.remove(this);
         return inRange;
     }

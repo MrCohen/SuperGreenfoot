@@ -755,8 +755,10 @@ public class IBSPColChecker implements CollisionChecker
     {
         int x = ActorVisitor.getX(actor);
         int y = ActorVisitor.getY(actor);
-        int xPixel = x * cellSize;
-        int yPixel = y * cellSize;
+        // SuperGreenfoot: an actor inside a window has local cell coordinates; its
+        // origin offset converts them to the world pixels the tree is built in.
+        int xPixel = x * cellSize + ActorVisitor.getOriginPixelX(actor);
+        int yPixel = y * cellSize + ActorVisitor.getOriginPixelY(actor);
         int dPixel = distance * cellSize;
         
         Rect r = new Rect(xPixel - dPixel, yPixel - dPixel, dPixel * 2 + 1, dPixel * 2 + 1);

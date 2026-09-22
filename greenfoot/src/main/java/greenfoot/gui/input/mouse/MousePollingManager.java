@@ -332,6 +332,36 @@ public class MousePollingManager
         return currentData.getMouseInfo();
     }   
 
+    /** SuperGreenfoot: was the mouse wheel used over the given object this act? */
+    @OnThread(Tag.Simulation)
+    public boolean isMouseScrolled(Object obj)
+    {
+        return currentData.isMouseScrolledOn(obj);
+    }
+
+    /**
+     * SuperGreenfoot: the mouse wheel moved.
+     *
+     * @param x      The mouse x position in world pixels.
+     * @param y      The mouse y position in world pixels.
+     * @param amount The movement in pixels; positive means rolled towards the user (scroll down).
+     */
+    @OnThread(Tag.Any)
+    public void mouseScrolled(int x, int y, int amount)
+    {
+        if (locator == null || amount == 0)
+        {
+            return;
+        }
+        synchronized (this)
+        {
+            registerEventRecieved();
+            int tx = locator.getTranslatedX(x);
+            int ty = locator.getTranslatedY(y);
+            futureData.mouseScrolled(tx, ty, x, y, amount);
+        }
+    }
+
     /**
      * The mouse got clicked at the given world location
      * @param x The pixel location in the world (not cells)

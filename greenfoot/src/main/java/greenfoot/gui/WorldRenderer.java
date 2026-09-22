@@ -25,6 +25,8 @@ import greenfoot.Actor;
 import greenfoot.ActorVisitor;
 import greenfoot.GreenfootImage;
 import greenfoot.ImageVisitor;
+import greenfoot.SuperWindow;
+import greenfoot.WindowVisitor;
 import greenfoot.World;
 import greenfoot.WorldVisitor;
 import greenfoot.core.TextLabel;
@@ -35,8 +37,11 @@ import threadchecker.Tag;
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -100,82 +105,145 @@ public class WorldRenderer
             return;
 
         // SuperGreenfoot: final paint order includes z / y-sorting; smooth mode
-        // draws at precise positions and rotations.
+        // draws at precise positions and rotations. Windows and their contents are
+        // skipped here and painted afterwards, on top, clipped to each window.
         Iterable<Actor> objects = WorldVisitor.getObjectsInFinalPaintOrder(drawWorld);
         boolean smooth = WorldVisitor.isSmoothRendering(drawWorld);
+        boolean windows = WorldVisitor.hasWindows(drawWorld);
         int cellSize = WorldVisitor.getCellSize(drawWorld);
         Object oldInterpolation = null;
         if (smooth) {
             oldInterpolation = g.getRenderingHint(RenderingHints.KEY_INTERPOLATION);
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         }
+        Map<SuperWindow, List<Actor>> contents = windows ? new HashMap<>() : null;
         int paintSeq = 0;
         for (Iterator<Actor> iter = objects.iterator(); iter.hasNext();) {
             Actor thing = iter.next();
-
-            GreenfootImage image = ActorVisitor.getDisplayImage(thing);
-            if (image != null) {
-                ActorVisitor.setLastPaintSeqNum(thing, paintSeq++);
-
-                double halfWidth = image.getWidth() / 2.;
-                double halfHeight = image.getHeight() / 2.;
-
-                AffineTransform oldTx = null;
-                try {
-                    if (smooth) {
-                        double px = ActorVisitor.getPreciseX(thing);
-                        double py = ActorVisitor.getPreciseY(thing);
-                        double xCenter = px * cellSize + cellSize / 2.;
-                        double yCenter = py * cellSize + cellSize / 2.;
-                        // Same placement convention as the non-smooth path (which floors
-                        // cellCentre - halfSize for whole-cell positions), shifted
-                        // continuously by the fractional part of the position. At whole
-                        // cell positions this is pixel-identical to the non-smooth path.
-                        double paintX = px * cellSize + Math.floor(cellSize / 2. - halfWidth);
-                        double paintY = py * cellSize + Math.floor(cellSize / 2. - halfHeight);
-                        double rotation = ActorVisitor.getPreciseImageRotation(thing);
-                        if (rotation != 0) {
-                            oldTx = g.getTransform();
-                            g.rotate(Math.toRadians(rotation), xCenter, yCenter);
-                        }
-                        ImageVisitor.drawImageSmooth(image, g, paintX, paintY, true);
+            if (windows) {
+                SuperWindow owner = ActorVisitor.getWindow(thing);
+                if (owner != null) {
+                    if (owner.isOpen() && !owner.isMinimized()) {
+                        contents.computeIfAbsent(owner, k -> new ArrayList<>()).add(thing);
                     }
-                    else {
-                        int ax = ActorVisitor.getX(thing);
-                        int ay = ActorVisitor.getY(thing);
-                        double xCenter = ax * cellSize + cellSize / 2.;
-                        int paintX = (int) Math.floor(xCenter - halfWidth);
-                        double yCenter = ay * cellSize + cellSize / 2.;
-                        int paintY = (int) Math.floor(yCenter - halfHeight);
-
-                        int rotation = ActorVisitor.getImageRotation(thing);
-                        if (rotation != 0) {
-                            // don't bother transforming if it is not rotated at
-                            // all.
-                            oldTx = g.getTransform();
-                            g.rotate(Math.toRadians(rotation), xCenter, yCenter);
-                        }
-
-                        ImageVisitor.drawImage(image, g, paintX, paintY, null, true);
+                    continue;
+                }
+                if (thing instanceof SuperWindow) {
+                    continue;
+                }
+            }
+            paintSeq = paintActor(g, thing, smooth, cellSize, paintSeq);
+        }
+        if (windows) {
+            for (SuperWindow w : WorldVisitor.getWindowsInPaintOrder(drawWorld)) {
+                if (!w.isOpen()) {
+                    continue;
+                }
+                // The frame is always drawn at whole pixels, like a non-smooth actor.
+                paintSeq = paintActor(g, w, false, cellSize, paintSeq);
+                if (w.isMinimized()) {
+                    continue;
+                }
+                Shape oldClip = g.getClip();
+                int left = WindowVisitor.getContentLeftPx(w);
+                int top = WindowVisitor.getContentTopPx(w);
+                int cw = WindowVisitor.getContentWidthPx(w);
+                int ch = WindowVisitor.getContentHeightPx(w);
+                g.clipRect(left, top, cw, ch);
+                GreenfootImage background = WindowVisitor.getBackgroundImage(w);
+                if (background != null) {
+                    ImageVisitor.drawImage(background, g,
+                            WindowVisitor.getContentOriginPixelX(w), WindowVisitor.getContentOriginPixelY(w), null, true);
+                }
+                List<Actor> inside = contents.get(w);
+                if (inside != null) {
+                    for (Actor thing : inside) {
+                        paintSeq = paintActor(g, thing, smooth, cellSize, paintSeq);
                     }
                 }
-                catch (IllegalStateException e) {
-                    // We get this if the object has been removed from the
-                    // world. That can happen when interactively invoking a
-                    // method that removes an object from the world, while the
-                    // scenario is executing.
+                GreenfootImage scrollBar = WindowVisitor.getScrollBarImage(w);
+                if (scrollBar != null) {
+                    ImageVisitor.drawImage(scrollBar, g, left + cw - scrollBar.getWidth(), top, null, true);
                 }
-
-                // Restore the old state of the graphics
-                if (oldTx != null) {
-                    g.setTransform(oldTx);
-                }
+                g.setClip(oldClip);
             }
         }
         if (smooth) {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                     oldInterpolation != null ? oldInterpolation : RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
         }
+    }
+
+    /**
+     * Paint one actor at its world position (for an actor inside a window, its
+     * local position offset by the window's content origin).
+     *
+     * @return The next paint sequence number.
+     */
+    private int paintActor(Graphics2D g, Actor thing, boolean smooth, int cellSize, int paintSeq)
+    {
+        GreenfootImage image = ActorVisitor.getDisplayImage(thing);
+        if (image == null) {
+            return paintSeq;
+        }
+        ActorVisitor.setLastPaintSeqNum(thing, paintSeq++);
+
+        double halfWidth = image.getWidth() / 2.;
+        double halfHeight = image.getHeight() / 2.;
+        int ox = ActorVisitor.getOriginPixelX(thing);
+        int oy = ActorVisitor.getOriginPixelY(thing);
+
+        AffineTransform oldTx = null;
+        try {
+            if (smooth) {
+                double px = ActorVisitor.getPreciseX(thing);
+                double py = ActorVisitor.getPreciseY(thing);
+                double xCenter = px * cellSize + cellSize / 2. + ox;
+                double yCenter = py * cellSize + cellSize / 2. + oy;
+                // Same placement convention as the non-smooth path (which floors
+                // cellCentre - halfSize for whole-cell positions), shifted
+                // continuously by the fractional part of the position. At whole
+                // cell positions this is pixel-identical to the non-smooth path.
+                double paintX = px * cellSize + Math.floor(cellSize / 2. - halfWidth) + ox;
+                double paintY = py * cellSize + Math.floor(cellSize / 2. - halfHeight) + oy;
+                double rotation = ActorVisitor.getPreciseImageRotation(thing);
+                if (rotation != 0) {
+                    oldTx = g.getTransform();
+                    g.rotate(Math.toRadians(rotation), xCenter, yCenter);
+                }
+                ImageVisitor.drawImageSmooth(image, g, paintX, paintY, true);
+            }
+            else {
+                int ax = ActorVisitor.getX(thing);
+                int ay = ActorVisitor.getY(thing);
+                double xCenter = ax * cellSize + cellSize / 2. + ox;
+                int paintX = (int) Math.floor(xCenter - halfWidth);
+                double yCenter = ay * cellSize + cellSize / 2. + oy;
+                int paintY = (int) Math.floor(yCenter - halfHeight);
+
+                int rotation = ActorVisitor.getImageRotation(thing);
+                if (rotation != 0) {
+                    // don't bother transforming if it is not rotated at
+                    // all.
+                    oldTx = g.getTransform();
+                    g.rotate(Math.toRadians(rotation), xCenter, yCenter);
+                }
+
+                ImageVisitor.drawImage(image, g, paintX, paintY, null, true);
+            }
+        }
+        catch (IllegalStateException e) {
+            // We get this if the object has been removed from the
+            // world. That can happen when interactively invoking a
+            // method that removes an object from the world, while the
+            // scenario is executing.
+        }
+
+        // Restore the old state of the graphics
+        if (oldTx != null) {
+            g.setTransform(oldTx);
+        }
+        return paintSeq;
     }
 
     /**

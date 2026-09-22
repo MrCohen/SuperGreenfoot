@@ -82,4 +82,10 @@ public class MouseInfoVisitor
     {
         return info.getPy();
     }
+
+    /** SuperGreenfoot: record the mouse wheel movement (pixels, positive = down). */
+    public static void setScrollAmount(MouseInfo info, int amount)
+    {
+        info.setScrollAmount(amount);
+    }
 }

@@ -98,6 +98,7 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -1554,6 +1555,24 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             debugHandler.getVmComms().sendMouseEvent(
                     eventType, (int) worldPos.getX(), (int) worldPos.getY(),
                     button.ordinal(), e.getClickCount());
+        }
+    }
+
+    /**
+     * SuperGreenfoot: forward a mouse wheel (or trackpad scroll) event over the
+     * world view to the scenario in the debug VM.
+     */
+    public void forwardWorldScrollEvent(ScrollEvent e, Point2D worldPos)
+    {
+        if (disposed || view.isPlacingActor())
+        {
+            return;
+        }
+        // JavaFX deltaY is negative when scrolling down; the scenario wants positive = down.
+        int amount = (int) Math.round(-e.getDeltaY());
+        if (amount != 0)
+        {
+            debugHandler.getVmComms().sendScrollEvent((int) worldPos.getX(), (int) worldPos.getY(), amount);
         }
     }
 

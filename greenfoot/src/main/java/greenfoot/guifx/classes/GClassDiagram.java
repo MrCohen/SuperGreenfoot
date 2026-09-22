@@ -236,7 +236,10 @@ public class GClassDiagram extends BorderPane
         GClassNode worldClassesInfo = new BuiltInGClassNode(GClassType.WORLD, worldSubclasses, this);
         worldClasses.setClasses(Collections.singletonList(worldClassesInfo));
 
+        // SuperGreenfoot: SuperWindow is a built-in Actor subclass; its subclasses sit under it.
+        List<GClassNode> windowSubclasses = findAllSubclasses("greenfoot.SuperWindow", classTargets, GClassType.ACTOR);
         List<GClassNode> actorSubclasses = findAllSubclasses("greenfoot.Actor", classTargets, GClassType.ACTOR);
+        actorSubclasses.add(new BuiltInGClassNode(GClassType.ACTOR, "SuperWindow", windowSubclasses, this));
         GClassNode actorClassesInfo = new BuiltInGClassNode(GClassType.ACTOR, actorSubclasses, this);
         actorClasses.setClasses(Collections.singletonList(actorClassesInfo));
         

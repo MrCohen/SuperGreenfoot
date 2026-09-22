@@ -502,6 +502,8 @@ public class Simulation extends Thread
 
         try
         {
+            // SuperGreenfoot: windows handle dragging, buttons and scrolling first.
+            WorldVisitor.processWindows(world, worldHandler.getMouseManager());
             actWorld(world);
             if (world != worldHandler.getWorld())
             {
@@ -533,7 +535,8 @@ public class Simulation extends Thread
             {
                 return;
             }
-            if (ActorVisitor.getWorld(actor) != null)
+            // SuperGreenfoot: actors inside a closed or minimised window do not act.
+            if (ActorVisitor.getWorld(actor) != null && ActorVisitor.isActing(actor))
             {
                 try
                 {
