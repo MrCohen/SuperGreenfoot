@@ -1277,6 +1277,10 @@ public final class Package
         }
 
         SortedProperties props = new SortedProperties();
+        // SuperGreenfoot: keep every key from the file that this save does not
+        // itself produce (main.class, project.name, scenario.lock, anything a
+        // user or a tool put there), so saving never silently drops it.
+        keepUnmanagedKeys(lastSavedProps, props);
         props.putAll(frameProperties);
 
         // save targets and dependencies in package
@@ -1315,6 +1319,42 @@ public final class Package
             return;
         }
         lastSavedProps = props;
+    }
+
+    /**
+     * SuperGreenfoot: copy into {@code into} every key of {@code from} that a
+     * save does not produce itself. The keys a save always rewrites in full
+     * (target and dependency blocks, editor windows, package layout, the
+     * readme target, class images, the shared-memory size) are left out, so
+     * stale blocks from an earlier save cannot linger; everything else is
+     * kept as it was, and a caller's own keys put afterwards win.
+     */
+    static void keepUnmanagedKeys(Properties from, Properties into)
+    {
+        for (String key : from.stringPropertyNames()) {
+            if (!isManagedKey(key)) {
+                into.put(key, from.getProperty(key));
+            }
+        }
+    }
+
+    /**
+     * True for a key that {@link #save(Properties)} and its callers rewrite
+     * from scratch on every save, so it must not be carried over from the
+     * last file.
+     */
+    static boolean isManagedKey(String key)
+    {
+        if (key.startsWith("target") || key.startsWith("dependency")) {
+            int i = key.startsWith("target") ? 6 : 10;
+            int start = i;
+            while (i < key.length() && Character.isDigit(key.charAt(i))) {
+                i++;
+            }
+            return i > start && i < key.length() && key.charAt(i) == '.';
+        }
+        return key.startsWith("package.") || key.startsWith("readme.") || key.startsWith("editor.")
+                || key.startsWith("class.") || key.equals("shm.size");
     }
 
     /**
