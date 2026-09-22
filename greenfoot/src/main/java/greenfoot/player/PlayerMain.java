@@ -45,7 +45,8 @@ import java.util.Properties;
  *
  * Options: {@code --fullscreen} start full screen, {@code --run} start running
  * (also implied by scenario.hideControls), {@code --headless N} run N act
- * cycles without a window (tests/tools).
+ * cycles without a window (tests/tools), {@code --no-render} run without
+ * drawing the world at all.
  */
 @OnThread(Tag.Any)
 public final class PlayerMain
@@ -60,10 +61,14 @@ public final class PlayerMain
         boolean fullScreen = false;
         boolean autoRun = false;
         int headlessCycles = -1;
+        boolean noRender = false;
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
             if (a.equals("--fullscreen")) {
                 fullScreen = true;
+            }
+            else if (a.equals("--no-render")) {
+                noRender = true;
             }
             else if (a.equals("--run")) {
                 autoRun = true;
@@ -96,6 +101,9 @@ public final class PlayerMain
         if (headlessCycles >= 0) {
             System.setProperty("java.awt.headless", "true");
             PlayerSession session = PlayerSession.create(loader, saveDir, null);
+            // Nobody is watching, so do not draw the world: that is most of what
+            // a headless run costs.
+            session.setRenderingEnabled(false);
             session.start();
             for (int i = 0; i < headlessCycles; i++) {
                 session.act();
@@ -115,6 +123,11 @@ public final class PlayerMain
         System.setProperty("apple.awt.application.name", saveName);
 
         PlayerSession session = PlayerSession.create(loader, saveDir, null);
+        if (noRender) {
+            // A window still opens, but stays empty: for timing the simulation on
+            // its own, and for a dedicated run that only serves other players.
+            session.setRenderingEnabled(false);
+        }
         boolean run = autoRun || session.isControlsHidden();
         boolean fs = fullScreen;
         SwingUtilities.invokeLater(() -> {

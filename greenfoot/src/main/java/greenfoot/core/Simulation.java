@@ -30,6 +30,7 @@ import greenfoot.event.SimulationListener.AsyncEvent;
 import greenfoot.event.SimulationListener.SyncEvent;
 import greenfoot.event.WorldEvent;
 import greenfoot.event.WorldListener;
+import greenfoot.util.GraphicsUtilities;
 import greenfoot.util.HDTimer;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -190,6 +191,10 @@ public class Simulation extends Thread
     
     private void runContent()
     {
+        // SuperGreenfoot: load the font machinery before the first world is built,
+        // so a scenario's first drawString does not freeze play for a moment.
+        GraphicsUtilities.warmUpFonts();
+
         while (!abort) {
             try {
                 maybePause();

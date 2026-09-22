@@ -447,6 +447,50 @@ public class GraphicsUtilities {
         return r;
     }
     
+    /** True once the font warm-up has run, so it happens once per JVM. */
+    private static boolean fontsWarmedUp = false;
+
+    /**
+     * SuperGreenfoot: pay the JDK's one-off font set-up cost now, rather than the
+     * first time a scenario draws text.
+     *
+     * <p>The first {@code drawString} in a JVM costs a few hundred milliseconds
+     * while the font system finds and loads the platform fonts. In a game that is
+     * a visible freeze the first time a score, a speech bubble or a panel appears.
+     * Drawing one throwaway string moves that cost to start-up, where a pause of
+     * that length is not noticed.
+     *
+     * <p>Best effort: any failure is swallowed, because a warm-up that does not
+     * happen only means the first real {@code drawString} pays the cost as before.
+     * Called on the simulation thread as it starts.
+     */
+    public static synchronized void warmUpFonts()
+    {
+        if (fontsWarmedUp) {
+            return;
+        }
+        fontsWarmedUp = true;
+        try {
+            BufferedImage image = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = image.createGraphics();
+            try {
+                // The same calls GreenfootImage.drawString makes, so the same
+                // machinery is loaded: metrics, the antialiased text pipeline, and
+                // the glyph cache for the default font.
+                g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                        RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                g.getFontMetrics(g.getFont()).getHeight();
+                g.drawString("Hg", 0, 8);
+            }
+            finally {
+                g.dispose();
+            }
+        }
+        catch (Throwable t) {
+            // Never let a warm-up stop the simulation from starting.
+        }
+    }
+
     public static class MultiLineStringDimensions
     {
         private Shape[] lineShapes;

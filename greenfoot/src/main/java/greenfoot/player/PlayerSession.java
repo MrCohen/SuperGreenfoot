@@ -274,6 +274,22 @@ public final class PlayerSession
         WorldHandler.getInstance().instantiateNewWorld(worldClassName);
     }
 
+    /**
+     * Turn world rendering on or off. Off means no frame is ever drawn, which
+     * is what a headless test, a playtest or a dedicated server wants: rendering
+     * a world nobody is watching is most of what such a run costs. Everything
+     * else - acts, collisions, sound, saves - carries on unchanged.
+     */
+    public void setRenderingEnabled(boolean enabled)
+    {
+        delegate.setRenderingEnabled(enabled);
+    }
+
+    public boolean isRenderingEnabled()
+    {
+        return delegate.isRenderingEnabled();
+    }
+
     public void setSpeed(int speed)
     {
         Simulation.getInstance().setSpeed(speed);

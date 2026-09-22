@@ -62,6 +62,14 @@ public class WorldHandlerDelegatePlayer implements WorldHandlerDelegate
     @OnThread(Tag.Any)
     private volatile long minFrameInterval = 8_000_000L;
 
+    /**
+     * SuperGreenfoot: when false, {@link #paint} does nothing at all. A headless
+     * run, a playtest or a dedicated server has nobody to show frames to, and
+     * rendering them is most of what such a run costs.
+     */
+    @OnThread(Tag.Any)
+    private volatile boolean renderingEnabled = true;
+
     @OnThread(Tag.Any)
     private final AtomicReference<BufferedImage> pendingImage = new AtomicReference<>(null);
     @OnThread(Tag.Any)
@@ -82,6 +90,23 @@ public class WorldHandlerDelegatePlayer implements WorldHandlerDelegate
     public BufferedImage takeFrame()
     {
         return pendingImage.getAndSet(null);
+    }
+
+    /**
+     * Turn world rendering on or off. With it off no frame is drawn, so
+     * {@link #takeFrame} keeps returning null; everything else about the
+     * simulation is unchanged. Off is for runs nobody is watching.
+     */
+    @OnThread(Tag.Any)
+    public void setRenderingEnabled(boolean enabled)
+    {
+        renderingEnabled = enabled;
+    }
+
+    @OnThread(Tag.Any)
+    public boolean isRenderingEnabled()
+    {
+        return renderingEnabled;
     }
 
     @OnThread(Tag.Any)
@@ -141,7 +166,7 @@ public class WorldHandlerDelegatePlayer implements WorldHandlerDelegate
     @Override
     public void paint(World world, boolean forcePaint)
     {
-        if (world == null) {
+        if (world == null || !renderingEnabled) {
             return;
         }
         long now = System.nanoTime();
