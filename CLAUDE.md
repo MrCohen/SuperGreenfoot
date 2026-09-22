@@ -40,7 +40,7 @@ for the upstream base and every upstream file we change.
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew :greenfoot:compileJava      # engine + IDE
-./gradlew :greenfoot:test             # headless engine tests (199 pass on 2026-09-22)
+./gradlew :greenfoot:test             # headless engine tests (200 pass on 2026-09-22)
 ./gradlew runGreenfoot                # launch the IDE
 ```
 
