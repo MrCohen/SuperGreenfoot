@@ -22,6 +22,7 @@
  */
 package greenfoot.guifx.controller;
 
+import bluej.pkgmgr.ProjectLayoutStore;
 import bluej.Boot;
 import bluej.Config;
 import bluej.collect.DataCollector;
@@ -2322,6 +2323,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 p.put("world.lastInstantiated", currentWorld.getQualifiedName());
             }
             project.saveEditorLocations(p);
+            // SuperGreenfoot: window geometry went to the user's layout store
+            ProjectLayoutStore.get().flush();
             List<String> classNames = new ArrayList<>();
             for (ClassTarget classTarget : project.getUnnamedPackage().getClassTargets())
             {

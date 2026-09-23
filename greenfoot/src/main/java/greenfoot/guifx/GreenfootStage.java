@@ -21,6 +21,8 @@
  */
 package greenfoot.guifx;
 
+import java.util.function.Function;
+import bluej.pkgmgr.ProjectLayoutStore;
 import bluej.Boot;
 import bluej.Config;
 import bluej.Main;
@@ -406,9 +408,18 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
             controller.start();
         }
 
+        // SuperGreenfoot: the window geometry comes from the user's own layout
+        // store (it is per machine); the project file is only consulted for a
+        // scenario last saved by an older version or by stock Greenfoot.
         Properties lastSavedProperties = project.getUnnamedPackage().getLastSavedProperties();
-        String xPosition = lastSavedProperties.getProperty("xPosition");
-        String yPosition = lastSavedProperties.getProperty("yPosition");
+        ProjectLayoutStore layouts = ProjectLayoutStore.get();
+        File projectDir = project.getProjectDir();
+        Function<String, String> geometry = key -> {
+            String value = layouts.get(projectDir, key);
+            return value != null ? value : lastSavedProperties.getProperty(key);
+        };
+        String xPosition = geometry.apply("xPosition");
+        String yPosition = geometry.apply("yPosition");
         
         if (xPosition != null && yPosition != null)
         {
@@ -417,8 +428,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
             setY(location.getY());
         }
 
-        String width = lastSavedProperties.getProperty("width");
-        String height = lastSavedProperties.getProperty("height");
+        String width = geometry.apply("width");
+        String height = geometry.apply("height");
         if (width != null)
         {
             setWidth(Double.valueOf(width));
@@ -711,10 +722,17 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
     @OnThread(Tag.FXPlatform)
     public void writeViewProperties(Properties p)
     {
-        p.put("width", Integer.toString((int) this.getWidth()));
-        p.put("height", Integer.toString((int) this.getHeight()));
-        p.put("xPosition", Integer.toString((int) Math.max(this.getX(), 0)));
-        p.put("yPosition", Integer.toString((int) Math.max(this.getY(), 0)));
+        // SuperGreenfoot: to the user's layout store, not the project file.
+        if (project == null)
+        {
+            return;
+        }
+        ProjectLayoutStore layouts = ProjectLayoutStore.get();
+        File projectDir = project.getProjectDir();
+        layouts.put(projectDir, "width", Integer.toString((int) this.getWidth()));
+        layouts.put(projectDir, "height", Integer.toString((int) this.getHeight()));
+        layouts.put(projectDir, "xPosition", Integer.toString((int) Math.max(this.getX(), 0)));
+        layouts.put(projectDir, "yPosition", Integer.toString((int) Math.max(this.getY(), 0)));
     }
 
     /**

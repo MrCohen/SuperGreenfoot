@@ -22,6 +22,7 @@
  */
 package greenfoot.guifx.superide;
 
+import bluej.pkgmgr.ProjectLayoutStore;
 import bluej.Boot;
 import bluej.Config;
 import bluej.Main;
@@ -167,9 +168,6 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
     private static final String KEY_OUTPUT_OPEN = "ui.panel.output.open";
     private static final String KEY_CLASS_VIEW = "ui.classes.view";
     private static final String KEY_ZOOM = "ui.world.zoom";
-
-    // The Classic window's settings in project.greenfoot, which must survive our saves:
-    private static final String[] CLASSIC_WINDOW_KEYS = {"width", "height", "xPosition", "yPosition"};
 
     // A world that has not sent an image yet is laid out at this size (so that an
     // ask prompt during its construction can be seen):
@@ -681,15 +679,17 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         {
             return;
         }
-        int width = settings.getInt(KEY_WIDTH, -1);
-        int height = settings.getInt(KEY_HEIGHT, -1);
+        // The user's layout store first (geometry is per machine); the
+        // scenario's settings file only for one saved by an older version.
+        int width = layoutInt(KEY_WIDTH, -1);
+        int height = layoutInt(KEY_HEIGHT, -1);
         if (width > 0 && height > 0)
         {
             setWidth(width);
             setHeight(height);
         }
-        int x = settings.getInt(KEY_X, Integer.MIN_VALUE);
-        int y = settings.getInt(KEY_Y, Integer.MIN_VALUE);
+        int x = layoutInt(KEY_X, Integer.MIN_VALUE);
+        int y = layoutInt(KEY_Y, Integer.MIN_VALUE);
         if (x != Integer.MIN_VALUE && y != Integer.MIN_VALUE)
         {
             Point2D location = Config.ensureOnScreen(x, y);
@@ -730,12 +730,19 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         {
             return;
         }
-        if (!Double.isNaN(getX()) && !Double.isNaN(getWidth()))
+        if (!Double.isNaN(getX()) && !Double.isNaN(getWidth()) && project != null)
         {
-            settings.put(KEY_X, Integer.toString((int) Math.max(getX(), 0)));
-            settings.put(KEY_Y, Integer.toString((int) Math.max(getY(), 0)));
-            settings.put(KEY_WIDTH, Integer.toString((int) getWidth()));
-            settings.put(KEY_HEIGHT, Integer.toString((int) getHeight()));
+            ProjectLayoutStore layouts = ProjectLayoutStore.get();
+            File projectDir = project.getProjectDir();
+            layouts.put(projectDir, KEY_X, Integer.toString((int) Math.max(getX(), 0)));
+            layouts.put(projectDir, KEY_Y, Integer.toString((int) Math.max(getY(), 0)));
+            layouts.put(projectDir, KEY_WIDTH, Integer.toString((int) getWidth()));
+            layouts.put(projectDir, KEY_HEIGHT, Integer.toString((int) getHeight()));
+            // Versions before 0.1.3 kept the geometry in the scenario; tidy it away.
+            for (String key : new String[] {KEY_X, KEY_Y, KEY_WIDTH, KEY_HEIGHT})
+            {
+                settings.put(key, null);
+            }
         }
         settings.put(KEY_CLASSES_OPEN, Boolean.toString(leftOpenProperty().get()));
         settings.put(KEY_INSPECTOR_OPEN, Boolean.toString(rightOpenProperty().get()));
@@ -776,22 +783,34 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
     @OnThread(Tag.FXPlatform)
     public void writeViewProperties(Properties p)
     {
-        // The project file is rewritten from scratch on every save; keep the Classic
-        // window's position and size in it, so that the Classic IDE finds them again:
+        // Nothing goes in the project file: the Classic window keeps its own
+        // geometry in the user's layout store, and this window's settings go in
+        // supergreenfoot.properties (panels, view) and the layout store (geometry).
+        saveWindowSettings();
+    }
+
+    /**
+     * A geometry value: the user's layout store first, then the scenario's
+     * settings file (where versions before 0.1.3 kept it).
+     */
+    private int layoutInt(String key, int defaultValue)
+    {
         if (project != null)
         {
-            Properties last = project.getUnnamedPackage().getLastSavedProperties();
-            for (String key : CLASSIC_WINDOW_KEYS)
+            String value = ProjectLayoutStore.get().get(project.getProjectDir(), key);
+            if (value != null)
             {
-                String value = last.getProperty(key);
-                if (value != null)
+                try
                 {
-                    p.put(key, value);
+                    return Integer.parseInt(value.trim());
+                }
+                catch (NumberFormatException e)
+                {
+                    // fall through to the settings file
                 }
             }
         }
-        // This window's own settings go in supergreenfoot.properties instead:
-        saveWindowSettings();
+        return settings.getInt(key, defaultValue);
     }
 
     // ------------------------------------------------------------- the world

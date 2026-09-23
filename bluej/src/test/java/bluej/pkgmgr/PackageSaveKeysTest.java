@@ -50,6 +50,11 @@ public class PackageSaveKeysTest
         assertTrue(Package.isManagedKey("editor.fx.0.width"));
         assertTrue(Package.isManagedKey("class.Boar.image"));
         assertTrue(Package.isManagedKey("shm.size"));
+        // The window geometry lives in the user's layout store since 0.1.3
+        assertTrue(Package.isManagedKey("width"));
+        assertTrue(Package.isManagedKey("height"));
+        assertTrue(Package.isManagedKey("xPosition"));
+        assertTrue(Package.isManagedKey("yPosition"));
 
         assertFalse(Package.isManagedKey("main.class"));
         assertFalse(Package.isManagedKey("project.name"));
@@ -79,6 +84,7 @@ public class PackageSaveKeysTest
         lastSaved.setProperty("editor.fx.1.x", "10");
         lastSaved.setProperty("class.Gone.image", "gone.png");
         lastSaved.setProperty("shm.size", "999");
+        lastSaved.setProperty("xPosition", "1806");
 
         Properties props = new Properties();
         Package.keepUnmanagedKeys(lastSaved, props);
@@ -94,5 +100,6 @@ public class PackageSaveKeysTest
         assertNull(props.getProperty("editor.fx.1.x"));
         assertNull(props.getProperty("class.Gone.image"));
         assertNull(props.getProperty("shm.size"));
+        assertNull(props.getProperty("xPosition"));
     }
 }

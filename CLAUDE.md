@@ -71,4 +71,5 @@ fails the build on thread-tag violations.
 | Export | `greenfoot/src/main/java/greenfoot/export/`, `guifx/export/` |
 | Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`); `NetworkTest` runs real sockets on loopback |
 | Regression scenario | `super-scenarios/MrCohenLibrary150/` |
+| What the IDE writes into a scenario | `project.greenfoot` (settings only, no class layout: `bluej/pkgmgr/Package.java`), `supergreenfoot.properties` (folders, folds, panels: `guifx/superide/folders/ProjectSettingsFile.java`); no `.ctxt` files (`bluej/views/View.java` reads the cached parse). Window geometry is per user in `scenario-layouts.properties` (`bluej/pkgmgr/ProjectLayoutStore.java`). |
 | Window demo | `super-scenarios/SuperWindowDemo/` |

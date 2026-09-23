@@ -991,6 +991,25 @@ public final class Package
                 }
             }
 
+            // SuperGreenfoot: the cascade below follows the "uses" arrows saved
+            // in the project file, which Greenfoot mode no longer writes (and
+            // upstream never saved the extends arrows, so subclasses were missed
+            // anyway). In Greenfoot mode a stale class therefore marks every
+            // class with source for compilation; Greenfoot compiles the whole
+            // package as soon as anything is uncompiled, so nothing is left with
+            // a class file older than what it depends on.
+            if (Config.isGreenfoot() && !invalidated.isEmpty()) {
+                for (Target target : targetsCopy) {
+                    if (target instanceof ClassTarget) {
+                        ClassTarget ct = (ClassTarget) target;
+                        if (ct.isCompiled() && ct.hasSourceCode()) {
+                            ct.setState(State.NEEDS_COMPILE);
+                        }
+                    }
+                }
+                invalidated.clear();
+            }
+
             while (! invalidated.isEmpty()) {
                 ClassTarget ct = invalidated.removeFirst();
                 for (Dependency dependent : ct.dependentsAsList()) {
@@ -1283,6 +1302,34 @@ public final class Package
         keepUnmanagedKeys(lastSavedProps, props);
         props.putAll(frameProperties);
 
+        // SuperGreenfoot: in Greenfoot mode the class-diagram layout (target
+        // positions, the readme target, the "uses" arrows) is not written.
+        // Greenfoot lays its diagram out by inheritance and never reads the
+        // positions; the arrows are recomputed on every compile; and the
+        // loader adds a target for every source file on disk anyway, which
+        // is the path stock Greenfoot takes for a new scenario. The file then
+        // holds only the scenario's settings.
+        if (!Config.isGreenfoot()) {
+            saveLayout(props);
+        }
+
+        try {
+            packageFile.save(props);
+        }
+        catch (IOException e) {
+            Debug.reportError("Exception when saving package file : " + e);
+            return;
+        }
+        lastSavedProps = props;
+    }
+
+    /**
+     * Save the class-diagram layout: every saveable target's block, the readme
+     * target, and the "uses" arrows, with their counts.
+     */
+    @OnThread(Tag.FXPlatform)
+    private synchronized void saveLayout(Properties props)
+    {
         // save targets and dependencies in package
         props.put("package.numDependencies", String.valueOf(usesArrows.size()));
 
@@ -1310,22 +1357,14 @@ public final class Package
             Dependency d = usesArrows.get(i);
             d.save(props, "dependency" + (i + 1));
         }
-
-        try {
-            packageFile.save(props);
-        }
-        catch (IOException e) {
-            Debug.reportError("Exception when saving package file : " + e);
-            return;
-        }
-        lastSavedProps = props;
     }
 
     /**
      * SuperGreenfoot: copy into {@code into} every key of {@code from} that a
      * save does not produce itself. The keys a save always rewrites in full
      * (target and dependency blocks, editor windows, package layout, the
-     * readme target, class images, the shared-memory size) are left out, so
+     * readme target, class images, the shared-memory size, the window
+     * geometry, which lives in the user's preferences) are left out, so
      * stale blocks from an earlier save cannot linger; everything else is
      * kept as it was, and a caller's own keys put afterwards win.
      */
@@ -1354,7 +1393,9 @@ public final class Package
             return i > start && i < key.length() && key.charAt(i) == '.';
         }
         return key.startsWith("package.") || key.startsWith("readme.") || key.startsWith("editor.")
-                || key.startsWith("class.") || key.equals("shm.size");
+                || key.startsWith("class.") || key.equals("shm.size")
+                || key.equals("width") || key.equals("height")
+                || key.equals("xPosition") || key.equals("yPosition");
     }
 
     /**
@@ -2812,17 +2853,29 @@ public final class Package
                      * compute ctxt files (files with comments and parameters
                      * names)
                      */
-                    try {
-                        ClassInfo info = t.getSourceInfo().getInfo(t.getJavaSourceFile(), t.getPackage());
-
-                        if (info != null) {
-                            OutputStream out = new FileOutputStream(t.getContextFile());
-                            info.getComments().store(out, "BlueJ class context");
-                            out.close();
+                    if (Config.isGreenfoot()) {
+                        // SuperGreenfoot: the dialogs take the comments from the
+                        // cached parse (View.loadProjectComments), so no .ctxt is
+                        // written; one left by stock Greenfoot is removed as its
+                        // class compiles, and stock Greenfoot writes it again.
+                        File context = t.getContextFile();
+                        if (context.exists() && !context.delete()) {
+                            Debug.message("Could not remove " + context);
                         }
                     }
-                    catch (Exception ex) {
-                        ex.printStackTrace();
+                    else {
+                        try {
+                            ClassInfo info = t.getSourceInfo().getInfo(t.getJavaSourceFile(), t.getPackage());
+
+                            if (info != null) {
+                                OutputStream out = new FileOutputStream(t.getContextFile());
+                                info.getComments().store(out, "BlueJ class context");
+                                out.close();
+                            }
+                        }
+                        catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     }
                 }
             }

@@ -73,10 +73,14 @@ public class ProjectSettingsFile
     private static final String HEADER =
         "# Super Greenfoot settings for this scenario (class folders, folded classes, view state).\n"
         + "# Stock Greenfoot ignores this file. Safe to delete: folders and folds are then lost,\n"
-        + "# but no code is affected.\n";
+        + "# but no code is affected.\n"
+        + "# SuperGreenfoot rewrites this file. Comment lines above the first setting are kept;\n"
+        + "# comments anywhere else are lost.\n";
 
     private final File file;
     private final Map<String, String> values = new HashMap<>();
+    /** The comment lines at the top of the file as read, written back verbatim; empty for the stock header. */
+    private String header = "";
     private boolean dirty = false;
     private boolean unreadable = false;
 
@@ -118,6 +122,36 @@ public class ProjectSettingsFile
         {
             values.put(key, props.getProperty(key));
         }
+        try
+        {
+            header = leadingComments(Files.readAllLines(file.toPath(), StandardCharsets.ISO_8859_1));
+        }
+        catch (IOException e)
+        {
+            header = "";
+        }
+    }
+
+    /**
+     * The comment lines (starting with # or !) before the first setting,
+     * joined with '\n' and ending in one; "" when there are none.
+     */
+    static String leadingComments(List<String> lines)
+    {
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines)
+        {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("#") || trimmed.startsWith("!"))
+            {
+                sb.append(line).append('\n');
+            }
+            else if (!trimmed.isEmpty())
+            {
+                break;
+            }
+        }
+        return sb.toString();
     }
 
     /** The settings file (which may not exist yet). */
@@ -240,7 +274,7 @@ public class ProjectSettingsFile
     /** The exact text {@link #save()} writes (ASCII, '\n' line ends). */
     String toText()
     {
-        StringBuilder sb = new StringBuilder(HEADER);
+        StringBuilder sb = new StringBuilder(header.isEmpty() ? HEADER : header);
         for (String key : getKeys())
         {
             sb.append(escape(key, true)).append('=').append(escape(values.get(key), false)).append('\n');

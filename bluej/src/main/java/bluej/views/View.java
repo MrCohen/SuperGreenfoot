@@ -21,6 +21,14 @@
  */
 package bluej.views;
 
+import bluej.Config;
+import bluej.parser.symtab.ClassInfo;
+import bluej.pkgmgr.Package;
+import bluej.pkgmgr.Project;
+import bluej.pkgmgr.target.ClassTarget;
+import bluej.pkgmgr.target.Target;
+import bluej.utility.JavaNames;
+import javafx.application.Platform;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -447,6 +455,46 @@ public class View
         loadClassComments(this, table);
     }
 
+    /**
+     * SuperGreenfoot: the comments of a class that belongs to an open project,
+     * from the project's cached parse of its source; null when the class is
+     * not a source class of an open project (or is a nested class, which the
+     * parse does not describe), so the caller falls back to the classpath.
+     */
+    private static CommentList loadProjectComments(Class<?> cl)
+    {
+        ClassLoader loader = cl.getClassLoader();
+        String qualifiedName = cl.getName();
+        if (loader == null || qualifiedName.indexOf('$') >= 0 || !Platform.isFxApplicationThread()) {
+            return null;
+        }
+        for (Project project : Project.getProjects()) {
+            if (!project.usesClassLoader(loader)) {
+                continue;
+            }
+            Package pkg = project.getCachedPackage(JavaNames.getPrefix(qualifiedName));
+            if (pkg == null) {
+                return null;
+            }
+            Target target = pkg.getTarget(JavaNames.getBase(qualifiedName));
+            if (!(target instanceof ClassTarget)) {
+                return null;
+            }
+            ClassTarget ct = (ClassTarget) target;
+            if (!ct.hasSourceCode()) {
+                return null;
+            }
+            ClassInfo info = ct.getSourceInfo().getInfo(ct.getJavaSourceFile(), pkg);
+            if (info == null) {
+                return null;
+            }
+            CommentList comments = new CommentList();
+            comments.load(info.getComments());
+            return comments;
+        }
+        return null;
+    }
+
     protected void loadClassComments(View curview, Map<String,MemberView> table)
     {
         // move up to the superclass first, so that redefinied comments override
@@ -456,26 +504,37 @@ public class View
         CommentList comments = null;
         String filename = curview.getQualifiedName().replace('.', '/') + ".ctxt";
 
-        try {
-            InputStream in = null;
+        // SuperGreenfoot: a class in an open project gets its comments from the
+        // parse the IDE already holds, so no .ctxt file has to be written beside
+        // the source. Anything else (a library jar with its own .ctxt files, a
+        // class from a scenario that stock Greenfoot wrote) still comes from the
+        // classpath below.
+        if (Config.isGreenfoot()) {
+            comments = loadProjectComments(curview.cl);
+        }
 
-            if (curview.cl.getClassLoader() == null) {
-                in = ClassLoader.getSystemResourceAsStream(filename);
-            }
-            else {
-                in = curview.cl.getClassLoader().getResourceAsStream(filename);
-            }
+        if (comments == null) {
+            try {
+                InputStream in = null;
 
-            if(in != null) {
-                comments = new CommentList();
-                comments.load(in);
-                in.close();
-            }
-            //else
-            //    Debug.message("Failed to load .ctxt file " + filename);
+                if (curview.cl.getClassLoader() == null) {
+                    in = ClassLoader.getSystemResourceAsStream(filename);
+                }
+                else {
+                    in = curview.cl.getClassLoader().getResourceAsStream(filename);
+                }
 
-        } catch(Exception e) {
-            e.printStackTrace();
+                if(in != null) {
+                    comments = new CommentList();
+                    comments.load(in);
+                    in.close();
+                }
+                //else
+                //    Debug.message("Failed to load .ctxt file " + filename);
+
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
         }
 
         if(comments != null) {

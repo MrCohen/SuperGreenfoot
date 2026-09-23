@@ -85,7 +85,16 @@ public final class CommentList
     {
         Properties props = new Properties();
         props.load(input);
-    		
+        load(props);
+    }
+
+    /**
+     * Load the comments from properties in the .ctxt layout (numComments,
+     * commentN.target, commentN.text, commentN.params), as a class's parsed
+     * ClassInfo produces them.
+     */
+    public void load(Properties props)
+    {
         int numComments = Integer.parseInt(props.getProperty("numComments", "0"));
         for(int i = numComments-1; i >= 0; i--)
         {

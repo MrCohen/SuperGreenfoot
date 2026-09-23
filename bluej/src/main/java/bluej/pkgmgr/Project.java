@@ -1830,6 +1830,15 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
      *
      * @return a BClassLoader that provides class loading services for this Project.
      */
+    /**
+     * SuperGreenfoot: true if the given loader is this project's current class
+     * loader. Unlike getClassLoader() this never creates one.
+     */
+    public boolean usesClassLoader(ClassLoader loader)
+    {
+        return currentClassLoader != null && currentClassLoader == loader;
+    }
+
     public BPClassLoader getClassLoader()
     {
         if (currentClassLoader != null)
@@ -2559,10 +2568,10 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
     @OnThread(Tag.FXPlatform)
     private void saveEditorLocation(Properties props, FXTabbedEditor editor, String prefix)
     {
-        props.put(prefix + ".x", String.valueOf(editor.getX()));
-        props.put(prefix + ".y", String.valueOf(editor.getY()));
-        props.put(prefix + ".width", String.valueOf(editor.getWidth()));
-        props.put(prefix + ".height", String.valueOf(editor.getHeight()));
+        putLayout(props, prefix + ".x", String.valueOf(editor.getX()));
+        putLayout(props, prefix + ".y", String.valueOf(editor.getY()));
+        putLayout(props, prefix + ".width", String.valueOf(editor.getWidth()));
+        putLayout(props, prefix + ".height", String.valueOf(editor.getHeight()));
     }
 
     @OnThread(Tag.FXPlatform)
@@ -2571,10 +2580,41 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
         if (rect == null)
             return;
 
-        props.put(prefix + ".x", String.valueOf((int)rect.getX()));
-        props.put(prefix + ".y", String.valueOf((int)rect.getY()));
-        props.put(prefix + ".width", String.valueOf((int)rect.getWidth()));
-        props.put(prefix + ".height", String.valueOf((int)rect.getHeight()));
+        putLayout(props, prefix + ".x", String.valueOf((int)rect.getX()));
+        putLayout(props, prefix + ".y", String.valueOf((int)rect.getY()));
+        putLayout(props, prefix + ".width", String.valueOf((int)rect.getWidth()));
+        putLayout(props, prefix + ".height", String.valueOf((int)rect.getHeight()));
+    }
+
+    /**
+     * SuperGreenfoot: window geometry is per machine, so in Greenfoot mode it
+     * goes to the user's own layout store instead of the project file.
+     */
+    @OnThread(Tag.FXPlatform)
+    private void putLayout(Properties props, String key, String value)
+    {
+        if (Config.isGreenfoot()) {
+            ProjectLayoutStore.get().put(getProjectDir(), key, value);
+        }
+        else {
+            props.put(key, value);
+        }
+    }
+
+    /**
+     * SuperGreenfoot: a layout value, from the user's layout store in Greenfoot
+     * mode (falling back to the project file, where older versions kept it).
+     */
+    @OnThread(Tag.FX)
+    private String getLayout(Properties props, String key, String def)
+    {
+        if (Config.isGreenfoot()) {
+            String value = ProjectLayoutStore.get().get(getProjectDir(), key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return props.getProperty(key, def);
     }
 
     public void setAllEditorStatus(String status)
@@ -2597,10 +2637,10 @@ public class Project implements DebuggerListener, DebuggerThreadListener, Inspec
         // Add the number on:
         Properties props = unnamedPackage.getLastSavedProperties();
         prefix = prefix + "." + index;
-        int x = Integer.parseInt(props.getProperty(prefix +  ".x", "-1"));
-        int y = Integer.parseInt(props.getProperty(prefix + ".y", "-1"));
-        int width = Integer.parseInt(props.getProperty(prefix + ".width", "-1"));
-        int height = Integer.parseInt(props.getProperty(prefix + ".height", "-1"));
+        int x = Integer.parseInt(getLayout(props, prefix +  ".x", "-1"));
+        int y = Integer.parseInt(getLayout(props, prefix + ".y", "-1"));
+        int width = Integer.parseInt(getLayout(props, prefix + ".width", "-1"));
+        int height = Integer.parseInt(getLayout(props, prefix + ".height", "-1"));
         if (x >= 0 && y >= 0 && width > 100 && height > 100) {
             return new Rectangle(x, y, width, height);
         }

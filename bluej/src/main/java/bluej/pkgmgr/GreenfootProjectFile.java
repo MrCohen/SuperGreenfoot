@@ -21,10 +21,13 @@
  */
 package bluej.pkgmgr;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Properties;
 
 import threadchecker.OnThread;
@@ -88,6 +91,18 @@ public class GreenfootProjectFile
     public void save(Properties props)
         throws IOException
     {
+        String header = "Greenfoot project file";
+        // SuperGreenfoot: render first, and leave the file alone when it would
+        // come out identical, so an unchanged scenario is not touched (its
+        // modification time, Dropbox, git, a read-only folder).
+        ByteArrayOutputStream rendered = new ByteArrayOutputStream();
+        props.store(rendered, header);
+        byte[] bytes = rendered.toByteArray();
+        if (hasContent(pkgFile, bytes))
+        {
+            return;
+        }
+
         if (!pkgFile.canWrite())
         {
             throw new IOException("Greenfoot project file not writable: " + this);
@@ -97,8 +112,7 @@ public class GreenfootProjectFile
         try
         {
             output = new FileOutputStream(pkgFile);
-            String header = "Greenfoot project file";
-            props.store(output, header);
+            output.write(bytes);
         }
         catch (IOException e)
         {
@@ -149,6 +163,22 @@ public class GreenfootProjectFile
      * @throws IOException If the package file could not be created.
      * 
      */
+    /**
+     * True if the file exists and holds exactly these bytes.
+     */
+    static boolean hasContent(File file, byte[] bytes)
+    {
+        try
+        {
+            return file.isFile() && file.length() == bytes.length
+                    && Arrays.equals(Files.readAllBytes(file.toPath()), bytes);
+        }
+        catch (IOException e)
+        {
+            return false;
+        }
+    }
+
     public boolean create()
         throws IOException
     {
