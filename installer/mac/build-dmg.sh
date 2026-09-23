@@ -45,9 +45,12 @@ if [[ $BUILD -eq 1 ]]; then
     || { echo "Gradle build failed; not packaging stale jars"; exit 1; }
 fi
 [[ -f "$LIB/boot.jar" ]] || { echo "run ./gradlew :greenfoot:assemble first ($LIB/boot.jar missing)"; exit 2; }
-NEWEST_SRC=$(find "$ROOT/greenfoot/src/main" "$ROOT/bluej/src/main" -type f -newer "$LIB/greenfoot.jar" | head -1)
+# Compare against the newest shipped jar: a change in bluej/ alone rebuilds
+# bluej.jar but leaves greenfoot.jar as it was, which is not stale.
+NEWEST_JAR=$(ls -t "$LIB"/*.jar | head -1)
+NEWEST_SRC=$(find "$ROOT/greenfoot/src/main" "$ROOT/bluej/src/main" -type f -newer "$NEWEST_JAR" | head -1)
 if [[ -n "$NEWEST_SRC" ]]; then
-  echo "Source newer than $LIB/greenfoot.jar (e.g. $NEWEST_SRC); rebuild first"; exit 1
+  echo "Source newer than $NEWEST_JAR (e.g. $NEWEST_SRC); rebuild first"; exit 1
 fi
 GIT_REV=$(cd "$ROOT" && git rev-parse --short HEAD 2>/dev/null || echo unknown)
 if [[ -n "$(cd "$ROOT" && git status --porcelain --untracked-files=no 2>/dev/null)" ]]; then GIT_REV="$GIT_REV-dirty"; fi
