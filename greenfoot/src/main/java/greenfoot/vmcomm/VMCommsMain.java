@@ -142,6 +142,11 @@ public class VMCommsMain implements Closeable
     /** SuperGreenfoot: requests to take the keyboard back from a closed scenario window, and the last handled. */
     private int focusReturnSeq = 0;
     private int lastFocusReturnSeen = 0;
+    /** SuperGreenfoot: latest cursor image request from the debug VM, and the last one handed to the listener. */
+    private int cursorSeq = 0;
+    private int lastCursorSeen = 0;
+    private int cursorHotX = -1, cursorHotY = -1;
+    private String cursorImageName = null;
     private int askId = -1;
     private boolean workerWaiting = false;
 
@@ -332,6 +337,16 @@ public class VMCommsMain implements Closeable
         /** A window from scenario code closed while it had the keyboard: take the keyboard back. */
         @OnThread(Tag.FXPlatform)
         void scenarioWindowClosed();
+
+        /**
+         * Scenario code asked for a cursor image over the world (Greenfoot.setCursor).
+         *
+         * @param imageName the file name in the scenario's images folder, or null for the normal cursor
+         * @param hotSpotX  hot spot x within the image, or -1 for the centre
+         * @param hotSpotY  hot spot y within the image, or -1 for the centre
+         */
+        @OnThread(Tag.FXPlatform)
+        void receivedCursorImage(String imageName, int hotSpotX, int hotSpotY);
     }
 
     /**
@@ -407,6 +422,11 @@ public class VMCommsMain implements Closeable
         {
             lastFocusReturnSeen = focusReturnSeq;
             listener.scenarioWindowClosed();
+        }
+        if (cursorSeq > lastCursorSeen)
+        {
+            lastCursorSeen = cursorSeq;
+            listener.receivedCursorImage(cursorImageName, cursorHotX, cursorHotY);
         }
             
         checkingIO = false;
@@ -526,6 +546,21 @@ public class VMCommsMain implements Closeable
                     displayRequestSeq = sharedMemory.get();
                     displayRequestFlags = sharedMemory.get();
                     focusReturnSeq = sharedMemory.get();
+                    // SuperGreenfoot: cursor image request (seq, hot spot, name)
+                    cursorSeq = sharedMemory.get();
+                    cursorHotX = sharedMemory.get();
+                    cursorHotY = sharedMemory.get();
+                    int cursorNameLength = sharedMemory.get();
+                    if (cursorNameLength > 0)
+                    {
+                        int[] nameCodepoints = new int[cursorNameLength];
+                        sharedMemory.get(nameCodepoints);
+                        cursorImageName = new String(nameCodepoints, 0, nameCodepoints.length);
+                    }
+                    else
+                    {
+                        cursorImageName = null;
+                    }
                 }
             }
         }
@@ -749,6 +784,9 @@ public class VMCommsMain implements Closeable
         lastDisplayRequestSeen = 0;
         focusReturnSeq = 0;
         lastFocusReturnSeen = 0;
+        cursorSeq = 0;
+        lastCursorSeen = 0;
+        cursorImageName = null;
         
         // Zero the buffer:
         sharedMemoryByte.position(0);

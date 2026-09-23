@@ -93,6 +93,8 @@ import javafx.geometry.Point2D;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
 import javafx.scene.image.Image;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
@@ -242,6 +244,10 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     private boolean fsControlsVisible = true;
     private boolean fsControlsLocked = false;
     private int lastAppliedDisplayRequest = 0;
+    // The scenario's cursor requests (Greenfoot.setCursorVisible / setCursor); forgotten
+    // with the world. The cursor is only hidden while the scenario runs:
+    private boolean cursorHidden = false;
+    private Cursor cursorImage = null;
     // The screen last reported to the debug VM:
     private Rectangle2D lastReportedScreen = null;
 
@@ -1199,11 +1205,19 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
      */
     private void showState()
     {
-        view.stateChanged(stateProperty.get(), atBreakpoint);
+        SimulationState state = stateProperty.get();
+        view.stateChanged(state, atBreakpoint);
         if (fullScreenView != null)
         {
-            fullScreenView.updateState(stateProperty.get(), atBreakpoint);
+            fullScreenView.updateState(state, atBreakpoint);
         }
+        if (state == SimulationState.NO_WORLD || state == SimulationState.NO_PROJECT)
+        {
+            // A new world starts with the normal cursor (its constructor may ask again)
+            cursorHidden = false;
+            cursorImage = null;
+        }
+        applyCursor();
     }
 
     /**
@@ -1256,6 +1270,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             fullScreenView.setPixelPerfect(fsPixelPerfect);
             fullScreenView.setControlsLocked(fsControlsLocked);
             fullScreenView.setControlsVisible(fsControlsVisible && !fsControlsLocked);
+            applyCursor();
             fullScreenView.show();
             sendDisplayState();
         }
@@ -1317,6 +1332,11 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     public void receivedDisplayRequest(int seq, int flags)
     {
         lastAppliedDisplayRequest = seq;
+        if (DisplayState.isRequested(flags, DisplayState.CURSOR_HIDDEN))
+        {
+            cursorHidden = DisplayState.value(flags, DisplayState.CURSOR_HIDDEN);
+            applyCursor();
+        }
         if (DisplayState.isRequested(flags, DisplayState.PIXEL_PERFECT))
         {
             fsPixelPerfect = DisplayState.value(flags, DisplayState.PIXEL_PERFECT);
@@ -1391,7 +1411,55 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         lastReportedScreen = screen;
         debugHandler.getVmComms().sendDisplayState(DisplayState.encode(fs, visible, locked, pixel, true,
                 (int) Math.round(screen.getWidth()), (int) Math.round(screen.getHeight()), scale,
-                lastAppliedDisplayRequest));
+                lastAppliedDisplayRequest, cursorHidden));
+    }
+
+    /**
+     * Scenario code asked for a cursor image (Greenfoot.setCursor). The debug VM has
+     * checked that the file exists; load it from the project's images folder (or the
+     * project folder) and show it over the world.
+     */
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void receivedCursorImage(String imageName, int hotSpotX, int hotSpotY)
+    {
+        cursorImage = null;
+        if (imageName != null && !imageName.contains("..") && !imageName.contains("/") && !imageName.contains("\\"))
+        {
+            File file = new File(new File(project.getProjectDir(), "images"), imageName);
+            if (!file.isFile())
+            {
+                file = new File(project.getProjectDir(), imageName);
+            }
+            if (file.isFile())
+            {
+                Image img = new Image(file.toURI().toString());
+                if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0)
+                {
+                    double hx = hotSpotX < 0 ? img.getWidth() / 2 : Math.min(hotSpotX, img.getWidth() - 1);
+                    double hy = hotSpotY < 0 ? img.getHeight() / 2 : Math.min(hotSpotY, img.getHeight() - 1);
+                    cursorImage = new ImageCursor(img, hx, hy);
+                }
+            }
+        }
+        applyCursor();
+    }
+
+    /**
+     * Show the cursor the scenario asked for over the world: hidden only while the
+     * scenario runs (so actors can be dragged and the controls found while paused),
+     * else its image, else the normal cursor.
+     */
+    private void applyCursor()
+    {
+        SimulationState state = stateProperty.get();
+        boolean running = state == SimulationState.RUNNING || state == SimulationState.RUNNING_REQUESTED_PAUSE;
+        boolean hide = cursorHidden && running;
+        view.setWorldCursor(hide ? Cursor.NONE : cursorImage);
+        if (fullScreenView != null)
+        {
+            fullScreenView.setWorldCursor(cursorImage, hide);
+        }
     }
 
     /**

@@ -512,4 +512,83 @@ public class Greenfoot
     {
         return GreenfootUtil.getDisplayDelegate().isStandalone();
     }
+
+    /**
+     * Hide the mouse cursor while it is over the world, or show it again. Use
+     * it in a game that aims with the mouse and draws its own crosshair, or
+     * that replaces the cursor with an actor which follows
+     * {@link #getMouseInfo()}. The cursor is only hidden while the scenario
+     * is running: it comes back when the scenario is paused, when the mouse
+     * leaves the world, and in the full-screen view when the controls are
+     * shown with Escape. The setting is forgotten when the world is reset.
+     * To replace the cursor with a picture instead, see {@link #setCursor(String)}.
+     *
+     * @param visible false to hide the cursor over the world, true to show it.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setCursorVisible(boolean visible)
+    {
+        GreenfootUtil.getDisplayDelegate().setCursorVisible(visible);
+    }
+
+    /**
+     * @return false if the cursor was hidden with {@link #setCursorVisible(boolean)}.
+     * @since SuperGreenfoot 1.0
+     */
+    public static boolean isCursorVisible()
+    {
+        return GreenfootUtil.getDisplayDelegate().isCursorVisible();
+    }
+
+    /**
+     * Replace the mouse cursor over the world with an image from the
+     * scenario's images folder, for example a crosshair. The system draws the
+     * image at the mouse position with no lag, and its centre is the point
+     * that clicks happen at. Windows shows custom cursors at 32x32 pixels, so
+     * keep the image about that size. The cursor is restored when the world is
+     * reset, or by calling {@code setCursor(null)}.
+     *
+     * @param imageName the file name of the image in the images folder, or null
+     *                  for the normal cursor.
+     * @throws IllegalArgumentException if the image cannot be found.
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setCursor(String imageName)
+    {
+        setCursor(imageName, -1, -1);
+    }
+
+    /**
+     * Replace the mouse cursor over the world with an image, choosing which of
+     * its pixels is the point that clicks happen at (the "hot spot"): (0, 0)
+     * for an arrow whose tip is the top-left corner, for example.
+     *
+     * @param imageName the file name of the image in the images folder, or null
+     *                  for the normal cursor.
+     * @param hotSpotX  the x coordinate of the hot spot within the image.
+     * @param hotSpotY  the y coordinate of the hot spot within the image.
+     * @throws IllegalArgumentException if the image cannot be found.
+     * @see #setCursor(String)
+     * @since SuperGreenfoot 1.0
+     */
+    public static void setCursor(String imageName, int hotSpotX, int hotSpotY)
+    {
+        if (imageName != null)
+        {
+            try
+            {
+                if (GreenfootUtil.getURL(imageName, "images") == null)
+                {
+                    throw new IllegalArgumentException("Could not load image from: " + imageName);
+                }
+            }
+            catch (java.io.FileNotFoundException e)
+            {
+                throw new IllegalArgumentException("Could not load image from: " + imageName);
+            }
+            hotSpotX = Math.max(-1, hotSpotX);
+            hotSpotY = Math.max(-1, hotSpotY);
+        }
+        GreenfootUtil.getDisplayDelegate().setCursor(imageName, hotSpotX, hotSpotY);
+    }
 }

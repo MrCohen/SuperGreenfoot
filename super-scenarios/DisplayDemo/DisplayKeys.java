@@ -8,9 +8,13 @@ import greenfoot.*;
  *   C  show / hide the run controls  (Greenfoot.setControlsVisible)
  *   L  lock the controls hidden      (Greenfoot.setControlsLocked)
  *   W  window at 1x / 2x             (Greenfoot.setWindowScale, exported game only)
+ *   H  hide / show the mouse cursor  (Greenfoot.setCursorVisible)
+ *   X  crosshair / normal cursor     (Greenfoot.setCursor)
  */
 public class DisplayKeys
 {
+    private static boolean crosshair = false;
+
     /** Handle one key name from Greenfoot.getKey(); returns true if it was a display key. */
     public static boolean handle(String key)
     {
@@ -34,6 +38,13 @@ public class DisplayKeys
             case "w":
                 Greenfoot.setWindowScale(Greenfoot.getWindowScale() >= 2 ? 1 : 2);
                 return true;
+            case "h":
+                Greenfoot.setCursorVisible(!Greenfoot.isCursorVisible());
+                return true;
+            case "x":
+                crosshair = !crosshair;
+                Greenfoot.setCursor(crosshair ? "crosshair.png" : null);
+                return true;
             default:
                 return false;
         }
@@ -46,7 +57,8 @@ public class DisplayKeys
                 + "  scale " + String.format("%.2f", Greenfoot.getDisplayScale()) + "x"
                 + "  " + Greenfoot.getScaleMode()
                 + "  controls " + (Greenfoot.isControlsLocked() ? "locked" : Greenfoot.isControlsVisible() ? "shown" : "hidden")
-                + "  window " + String.format("%.0f", Greenfoot.getWindowScale()) + "x";
+                + "  window " + String.format("%.0f", Greenfoot.getWindowScale()) + "x"
+                + "  cursor " + (Greenfoot.isCursorVisible() ? (crosshair ? "crosshair" : "normal") : "hidden");
     }
 
     /** Where the scenario runs and what screen it has. */

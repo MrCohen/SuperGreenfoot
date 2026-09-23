@@ -18,8 +18,15 @@ in the IDE and in an exported game. Demo: `super-scenarios/DisplayDemo`.
 | `setControlsLocked(boolean)`, `isControlsLocked()` | Lock the controls hidden (Escape does not reveal them; holding Escape for two seconds still does, for teachers). |
 | `setWindowScale(double)`, `getWindowScale()` | Exported game only: show the world enlarged in the window (0.25 to 8). No effect in the IDE. |
 | `isStandalone()` | True in the exported game. |
+| `setCursorVisible(boolean)`, `isCursorVisible()` | Hide the mouse cursor over the world while the scenario runs (a game that aims with the mouse and draws its own crosshair). It comes back while paused, when the mouse leaves the world, and in full screen while the controls are up (Escape). Forgotten on Reset. |
+| `setCursor(String)`, `setCursor(String, int, int)` | Replace the cursor over the world with an image from the `images` folder, drawn by the system with no lag; the second form picks the hot spot (default: the image centre). `setCursor(null)` restores the normal cursor, as does Reset. Throws `IllegalArgumentException` if the file is missing. |
 
 Players can always leave full screen with Shortcut+Shift+F.
+
+Custom cursor images are drawn by the operating system, so they do not scale
+with the world: a 32x32 crosshair stays 32x32 on a 3x pixel-perfect full
+screen. Windows shows custom cursors at its own size (32x32) and scales other
+sizes to fit, so keep cursor images about that size.
 
 ## How it works
 
@@ -46,12 +53,35 @@ shared-memory channel (`greenfoot.vmcomm`):
 - The stage keeps the full-screen preferences (pixel-perfect, controls
   visible, locked) while no view is open, so a scenario can set them before
   entering full screen and they survive leaving and re-entering.
+- **Cursor** (added in 0.1.4). `setCursorVisible` is a fifth flag on the same
+  request word (`DisplayState.CURSOR_HIDDEN`; the mask bits moved up to bits
+  8-15 to make room) and is echoed back in the state. `setCursor` is a separate
+  request after the keyboard-return counter: a sequence number, the hot spot,
+  and the image name as codepoints (the ask prompt travels the same way). The
+  debug VM checks the file exists first (`GreenfootUtil.getURL`), so the
+  scenario gets an `IllegalArgumentException` like `GreenfootImage` would; the
+  IDE then loads it from the project's `images` folder into a JavaFX
+  `ImageCursor`. The controller applies the result in `applyCursor()`: JavaFX
+  cursors are per node, so the main window sets it on the `WorldDisplay` (the
+  cursor is normal over the class diagram and menus) while the full-screen
+  view sets it on its root, so the black margins hide it too. It is only
+  hidden while the state is RUNNING, so actors can be dragged while paused,
+  and the full-screen view shows it whenever its controls are visible. Both
+  settings are cleared when the state goes to NO_WORLD (Reset, recompile), so
+  a world constructor decides afresh. `Greenfoot.setWorld` from code keeps
+  them.
 
 Encoding helpers and the flag arithmetic live in `greenfoot.vmcomm.DisplayState`
 and are unit-tested (`DisplayApiTest`), together with the routing from the
 `Greenfoot` methods to the delegate and the safe answers of the null delegate.
 
 ## Player notes
+
+Cursors in the player use AWT: `setCursorVisible(false)` is a 1x1 transparent
+custom cursor on the world panel (the control bar keeps its own), and
+`setCursor` goes through `Toolkit.createCustomCursor`, which scales the image
+to the toolkit's best cursor size, so the hot spot is scaled with it. Reset
+clears both, as in the IDE.
 
 `Greenfoot.setWindowScale(2)` makes a 640x360 world show in a 1280x720 window;
 the scale mode decides between nearest-neighbour and bilinear drawing. Mouse
@@ -65,4 +95,5 @@ moves between screens.
 size, and for 640x360, 960x540 and 1280x720 says whether that world fills the
 screen at a whole-number scale. Keys 1, 2, 3 build that `GameWorld`; F, P, C,
 L, W toggle full screen, scale mode, controls, lock and window scale; M goes
-back. The `Readout` bar shows the live values of every getter.
+back. H hides the cursor and X swaps in `images/crosshair.png`. The `Readout`
+bar shows the live values of every getter.

@@ -30,9 +30,10 @@ import threadchecker.Tag;
  * travel between the IDE and the debug VM.
  *
  * <p><b>Requests</b> (debug VM to IDE, in the debug VM's status area) are one
- * sequence number plus one flags integer. Bits 0-3 hold the requested values
+ * sequence number plus one flags integer. Bits 0-7 hold the requested values
  * ({@link #FULL_SCREEN}, {@link #CONTROLS_VISIBLE}, {@link #CONTROLS_LOCKED},
- * {@link #PIXEL_PERFECT}); the same bits shifted by {@link #MASK_SHIFT} say
+ * {@link #PIXEL_PERFECT}, {@link #CURSOR_HIDDEN}); the same bits shifted by
+ * {@link #MASK_SHIFT} say
  * which of them the scenario actually asked for, so a request to enter full
  * screen does not also re-apply an untouched controls setting that the user
  * may have changed by hand.
@@ -50,8 +51,10 @@ public final class DisplayState
     public static final int CONTROLS_VISIBLE = 2;
     public static final int CONTROLS_LOCKED = 4;
     public static final int PIXEL_PERFECT = 8;
-    public static final int MASK_SHIFT = 4;
-    private static final int VALUE_BITS = 0xF;
+    /** The mouse cursor is hidden over the world while the scenario runs (Greenfoot.setCursorVisible). */
+    public static final int CURSOR_HIDDEN = 16;
+    public static final int MASK_SHIFT = 8;
+    private static final int VALUE_BITS = 0xFF;
 
     public static final int I_FULL_SCREEN = 0;
     public static final int I_CONTROLS_VISIBLE = 1;
@@ -62,7 +65,8 @@ public final class DisplayState
     public static final int I_SCREEN_HEIGHT = 6;
     public static final int I_SCALE_MILLI = 7;
     public static final int I_APPLIED_REQUEST = 8;
-    public static final int LENGTH = 9;
+    public static final int I_CURSOR_HIDDEN = 9;
+    public static final int LENGTH = 10;
 
     private DisplayState()
     {
@@ -103,13 +107,14 @@ public final class DisplayState
             if (state[I_CONTROLS_VISIBLE] != 0) f |= CONTROLS_VISIBLE;
             if (state[I_CONTROLS_LOCKED] != 0) f |= CONTROLS_LOCKED;
             if (state[I_PIXEL_PERFECT] != 0) f |= PIXEL_PERFECT;
+            if (state[I_CURSOR_HIDDEN] != 0) f |= CURSOR_HIDDEN;
         }
         return f;
     }
 
     public static int[] encode(boolean fullScreen, boolean controlsVisible, boolean controlsLocked,
             boolean pixelPerfect, boolean supported, int screenWidth, int screenHeight, double scale,
-            int appliedRequest)
+            int appliedRequest, boolean cursorHidden)
     {
         int[] s = new int[LENGTH];
         s[I_FULL_SCREEN] = fullScreen ? 1 : 0;
@@ -121,6 +126,7 @@ public final class DisplayState
         s[I_SCREEN_HEIGHT] = screenHeight;
         s[I_SCALE_MILLI] = (int) Math.round(scale * 1000);
         s[I_APPLIED_REQUEST] = appliedRequest;
+        s[I_CURSOR_HIDDEN] = cursorHidden ? 1 : 0;
         return s;
     }
 

@@ -39,6 +39,7 @@ public class DisplayApiTest extends TestCase
         boolean fullScreen, controlsVisible = true, controlsLocked;
         ScaleMode mode = ScaleMode.SMOOTH;
         double windowScale = 1.0;
+        boolean cursorVisible = true;
         StringBuilder log = new StringBuilder();
 
         public void setFullScreen(boolean on) { fullScreen = on; log.append("fs=" + on + ";"); }
@@ -56,6 +57,9 @@ public class DisplayApiTest extends TestCase
         public void setWindowScale(double s) { windowScale = s; log.append("ws=" + s + ";"); }
         public double getWindowScale() { return windowScale; }
         public boolean isStandalone() { return true; }
+        public void setCursorVisible(boolean v) { cursorVisible = v; log.append("cur=" + v + ";"); }
+        public boolean isCursorVisible() { return cursorVisible; }
+        public void setCursor(String name, int hx, int hy) { log.append("img=" + name + "@" + hx + "," + hy + ";"); }
     }
 
     @Override
@@ -80,6 +84,9 @@ public class DisplayApiTest extends TestCase
         assertFalse(Greenfoot.isControlsLocked());
         assertEquals(1.0, Greenfoot.getWindowScale(), 0.0);
         assertFalse(Greenfoot.isStandalone());
+        Greenfoot.setCursorVisible(false);
+        Greenfoot.setCursor(null);
+        assertTrue(Greenfoot.isCursorVisible());
     }
 
     public void testApiRoutesToDelegate()
@@ -92,7 +99,12 @@ public class DisplayApiTest extends TestCase
         Greenfoot.setControlsVisible(false);
         Greenfoot.setControlsLocked(true);
         Greenfoot.setWindowScale(2.5);
-        assertEquals("fs=true;sm=PIXEL_PERFECT;cv=false;cl=true;ws=2.5;", d.log.toString());
+        Greenfoot.setCursorVisible(false);
+        Greenfoot.setCursor(null);            // no file lookup for the normal cursor
+        Greenfoot.setCursor(null, 3, 4);
+        assertEquals("fs=true;sm=PIXEL_PERFECT;cv=false;cl=true;ws=2.5;cur=false;img=null@-1,-1;img=null@3,4;",
+                d.log.toString());
+        assertFalse(Greenfoot.isCursorVisible());
         assertTrue(Greenfoot.isFullScreen());
         assertTrue(Greenfoot.isFullScreenSupported());
         assertEquals(ScaleMode.PIXEL_PERFECT, Greenfoot.getScaleMode());
@@ -124,11 +136,22 @@ public class DisplayApiTest extends TestCase
         assertFalse(DisplayState.isRequested(cleared, DisplayState.FULL_SCREEN));
         assertFalse(DisplayState.isRequested(cleared, DisplayState.CONTROLS_VISIBLE));
         assertFalse(DisplayState.value(cleared, DisplayState.CONTROLS_VISIBLE));
+        // The cursor flag's value bit and mask bit do not overlap the other fields' bits
+        int c = DisplayState.withRequest(0, DisplayState.CURSOR_HIDDEN, true);
+        assertTrue(DisplayState.isRequested(c, DisplayState.CURSOR_HIDDEN));
+        assertTrue(DisplayState.value(c, DisplayState.CURSOR_HIDDEN));
+        for (int other : new int[] {DisplayState.FULL_SCREEN, DisplayState.CONTROLS_VISIBLE,
+                DisplayState.CONTROLS_LOCKED, DisplayState.PIXEL_PERFECT})
+        {
+            assertFalse(DisplayState.isRequested(c, other));
+            assertFalse(DisplayState.value(c, other));
+        }
+        assertEquals(DisplayState.CURSOR_HIDDEN, DisplayState.clearRequested(c));
     }
 
     public void testStateEncodingRoundTrips()
     {
-        int[] s = DisplayState.encode(true, false, true, true, true, 1512, 982, 2.25, 7);
+        int[] s = DisplayState.encode(true, false, true, true, true, 1512, 982, 2.25, 7, true);
         assertEquals(DisplayState.LENGTH, s.length);
         // As received: command type first, then the state
         int[] data = new int[s.length + 1];
@@ -144,8 +167,9 @@ public class DisplayApiTest extends TestCase
         assertEquals(982, back[DisplayState.I_SCREEN_HEIGHT]);
         assertEquals(2.25, DisplayState.scaleOf(back), 0.0005);
         assertEquals(7, back[DisplayState.I_APPLIED_REQUEST]);
-        assertEquals(DisplayState.FULL_SCREEN | DisplayState.CONTROLS_LOCKED | DisplayState.PIXEL_PERFECT,
-                DisplayState.valuesOf(back));
+        assertEquals(1, back[DisplayState.I_CURSOR_HIDDEN]);
+        assertEquals(DisplayState.FULL_SCREEN | DisplayState.CONTROLS_LOCKED | DisplayState.PIXEL_PERFECT
+                | DisplayState.CURSOR_HIDDEN, DisplayState.valuesOf(back));
         assertEquals(1.0, DisplayState.scaleOf(null), 0.0);
     }
 }

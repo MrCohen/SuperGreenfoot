@@ -6,7 +6,7 @@ import greenfoot.*;
  * A game can ask the player how it should be shown before the real world
  * exists: this menu reads the screen size, suggests the world size that fills
  * it at a whole-number scale, and lets the player choose a size and full screen.
- * Press Run, then use the number keys and F / P / C / L / W (see DisplayKeys).
+ * Press Run, then use the number keys and F / P / C / L / W / H / X (see DisplayKeys).
  */
 public class MenuWorld extends World
 {
@@ -72,6 +72,7 @@ public class MenuWorld extends World
         }
         bg.setColor(new Color(150, 150, 150));
         bg.drawString("F full screen   P pixel-perfect/smooth   C controls   L lock   W window 2x (exported game)", 30, 300);
-        bg.drawString("Shortcut+Shift+F always leaves full screen; hold Esc 2 s to recover locked controls.", 30, 322);
+        bg.drawString("H hide/show the mouse cursor (while running)   X crosshair cursor", 30, 322);
+        bg.drawString("Shortcut+Shift+F always leaves full screen; hold Esc 2 s to recover locked controls.", 30, 344);
     }
 }

@@ -28,6 +28,7 @@ import greenfoot.guifx.controller.SimulationState;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -79,6 +80,10 @@ public class FullScreenView extends Stage
 
     private boolean controlsVisible = true;
     private boolean locked = false;
+    /** The scenario's cursor image (Greenfoot.setCursor), or null for the normal cursor. */
+    private Cursor worldCursor = null;
+    /** Whether the scenario wants the cursor hidden right now (hidden and running). */
+    private boolean cursorHidden = false;
     /** The factor the world image is currently shown at (for Greenfoot.getDisplayScale). */
     private double displayScale = 1.0;
     private long escDownSince = -1;
@@ -288,6 +293,28 @@ public class FullScreenView extends Stage
         controlsBox.setVisible(visible);
         controlsBox.setManaged(visible);
         lockedHint.setVisible(!visible);
+        applyCursor();
+    }
+
+    /**
+     * SuperGreenfoot: the cursor the scenario asked for, and whether it wants the
+     * cursor hidden. The whole screen is this window, so the cursor is set on the
+     * root: hidden over the black margins too, but always shown while the controls
+     * are up (Escape), so that the player can find them.
+     *
+     * @param cursor the scenario's ImageCursor, or null for the normal cursor
+     * @param hidden true to hide the cursor (only passed while the scenario runs)
+     */
+    public void setWorldCursor(Cursor cursor, boolean hidden)
+    {
+        worldCursor = cursor;
+        cursorHidden = hidden;
+        applyCursor();
+    }
+
+    private void applyCursor()
+    {
+        root.setCursor(cursorHidden && !controlsVisible ? Cursor.NONE : worldCursor);
     }
 
     public boolean isControlsVisible()

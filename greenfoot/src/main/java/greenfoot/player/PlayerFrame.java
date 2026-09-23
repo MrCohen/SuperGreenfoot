@@ -87,6 +87,10 @@ public class PlayerFrame implements DisplayDelegate
     private volatile boolean controlsVisible = true;
     private volatile boolean controlsLocked = false;
     private volatile boolean pixelPerfect = false;
+    /** The scenario's cursor requests (Greenfoot.setCursorVisible / setCursor); hidden only while running. */
+    private volatile boolean cursorHidden = false;
+    private java.awt.Cursor customCursor = null;
+    private boolean running = false;
     /** Enlargement of the windowed world view (Greenfoot.setWindowScale). */
     private volatile double windowScale = 1.0;
     private volatile java.awt.Rectangle screenBoundsCache = new java.awt.Rectangle();
@@ -143,7 +147,11 @@ public class PlayerFrame implements DisplayDelegate
             public void simulationChangedSync(SyncEvent e)
             {
                 if (e == SyncEvent.STARTED) {
-                    SwingUtilities.invokeLater(() -> controlBar.setRunning(true));
+                    SwingUtilities.invokeLater(() -> {
+                        controlBar.setRunning(true);
+                        running = true;
+                        applyCursor();
+                    });
                 }
             }
 
@@ -152,7 +160,11 @@ public class PlayerFrame implements DisplayDelegate
             public void simulationChangedAsync(AsyncEvent e)
             {
                 if (e == AsyncEvent.STOPPED || e == AsyncEvent.DISABLED) {
-                    SwingUtilities.invokeLater(() -> controlBar.setRunning(false));
+                    SwingUtilities.invokeLater(() -> {
+                        controlBar.setRunning(false);
+                        running = false;
+                        applyCursor();
+                    });
                 }
                 else if (e == AsyncEvent.CHANGED_SPEED) {
                     SwingUtilities.invokeLater(() -> controlBar.setSpeed(Simulation.getInstance().getSpeed()));
@@ -245,6 +257,86 @@ public class PlayerFrame implements DisplayDelegate
     public boolean isStandalone()
     {
         return true;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public void setCursorVisible(boolean visible)
+    {
+        cursorHidden = !visible;
+        SwingUtilities.invokeLater(this::applyCursor);
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public boolean isCursorVisible()
+    {
+        return !cursorHidden;
+    }
+
+    @Override
+    @OnThread(Tag.Any)
+    public void setCursor(String imageName, int hotSpotX, int hotSpotY)
+    {
+        java.awt.Cursor cursor = imageName == null ? null : loadCursor(imageName, hotSpotX, hotSpotY);
+        SwingUtilities.invokeLater(() -> {
+            customCursor = cursor;
+            applyCursor();
+        });
+    }
+
+    /**
+     * Build a system cursor from an image in the scenario's images folder, or null if
+     * this system cannot show custom cursors or the image cannot be read. Windows
+     * scales custom cursors to its own size (32x32), so the hot spot is scaled with it.
+     */
+    @OnThread(Tag.Any)
+    private java.awt.Cursor loadCursor(String imageName, int hotSpotX, int hotSpotY)
+    {
+        try {
+            java.net.URL url = GreenfootUtil.getURL(imageName, "images");
+            BufferedImage img = javax.imageio.ImageIO.read(url);
+            if (img == null) {
+                return null;
+            }
+            java.awt.Toolkit toolkit = java.awt.Toolkit.getDefaultToolkit();
+            Dimension best = toolkit.getBestCursorSize(img.getWidth(), img.getHeight());
+            if (best.width <= 0 || best.height <= 0) {
+                return null;
+            }
+            double hx = hotSpotX < 0 ? img.getWidth() / 2.0 : Math.min(hotSpotX, img.getWidth() - 1);
+            double hy = hotSpotY < 0 ? img.getHeight() / 2.0 : Math.min(hotSpotY, img.getHeight() - 1);
+            // The toolkit scales the image to its best size; scale the hot spot the same way
+            int px = (int) Math.min(best.width - 1, Math.floor(hx * best.width / img.getWidth()));
+            int py = (int) Math.min(best.height - 1, Math.floor(hy * best.height / img.getHeight()));
+            return toolkit.createCustomCursor(img, new Point(Math.max(0, px), Math.max(0, py)), imageName);
+        }
+        catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** A cursor with nothing in it, for Greenfoot.setCursorVisible(false). */
+    private static java.awt.Cursor blankCursor()
+    {
+        try {
+            BufferedImage blank = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+            return java.awt.Toolkit.getDefaultToolkit().createCustomCursor(blank, new Point(0, 0), "hidden");
+        }
+        catch (Exception e) {
+            return java.awt.Cursor.getDefaultCursor();
+        }
+    }
+
+    /** Show the cursor the scenario asked for over the world (the control bar keeps its own). */
+    private void applyCursor()
+    {
+        if (cursorHidden && running) {
+            worldPanel.setCursor(blankCursor());
+        }
+        else {
+            worldPanel.setCursor(customCursor != null ? customCursor : java.awt.Cursor.getDefaultCursor());
+        }
     }
 
     @Override
@@ -756,7 +848,13 @@ public class PlayerFrame implements DisplayDelegate
             }
             actButton.addActionListener(e -> session.act());
             runButton.addActionListener(e -> session.runPause());
-            resetButton.addActionListener(e -> session.reset());
+            resetButton.addActionListener(e -> {
+                // A new world starts with the normal cursor, as in the IDE
+                cursorHidden = false;
+                customCursor = null;
+                applyCursor();
+                session.reset();
+            });
             speed.setPreferredSize(new Dimension(120, speed.getPreferredSize().height));
             speed.addChangeListener(e -> {
                 if (!settingSpeed) {

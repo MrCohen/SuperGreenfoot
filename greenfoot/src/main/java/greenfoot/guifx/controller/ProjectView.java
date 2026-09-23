@@ -30,6 +30,7 @@ import bluej.testmgr.record.InvokerRecord;
 import bluej.utility.javafx.FXPlatformConsumer;
 import javafx.geometry.Point2D;
 import javafx.scene.control.MenuItem;
+import javafx.scene.Cursor;
 import javafx.scene.image.Image;
 import javafx.stage.Stage;
 import threadchecker.OnThread;
@@ -120,6 +121,12 @@ public interface ProjectView
      * Give the world keyboard focus.
      */
     void requestWorldFocus();
+
+    /**
+     * SuperGreenfoot: the mouse cursor to show over the world view: Cursor.NONE to
+     * hide it, an ImageCursor from Greenfoot.setCursor, or null for the normal one.
+     */
+    void setWorldCursor(Cursor cursor);
 
     /**
      * Remove any debugger highlight of an actor.

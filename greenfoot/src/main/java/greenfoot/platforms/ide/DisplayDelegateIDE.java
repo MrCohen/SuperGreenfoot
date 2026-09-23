@@ -129,4 +129,22 @@ public class DisplayDelegateIDE implements DisplayDelegate
         int[] s = state();
         return s == null ? 0 : s[DisplayState.I_SCREEN_HEIGHT];
     }
+
+    @Override
+    public void setCursorVisible(boolean visible)
+    {
+        comms.requestDisplayChange(DisplayState.CURSOR_HIDDEN, !visible);
+    }
+
+    @Override
+    public boolean isCursorVisible()
+    {
+        return !flag(DisplayState.I_CURSOR_HIDDEN, false);
+    }
+
+    @Override
+    public void setCursor(String imageName, int hotSpotX, int hotSpotY)
+    {
+        comms.requestCursor(imageName, hotSpotX, hotSpotY);
+    }
 }

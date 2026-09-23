@@ -104,4 +104,22 @@ public interface DisplayDelegate
     {
         return false;
     }
+
+    /** Show or hide the mouse cursor over the world while the scenario runs. */
+    default void setCursorVisible(boolean visible) {}
+
+    default boolean isCursorVisible()
+    {
+        return true;
+    }
+
+    /**
+     * Replace the mouse cursor over the world with an image from the scenario's
+     * images folder (already checked to exist), or restore the normal cursor.
+     *
+     * @param imageName  the file name, or null for the normal cursor
+     * @param hotSpotX   the x of the pixel that is the cursor's point, or -1 for the centre
+     * @param hotSpotY   the y of the pixel that is the cursor's point, or -1 for the centre
+     */
+    default void setCursor(String imageName, int hotSpotX, int hotSpotY) {}
 }

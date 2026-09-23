@@ -63,7 +63,7 @@ from source with [one extra step](#run-from-source).
 | **Smooth movement** | Actors can sit at `double` positions and turn by fractions of a degree. No more helper classes to avoid jerky motion. |
 | **Layers** | Give any actor a depth with `setZ`, or let the world sort by height on screen for a 3D look. |
 | **Real sound** | Play the same effect many times at once, set volume and pan, loop music, and mute whole categories. |
-| **Full screen** | Play full screen in the IDE and in exported games. Your code can switch it on and choose how the picture scales. |
+| **Full screen** | Play full screen in the IDE and in exported games. Your code can switch it on, choose how the picture scales, and hide the mouse cursor or replace it with your own crosshair. |
 | **Export as an app** | Share a game as a runnable `.jar`, or on a Mac as a signed `.app`. |
 | **Saving** | Store scores and progress with simple `Save.putInt` and `Save.getInt` calls, with no slot limits. |
 | **Text measuring** | Find the width and height of text, and draw it centred, without scanning pixels. |

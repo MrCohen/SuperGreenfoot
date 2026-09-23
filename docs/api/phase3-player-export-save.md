@@ -53,7 +53,8 @@ folder the IDE uses.
 
 Implemented through `greenfoot.platforms.DisplayDelegate`. Superseded by
 Phase 2d (`docs/api/phase2d-display-api.md`): the calls now work in the IDE
-too, and screen size, scale mode and window scale were added.
+too, and screen size, scale mode and window scale were added, followed in
+0.1.4 by the mouse cursor (`setCursorVisible`, `setCursor`).
 
 ## Save API (`greenfoot.Save`)
 

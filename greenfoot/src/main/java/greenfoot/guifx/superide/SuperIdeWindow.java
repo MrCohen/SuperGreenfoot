@@ -95,6 +95,7 @@ import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.CacheHint;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckMenuItem;
@@ -981,6 +982,13 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
     public void requestWorldFocus()
     {
         worldDisplay.requestFocus();
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void setWorldCursor(Cursor cursor)
+    {
+        worldDisplay.setCursor(cursor);
     }
 
     @Override

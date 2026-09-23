@@ -75,6 +75,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.CacheHint;
+import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
@@ -1458,6 +1459,13 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
     public void requestWorldFocus()
     {
         worldDisplay.requestFocus();
+    }
+
+    @Override
+    @OnThread(Tag.FXPlatform)
+    public void setWorldCursor(Cursor cursor)
+    {
+        worldDisplay.setCursor(cursor);
     }
 
     @Override
