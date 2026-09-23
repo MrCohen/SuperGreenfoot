@@ -286,6 +286,59 @@ public class Greenfoot
     }
 
     /**
+     * True if a mouse button was released (changed from pressed to non-pressed) over
+     * the given object during this act.
+     * <p>
+     * This reports what the mouse pointer was over at the moment the button went up,
+     * which is not necessarily where the press began. {@link #mouseDragEnded(Object)}
+     * is the other way round: it reports where the drag started.
+     * <p>
+     * A release is always reported for the act it happened in, even when a click or a
+     * drag ending was recorded in the same act. Use {@link MouseInfo#getButton()} on
+     * {@link #getMouseInfo()} to find out which button it was, unless another event in
+     * the same act has claimed the mouse info.
+     *
+     * @param obj Typically one of Actor, World or null. If null, it will return true
+     *            if a button was released anywhere in the world. If World, it will
+     *            return true only if the release was over the world background and not
+     *            over an actor. If an Actor, only if it was over that actor.
+     * @return True if a mouse button was released as explained above
+     * @since SuperGreenfoot 0.1.4
+     */
+    public static boolean mouseReleased(Object obj)
+    {
+        return WorldHandler.getInstance().getMouseManager().isMouseReleased(obj);
+    }
+
+    /**
+     * True while the given mouse button is being held down.
+     * <p>
+     * Unlike the other mouse methods, this is a state rather than something that
+     * happened during the act: it stays true for every act between the press and the
+     * release, which is what a game needs for "hold the right button to block".
+     * The answer is taken once at the start of each act, so it cannot change half way
+     * through one.
+     * <p>
+     * A button is no longer counted as held when the scenario starts running, or when
+     * the world loses keyboard focus, since the release may then never arrive.
+     *
+     * @param button 1 for the left button, 2 for the middle, 3 for the right, matching
+     *               {@link MouseInfo#getButton()}
+     * @return True if that button is down right now
+     * @throws IllegalArgumentException if the button number is not 1, 2 or 3
+     * @since SuperGreenfoot 0.1.4
+     */
+    public static boolean isMouseButtonDown(int button)
+    {
+        if (button < 1 || button > 3)
+        {
+            throw new IllegalArgumentException("Mouse button must be 1 (left), 2 (middle)"
+                    + " or 3 (right), not " + button);
+        }
+        return WorldHandler.getInstance().getMouseManager().isMouseButtonDown(button);
+    }
+
+    /**
      * Return a mouse info object with information about the state of the
      * mouse.
      * 

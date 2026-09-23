@@ -56,6 +56,9 @@ class MouseEventData
     // events because it never competes with them for priority.
     private MouseInfo mouseScrolledInfo;
     private int scrollTotal;
+    // SuperGreenfoot: a button going up. Kept separately for the same reason: a release
+    // is always reported, even in an act that also holds a click or a drag ending.
+    private MouseInfo mouseReleasedInfo;
     private MouseEventData dragStartedBy;
 
     public void init()
@@ -67,6 +70,7 @@ class MouseEventData
         mouseMovedInfo = null;
         mouseScrolledInfo = null;
         scrollTotal = 0;
+        mouseReleasedInfo = null;
         if (mouseInfo != null)
         {
             MouseInfo blankedMouseInfo = MouseInfoVisitor.newMouseInfo();
@@ -107,7 +111,7 @@ class MouseEventData
      */
     public void mousePressed(int x, int y, int px, int py, int button)
     {
-        initKeepingScroll();
+        initKeepingExtras();
         mousePressedInfo = MouseInfoVisitor.newMouseInfo();
         mouseInfo = mousePressedInfo;  
         MouseInfoVisitor.setButton(mouseInfo, button);
@@ -142,7 +146,7 @@ class MouseEventData
     public void mouseClicked(int x, int y, int px, int py, int button, int clickCount)
     {
         MouseInfo tempPressedInfo = mousePressedInfo;        
-        initKeepingScroll();       
+        initKeepingExtras();       
         mousePressedInfo = tempPressedInfo;
         
         mouseClickedInfo = MouseInfoVisitor.newMouseInfo();;
@@ -174,7 +178,7 @@ class MouseEventData
      */
     public void mouseDragged(int x, int y, int px, int py, int button, Actor actor)
     {
-        initKeepingScroll();
+        initKeepingExtras();
         mouseDraggedInfo = MouseInfoVisitor.newMouseInfo();
         mouseInfo = mouseDraggedInfo;
         MouseInfoVisitor.setButton(mouseInfo, button);
@@ -206,7 +210,7 @@ class MouseEventData
     {
         MouseInfo tempPressedInfo = mousePressedInfo;
         MouseInfo tempClickedInfo = mouseClickedInfo;
-        initKeepingScroll();
+        initKeepingExtras();
         mousePressedInfo = tempPressedInfo;
         mouseClickedInfo = tempClickedInfo;
         mouseDragEndedInfo = MouseInfoVisitor.newMouseInfo();;
@@ -265,14 +269,57 @@ class MouseEventData
         }
     }
 
-    /** SuperGreenfoot: like init(), but a wheel movement earlier in this act survives. */
-    private void initKeepingScroll()
+    /** SuperGreenfoot: did a mouse button go up this act? */
+    public boolean isMouseReleased()
+    {
+        return mouseReleasedInfo != null;
+    }
+
+    /** SuperGreenfoot: did a mouse button go up over the given object this act? */
+    public boolean isMouseReleasedOn(Object obj)
+    {
+        return checkObject(obj, mouseReleasedInfo);
+    }
+
+    /**
+     * SuperGreenfoot: a mouse button went up, at the place the pointer was when it did.
+     * Unlike a drag ending, which reports where the drag started, this reports what the
+     * pointer is over now. It never displaces a press, click or drag as the act's
+     * MouseInfo, but it does stand in for a move, or for nothing at all.
+     *
+     * @param x   x-coordinate in world cells
+     * @param y   y-coordinate in world cells
+     * @param px    x-coordinate in pixels
+     * @param py    y-coordinate in pixels
+     * @param button    which button was released
+     */
+    public void mouseReleased(int x, int y, int px, int py, int button)
+    {
+        mouseReleasedInfo = MouseInfoVisitor.newMouseInfo();
+        MouseInfoVisitor.setButton(mouseReleasedInfo, button);
+        MouseInfoVisitor.setLoc(mouseReleasedInfo, x, y, px, py);
+        if (mousePressedInfo == null && mouseClickedInfo == null
+                && mouseDraggedInfo == null && mouseDragEndedInfo == null) {
+            if (scrollTotal != 0) {
+                MouseInfoVisitor.setScrollAmount(mouseReleasedInfo, scrollTotal);
+            }
+            mouseInfo = mouseReleasedInfo;
+        }
+    }
+
+    /**
+     * SuperGreenfoot: like init(), but the events that do not compete for priority -
+     * a wheel movement and a button going up - survive the rest of this act.
+     */
+    private void initKeepingExtras()
     {
         MouseInfo scrolled = mouseScrolledInfo;
         int total = scrollTotal;
+        MouseInfo released = mouseReleasedInfo;
         init();
         mouseScrolledInfo = scrolled;
         scrollTotal = total;
+        mouseReleasedInfo = released;
     }
 
     /**
@@ -285,7 +332,7 @@ class MouseEventData
      */
     public void mouseMoved(int x, int y, int px, int py)
     {
-        initKeepingScroll();
+        initKeepingExtras();
         mouseMovedInfo = MouseInfoVisitor.newMouseInfo();;
         mouseInfo = mouseMovedInfo;
         MouseInfoVisitor.setLoc(mouseInfo, x, y, px, py);
@@ -348,6 +395,9 @@ class MouseEventData
         if(mouseScrolledInfo != null) {
             s += " scrolled " + scrollTotal;
         }
+        if(mouseReleasedInfo != null) {
+            s += " released";
+        }
         return s;
     }
 
@@ -360,7 +410,8 @@ class MouseEventData
     public void setActors(WorldLocator locator)
     {
         for (MouseInfo info : Arrays.asList(mouseInfo, mouseClickedInfo, mouseDragEndedInfo,
-                mouseMovedInfo, mousePressedInfo, mouseDraggedInfo, mouseScrolledInfo))
+                mouseMovedInfo, mousePressedInfo, mouseDraggedInfo, mouseScrolledInfo,
+                mouseReleasedInfo))
         {
             if (info != null && info.getActor() == null)
             {

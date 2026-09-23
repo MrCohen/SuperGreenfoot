@@ -137,6 +137,24 @@ public class MousePollingManager
      */
     private boolean gotNewEvent;
     private boolean gotNewDragStartEvent;
+
+    /**
+     * SuperGreenfoot: which mouse buttons are held down right now, one bit per
+     * Greenfoot button number (1 left, 2 middle, 3 right). Unlike the events, this is
+     * a running state rather than something that happens in a frame, so it is kept
+     * outside the MouseEventData and is not subject to event priority.
+     *
+     * <p>Access to this field must be synchronized.
+     */
+    private int buttonsDown;
+
+    /**
+     * SuperGreenfoot: the held buttons as they were when this act round started, so
+     * that the answer cannot change half way through an act.
+     *
+     * <p>Accessed only from the simulation thread.
+     */
+    private int currentButtonsDown;
     
 
     /**
@@ -168,6 +186,10 @@ public class MousePollingManager
     @OnThread(Tag.Simulation)
     public synchronized void newActStarted()
     {
+        // SuperGreenfoot: the held buttons are a state, not an event, so they are
+        // snapshotted every round whether or not any event arrived.
+        currentButtonsDown = buttonsDown;
+
         // The current data was already polled, or we have a new event since;
         // use futureData as our current data. (If there's been no event, i.e. if
         // gotNewEvent is false, futureData will contain no events).
@@ -340,6 +362,31 @@ public class MousePollingManager
     }
 
     /**
+     * SuperGreenfoot: whether a mouse button went up over the given object this act.
+     * The object is the one under the pointer when the button was released, which is
+     * not necessarily where the press or the drag began.
+     *
+     * @param obj Typically one of Actor, World or null
+     * @return True if a button was released as explained above
+     */
+    @OnThread(Tag.Simulation)
+    public boolean isMouseReleased(Object obj)
+    {
+        return currentData.isMouseReleasedOn(obj);
+    }
+
+    /**
+     * SuperGreenfoot: whether the given button (1 left, 2 middle, 3 right) is being
+     * held down. This is the state as of the start of this act round, so it gives the
+     * same answer everywhere in one act.
+     */
+    @OnThread(Tag.Simulation)
+    public boolean isMouseButtonDown(int button)
+    {
+        return (currentButtonsDown & buttonMask(button)) != 0;
+    }
+
+    /**
      * SuperGreenfoot: the mouse wheel moved.
      *
      * @param x      The mouse x position in world pixels.
@@ -412,6 +459,15 @@ public class MousePollingManager
     }
 
     /**
+     * SuperGreenfoot: the bit standing for a Greenfoot button number in buttonsDown.
+     * Anything outside 1..3 has no bit, so it can neither be set nor be reported.
+     */
+    private static int buttonMask(int button)
+    {
+        return (button >= 1 && button <= 3) ? (1 << button) : 0;
+    }
+
+    /**
      * The mouse left the world area.
      */
     @OnThread(Tag.Any)
@@ -437,6 +493,9 @@ public class MousePollingManager
         
         synchronized(this)
         {
+            // SuperGreenfoot: the button is now held, whatever the event priorities decide below.
+            buttonsDown |= buttonMask(getButton(button));
+
             MouseEventData mouseData = futureData;
             // In case we already have a dragEnded and we get another
             // dragEnded, we need to start collection data for that.
@@ -479,6 +538,12 @@ public class MousePollingManager
         
         synchronized(this)
         {
+            // SuperGreenfoot: the button is no longer held, whatever happens below.
+            buttonsDown &= ~buttonMask(getButton(button));
+
+            int tx = locator.getTranslatedX(x);
+            int ty = locator.getTranslatedY(y);
+
             // This might be the end of a drag
             if(isDragging)
             {
@@ -489,20 +554,24 @@ public class MousePollingManager
                     futureData = potentialNewDragData;
                 }
                 
-                if (!PriorityManager.isHigherPriority(MouseEvent.MOUSE_RELEASED, futureData))
+                // A lower-priority event already collected wins, as it always has; the
+                // release itself is still recorded below either way.
+                if (PriorityManager.isHigherPriority(MouseEvent.MOUSE_RELEASED, futureData))
                 {
-                    return;
-                }
-                registerEventRecieved();
-                int tx = locator.getTranslatedX(x);
-                int ty = locator.getTranslatedY(y);
+                    registerEventRecieved();
 
-                futureData.mouseClicked(tx, ty, x, y, getButton(button), 1);
-                
-                futureData.mouseDragEnded(tx, ty, x, y, getButton(button), dragStartData);
-                isDragging = false;
-                potentialNewDragData = new MouseEventData();
+                    futureData.mouseClicked(tx, ty, x, y, getButton(button), 1);
+
+                    futureData.mouseDragEnded(tx, ty, x, y, getButton(button), dragStartData);
+                    isDragging = false;
+                    potentialNewDragData = new MouseEventData();
+                }
             }
+
+            // SuperGreenfoot: a release is reported in the act it happened in even when
+            // it is not the end of a drag, which is the only case upstream recorded.
+            registerEventRecieved();
+            futureData.mouseReleased(tx, ty, x, y, getButton(button));
         }
     }
 
@@ -569,9 +638,23 @@ public class MousePollingManager
      * Called when the world starts running, to discard any
      * old mouse data that may have been accumulated while paused.
      */
-    public void startedRunning()
+    public synchronized void startedRunning()
     {
         futureData = new MouseEventData();
+        // SuperGreenfoot: a button held while the scenario was paused is not held now.
+        buttonsDown = 0;
+        currentButtonsDown = 0;
+    }
+
+    /**
+     * SuperGreenfoot: the world view lost keyboard focus, so no button counts as held
+     * any more. The release that would normally clear it may go to another window and
+     * never reach us. This mirrors what KeyboardManager does with held keys.
+     */
+    @OnThread(Tag.Any)
+    public synchronized void focusLost()
+    {
+        buttonsDown = 0;
     }
 }
 

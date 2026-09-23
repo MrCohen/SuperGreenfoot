@@ -793,7 +793,9 @@ public class WorldHandler
     }
 
     /**
-     * The focus has changed on the world display, so tell the keyboard manager.
+     * The focus has changed on the world display, so tell the keyboard manager and,
+     * since SuperGreenfoot, the mouse manager: held keys and held mouse buttons are
+     * both let go when the world stops receiving input.
      * @param focused true if gained focus, false if lost focus.
      */
     @OnThread(Tag.Any)
@@ -806,6 +808,7 @@ public class WorldHandler
         else
         {
             keyboardManager.focusLost();
+            mousePollingManager.focusLost();
         }
     }
 

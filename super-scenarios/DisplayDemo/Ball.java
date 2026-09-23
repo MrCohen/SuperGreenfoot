@@ -3,11 +3,20 @@ import greenfoot.*;
 /** Bounces around using the precise movement API. */
 public class Ball extends Actor
 {
-    private double vx = 1.5 + Greenfoot.getRandomNumber(20) / 10.0;
-    private double vy = 1.0 + Greenfoot.getRandomNumber(20) / 10.0;
+    private double vx;
+    private double vy;
 
+    /** A ball that wanders off in some direction of its own. */
     public Ball()
     {
+        this(1.5 + Greenfoot.getRandomNumber(20) / 10.0, 1.0 + Greenfoot.getRandomNumber(20) / 10.0);
+    }
+
+    /** A ball fired with a chosen velocity. */
+    public Ball(double vx, double vy)
+    {
+        this.vx = vx;
+        this.vy = vy;
         GreenfootImage img = new GreenfootImage(24, 24);
         img.setColor(new Color(255, 200, 60));
         img.fillOval(0, 0, 23, 23);

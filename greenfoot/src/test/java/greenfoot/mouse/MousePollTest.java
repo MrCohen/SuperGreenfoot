@@ -22,6 +22,7 @@
 package greenfoot.mouse;
 
 import greenfoot.Actor;
+import greenfoot.Greenfoot;
 import greenfoot.MouseInfo;
 import greenfoot.TestObject;
 import greenfoot.TestUtilDelegate;
@@ -140,6 +141,7 @@ public class MousePollTest extends TestCase
             assertFalse(mouseMan.isMouseDragged(obj));
             assertFalse(mouseMan.isMouseMoved(obj));
             assertFalse(mouseMan.isMousePressed(obj));
+            assertFalse(mouseMan.isMouseReleased(obj));
         }
         MouseInfo info = mouseMan.getMouseInfo();
         if (info != null)
@@ -803,5 +805,237 @@ public class MousePollTest extends TestCase
         assertFalse(mouseMan.isMouseDragEnded(actorAtClick));
         assertFalse(mouseMan.isMouseClicked(actorAtClick));    
         assertFalse(mouseMan.isMousePressed(actorAtClick)); 
+    }
+
+    // ----------------------------------------------------------------------------
+    // SuperGreenfoot: the mouse release event and the held-button state.
+    // ----------------------------------------------------------------------------
+
+    private void press(int x, int y, int awtButton)
+    {
+        dispatch(new MouseEvent(panel, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(),
+                0, x, y, 1, false, awtButton));
+    }
+
+    private void release(int x, int y, int awtButton)
+    {
+        dispatch(new MouseEvent(panel, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(),
+                0, x, y, 1, false, awtButton));
+    }
+
+    private void click(int x, int y, int awtButton)
+    {
+        dispatch(new MouseEvent(panel, MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(),
+                0, x, y, 1, false, awtButton));
+    }
+
+    private void drag(int x, int y)
+    {
+        dispatch(new MouseEvent(panel, MouseEvent.MOUSE_DRAGGED, System.currentTimeMillis(),
+                0, x, y, 1, false, 0));
+    }
+
+    /**
+     * A press and release on an actor reports the release on that actor, and only there.
+     */
+    public void testMouseReleasedOnActor()
+    {
+        mouseMan.newActStarted();
+        assertBlank();
+
+        press(5, 5, MouseEvent.BUTTON1);
+        release(5, 5, MouseEvent.BUTTON1);
+        click(5, 5, MouseEvent.BUTTON1);
+
+        assertBlank();
+        mouseMan.newActStarted();
+
+        assertTrue(mouseMan.isMouseReleased(actorAtClick));
+        assertTrue(mouseMan.isMouseReleased(null));
+        assertFalse(mouseMan.isMouseReleased(actorOutsideClick));
+        assertFalse(mouseMan.isMouseReleased(world));
+        // The click in the same act is still reported: a release never hides it.
+        assertTrue(mouseMan.isMouseClicked(actorAtClick));
+
+        mouseMan.newActStarted();
+        assertBlank();
+    }
+
+    /**
+     * A release over the world background, away from every actor, is reported for the
+     * world and not for any actor.
+     */
+    public void testMouseReleasedOnWorld()
+    {
+        mouseMan.newActStarted();
+        press(100, 100, MouseEvent.BUTTON1);
+        release(100, 100, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+
+        assertTrue(mouseMan.isMouseReleased(world));
+        assertTrue(mouseMan.isMouseReleased(null));
+        assertFalse(mouseMan.isMouseReleased(actorAtClick));
+        assertFalse(mouseMan.isMouseReleased(actorOutsideClick));
+    }
+
+    /**
+     * A release with no click after it still carries the button and the place it
+     * happened, because nothing else in the act has claimed the mouse info.
+     */
+    public void testMouseReleasedCarriesButtonAndPlace()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+        assertTrue(mouseMan.isMousePressed(actorAtClick));
+
+        release(6, 7, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+
+        assertTrue(mouseMan.isMouseReleased(actorAtClick));
+        MouseInfo info = mouseMan.getMouseInfo();
+        assertEquals(1, info.getButton());
+        assertEquals(6, info.getX());
+        assertEquals(7, info.getY());
+    }
+
+    /**
+     * A drag ending says where the drag began; the release says where the button went
+     * up. Both are reported for the same act.
+     */
+    public void testMouseReleasedIsWhereTheButtonWentUpNotWhereTheDragBegan()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON1);
+        drag(30, 30);
+        drag(50, 50);
+        release(50, 50, MouseEvent.BUTTON1);
+
+        mouseMan.newActStarted();
+
+        // Upstream behaviour, unchanged: the drag ended on the actor it started on.
+        assertTrue(mouseMan.isMouseDragEnded(actorAtClick));
+        assertFalse(mouseMan.isMouseDragEnded(actorOutsideClick));
+
+        // The release is reported as well, at the other end of the drag.
+        assertTrue(mouseMan.isMouseReleased(actorOutsideClick));
+        assertFalse(mouseMan.isMouseReleased(actorAtClick));
+    }
+
+    /**
+     * The held-button state is taken once at the start of the act, stays true for every
+     * act in between, and goes false in the act after the release.
+     */
+    public void testIsMouseButtonDown()
+    {
+        mouseMan.newActStarted();
+        assertFalse(mouseMan.isMouseButtonDown(1));
+
+        press(5, 5, MouseEvent.BUTTON1);
+        // Not yet: this act was already answered.
+        assertFalse(mouseMan.isMouseButtonDown(1));
+
+        mouseMan.newActStarted();
+        assertTrue(mouseMan.isMouseButtonDown(1));
+        assertFalse(mouseMan.isMouseButtonDown(2));
+        assertFalse(mouseMan.isMouseButtonDown(3));
+
+        // An act in which nothing at all happens: still held.
+        mouseMan.newActStarted();
+        assertTrue(mouseMan.isMouseButtonDown(1));
+
+        release(5, 5, MouseEvent.BUTTON1);
+        assertTrue(mouseMan.isMouseButtonDown(1));
+
+        mouseMan.newActStarted();
+        assertFalse(mouseMan.isMouseButtonDown(1));
+    }
+
+    /**
+     * Two buttons can be held at once, and releasing one leaves the other held.
+     */
+    public void testIsMouseButtonDownSeveralButtons()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON1);
+        press(5, 5, MouseEvent.BUTTON3);
+        mouseMan.newActStarted();
+
+        assertTrue(mouseMan.isMouseButtonDown(1));
+        assertFalse(mouseMan.isMouseButtonDown(2));
+        assertTrue(mouseMan.isMouseButtonDown(3));
+
+        release(5, 5, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+
+        assertFalse(mouseMan.isMouseButtonDown(1));
+        assertTrue(mouseMan.isMouseButtonDown(3));
+    }
+
+    /**
+     * A press and a release inside one act leave nothing held, and the events still say
+     * it happened.
+     */
+    public void testPressAndReleaseInOneActLeaveNothingHeld()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON1);
+        release(5, 5, MouseEvent.BUTTON1);
+        click(5, 5, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+
+        assertFalse(mouseMan.isMouseButtonDown(1));
+        assertTrue(mouseMan.isMousePressed(actorAtClick));
+        assertTrue(mouseMan.isMouseReleased(actorAtClick));
+    }
+
+    /**
+     * Losing focus lets every button go: the release may be delivered elsewhere and
+     * never reach us.
+     */
+    public void testHeldButtonsClearedOnFocusLost()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON1);
+        mouseMan.newActStarted();
+        assertTrue(mouseMan.isMouseButtonDown(1));
+
+        mouseMan.focusLost();
+        mouseMan.newActStarted();
+        assertFalse(mouseMan.isMouseButtonDown(1));
+    }
+
+    /**
+     * Starting the scenario drops a button held while it was paused.
+     */
+    public void testHeldButtonsClearedWhenRunningStarts()
+    {
+        mouseMan.newActStarted();
+        press(5, 5, MouseEvent.BUTTON3);
+        mouseMan.newActStarted();
+        assertTrue(mouseMan.isMouseButtonDown(3));
+
+        mouseMan.startedRunning();
+        mouseMan.newActStarted();
+        assertFalse(mouseMan.isMouseButtonDown(3));
+    }
+
+    /**
+     * Only 1, 2 and 3 are buttons; anything else is a mistake worth saying out loud.
+     */
+    public void testIsMouseButtonDownRejectsOtherNumbers()
+    {
+        for (int button : new int[] {-1, 0, 4})
+        {
+            try
+            {
+                Greenfoot.isMouseButtonDown(button);
+                fail("expected IllegalArgumentException for button " + button);
+            }
+            catch (IllegalArgumentException expected)
+            {
+                assertTrue(expected.getMessage().contains(Integer.toString(button)));
+            }
+        }
     }
 }
