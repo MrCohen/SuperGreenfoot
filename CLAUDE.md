@@ -30,10 +30,12 @@ for the upstream base and every upstream file we change.
   build replaces it with the browser's WebSocket).
 - Public API changes: keep `getX()/getY()/getRotation()` returning `int`;
   add new methods rather than changing signatures; regenerate the user
-  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the fourteen API classes
-  change (the nine upstream classes, `SuperWindow`, and the network module's
-  `Network`, `NetServer`, `NetClient` and `NetEvent`; their APIs are in
-  `docs/api/superwindow.md` and `docs/api/network.md`).
+  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the sixteen API classes
+  change: the nine upstream classes, `ScaleMode`, `ZSortAnchor`, `SuperWindow`,
+  and the network module's `Network`, `NetServer`, `NetClient` and `NetEvent`.
+  Their APIs are in `docs/api/` (`superwindow.md`, `network.md`,
+  `mouse-input.md`, `phase1-api.md` for depth and the sort anchor,
+  `phase2d-display-api.md` for `ScaleMode` and the cursor).
 - Commit messages end with a `Co-Authored-By:` line naming the Claude model
   that actually did the work in that session, for example
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`.
@@ -43,7 +45,7 @@ for the upstream base and every upstream file we change.
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew :greenfoot:compileJava      # engine + IDE
-./gradlew :greenfoot:test             # headless engine tests (228 pass on 2026-09-23)
+./gradlew :greenfoot:test             # headless engine tests (238 pass on 2026-09-23)
 ./gradlew runGreenfoot                # launch the IDE
 ```
 

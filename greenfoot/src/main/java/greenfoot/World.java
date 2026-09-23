@@ -109,6 +109,10 @@ public abstract class World
 
     /** When true, actors are painted in order of their precise y (then z, then insertion). */
     private boolean zSortByY = false;
+    /** SuperGreenfoot: which part of an actor's image y-sorting treats as its feet. */
+    private ZSortAnchor zSortAnchor = ZSortAnchor.CENTRE;
+    /** SuperGreenfoot: set once any actor is given a sort offset, to keep the plain path plain. */
+    private boolean sortOffsetUsed = false;
 
     /** When true, z (and y-sorting) apply across all classes, ignoring class paint order. */
     private boolean globalZOrder = false;
@@ -1018,6 +1022,56 @@ public abstract class World
     }
 
     /**
+     * Choose which part of an actor's image counts as the point it stands on when
+     * y-sorting is on. The default, {@link ZSortAnchor#CENTRE}, uses the actor's own
+     * position, which is the middle of its image; {@link ZSortAnchor#BOTTOM} uses the
+     * bottom edge instead.
+     *
+     * <p>BOTTOM is what a top-down game usually wants. Greenfoot draws an actor
+     * centred on its position, so with CENTRE a tall picture only stands correctly
+     * among its neighbours if it is padded with empty rows below until its feet reach
+     * the middle - which makes a picture with nothing below its feet twice as tall as
+     * it needs to be, in memory as well as on disk. With BOTTOM the picture can be
+     * exactly as tall as what it draws:
+     *
+     * <pre>
+     * setZSortByY(true);
+     * setZSortAnchor(ZSortAnchor.BOTTOM);
+     * </pre>
+     *
+     * <p>The image height is read at every sort, so an actor that changes its image
+     * needs nothing else. Where the feet are not quite at the bottom edge, individual
+     * actors adjust with {@link Actor#setSortOffset(double)}.
+     *
+     * <p>This setting does nothing on its own: it only has an effect while
+     * {@link #setZSortByY(boolean)} is on, and it never moves an actor or changes what
+     * it collides with, only the order things are painted in.
+     *
+     * @param anchor Where an actor's ground line sits (default {@link ZSortAnchor#CENTRE}).
+     * @since SuperGreenfoot 0.1.4
+     */
+    public void setZSortAnchor(ZSortAnchor anchor)
+    {
+        if (anchor == null)
+        {
+            throw new IllegalArgumentException("The sort anchor cannot be null;"
+                    + " use ZSortAnchor.CENTRE or ZSortAnchor.BOTTOM.");
+        }
+        this.zSortAnchor = anchor;
+    }
+
+    /**
+     * @return Which part of an actor's image y-sorting treats as its ground line
+     *         (default {@link ZSortAnchor#CENTRE}).
+     * @see #setZSortAnchor(ZSortAnchor)
+     * @since SuperGreenfoot 0.1.4
+     */
+    public ZSortAnchor getZSortAnchor()
+    {
+        return zSortAnchor;
+    }
+
+    /**
      * Make z (and y-sorting, if enabled) apply across all actors regardless of class,
      * instead of only within each group defined by {@link #setPaintOrder(Class...)}.
      * With global z order, class paint order is ignored entirely.
@@ -1180,6 +1234,37 @@ public abstract class World
     }
 
     /**
+     * SuperGreenfoot: note that some actor has been given a sort offset, so that the
+     * plain y-sorting path is only left behind when it has to be.
+     */
+    void noteSortOffsetUsed()
+    {
+        sortOffsetUsed = true;
+    }
+
+    /**
+     * The comparator the paint sort uses. Without y-sorting it is z alone; with plain
+     * y-sorting and nothing to adjust it is the actor's own y, exactly as before; and
+     * where an anchor or an offset is in play the key is worked out in pixels, so that
+     * image measurements mean the same thing at any cell size.
+     */
+    private Comparator<Actor> paintComparator()
+    {
+        if (!zSortByY)
+        {
+            return BY_Z;
+        }
+        if (zSortAnchor == ZSortAnchor.CENTRE && !sortOffsetUsed)
+        {
+            return BY_Y_THEN_Z;
+        }
+        final int cells = cellSize;
+        final boolean bottom = zSortAnchor == ZSortAnchor.BOTTOM;
+        return Comparator.<Actor>comparingDouble(a -> a.sortY(cells, bottom))
+                .thenComparingDouble(a -> a.z);
+    }
+
+    /**
      * Get the actors in their final paint order: class paint order first (unless
      * global z order is on), then y if y-sorting is on, then z, then insertion order.
      * When no depth ordering is in use this returns the live class-ordered set
@@ -1193,7 +1278,7 @@ public abstract class World
         if (!isPaintSortNeeded()) {
             return set;
         }
-        Comparator<Actor> cmp = zSortByY ? BY_Y_THEN_Z : BY_Z;
+        Comparator<Actor> cmp = paintComparator();
         ArrayList<Actor> list = new ArrayList<Actor>(set.size());
         if (globalZOrder) {
             list.addAll(set);

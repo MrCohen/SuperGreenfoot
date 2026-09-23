@@ -7,11 +7,20 @@ import greenfoot.*;
 public class Walker extends Actor
 {
     private final double speed;
+    private final double top;
+    private final double bottom;
     private double dir = 1;
 
     public Walker(double speed)
     {
+        this(speed, 270, 340);
+    }
+
+    public Walker(double speed, double top, double bottom)
+    {
         this.speed = speed;
+        this.top = top;
+        this.bottom = bottom;
         GreenfootImage img = new GreenfootImage(40, 48);
         img.setColor(new Color(90, 140, 255));
         img.fillOval(0, 0, 40, 48);
@@ -24,7 +33,7 @@ public class Walker extends Actor
     public void act()
     {
         setLocation(getPreciseX(), getPreciseY() + speed * dir);
-        if (getPreciseY() > 340 || getPreciseY() < 270) {
+        if (getPreciseY() > bottom || getPreciseY() < top) {
             dir = -dir;
         }
     }

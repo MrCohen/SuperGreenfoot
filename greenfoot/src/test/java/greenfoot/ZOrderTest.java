@@ -87,6 +87,25 @@ public class ZOrderTest extends TestCase
         return join(sorted);
     }
 
+    /** An actor whose image size can be chosen, for testing the sort anchor. */
+    private static class Prop extends Actor
+    {
+        final String name;
+
+        Prop(String name, int width, int height)
+        {
+            this.name = name;
+            setImage(new GreenfootImage(width, height));
+        }
+
+        void resize(int width, int height)
+        {
+            setImage(new GreenfootImage(width, height));
+        }
+
+        @Override public String toString() { return name; }
+    }
+
     public void testDefaultIsInsertionOrder()
     {
         World world = WorldCreator.createWorld(50, 50, 1);
@@ -202,5 +221,176 @@ public class ZOrderTest extends TestCase
         assertEquals("b,a", join(world.getObjectsInFinalPaintOrder()));
         world.removeObject(a);
         assertEquals("b", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    // ----------------------------------------------------------------------------
+    // SuperGreenfoot: the sort anchor. Greenfoot draws an actor centred on its
+    // position, so y-sorting by that position only looks right if a tall picture is
+    // padded with empty rows until its feet reach the middle. ZSortAnchor.BOTTOM and
+    // Actor.setSortOffset let the picture be exactly as tall as what it draws.
+    // ----------------------------------------------------------------------------
+
+    /** With a bottom anchor a tall thing stands where its feet are, not where its middle is. */
+    public void testBottomAnchorSortsByTheFootOfTheImage()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        Prop rock = new Prop("rock", 8, 8);
+        world.addObject(tree, 10, 20);
+        world.addObject(rock, 30, 25);
+        world.setZSortByY(true);
+
+        // By the middle of the image: the tree is higher up, so it paints behind.
+        assertEquals(ZSortAnchor.CENTRE, world.getZSortAnchor());
+        assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
+
+        // By the foot of the image: the tree's trunk (20 + 40/2 = 40) is below the
+        // rock's base (25 + 8/2 = 29), so the tree paints in front.
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
+        assertEquals("rock,tree", paintedOrder(world, tree, rock));
+    }
+
+    /** The height is read at every sort, so changing the image is enough on its own. */
+    public void testBottomAnchorFollowsAChangedImage()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        Prop rock = new Prop("rock", 8, 8);
+        world.addObject(tree, 10, 20);
+        world.addObject(rock, 30, 25);
+        world.setZSortByY(true);
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
+
+        // The tree is felled and becomes a stump: 20 + 10/2 = 25, now behind the rock.
+        tree.resize(20, 10);
+        assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** An offset moves the ground line when the feet are not at the picture's edge. */
+    public void testSortOffsetShiftsTheGroundLine()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        Prop rock = new Prop("rock", 8, 8);
+        world.addObject(tree, 10, 20);
+        world.addObject(rock, 30, 25);
+        world.setZSortByY(true);
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
+
+        // The trunk really ends 16 px above the picture's edge: 20 + 20 - 16 = 24.
+        tree.setSortOffset(-16);
+        assertEquals(-16.0, tree.getSortOffset(), 0.0);
+        assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** An offset works on its own, without changing the world's anchor. */
+    public void testSortOffsetWorksWithTheCentreAnchor()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        Prop rock = new Prop("rock", 8, 8);
+        world.addObject(tree, 10, 20);
+        world.addObject(rock, 30, 25);
+        world.setZSortByY(true);
+        assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
+
+        tree.setSortOffset(20);   // 20 + 20 = 40, below the rock's 25
+        assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** An offset set before the actor joins the world still counts, as z does. */
+    public void testSortOffsetSetBeforeAddingIsHonoured()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop a = new Prop("a", 8, 8);
+        Prop b = new Prop("b", 8, 8);
+        b.setSortOffset(-20);
+        world.addObject(a, 10, 20);
+        world.addObject(b, 30, 25);
+        world.setZSortByY(true);
+        // b: 25 - 20 = 5, above a's 20.
+        assertEquals("b,a", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** Image measurements are pixels, so they mean the same thing at any cell size. */
+    public void testAnchorAndOffsetAreInPixelsAtAnyCellSize()
+    {
+        World world = WorldCreator.createWorld(50, 50, 10);
+        Prop tall = new Prop("tall", 20, 40);
+        Prop flat = new Prop("flat", 8, 8);
+        world.addObject(tall, 1, 2);
+        world.addObject(flat, 3, 3);
+        world.setZSortByY(true);
+
+        // By cell: row 2 is above row 3.
+        assertEquals("tall,flat", join(world.getObjectsInFinalPaintOrder()));
+
+        // By the foot, in pixels: tall is 2*10 + 20 = 40, flat is 3*10 + 4 = 34.
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        assertEquals("flat,tall", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** The anchor is about painting only: it never moves an actor. */
+    public void testAnchorAndOffsetDoNotMoveTheActor()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        world.addObject(tree, 10, 20);
+        world.setZSortByY(true);
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        tree.setSortOffset(-16);
+
+        assertEquals(10, tree.getX());
+        assertEquals(20, tree.getY());
+        assertEquals(20.0, tree.getPreciseY(), 0.0);
+        assertSame(tree, world.getObjectsAt(10, 20, Prop.class).get(0));
+    }
+
+    /** Without y-sorting the anchor does nothing at all. */
+    public void testAnchorDoesNothingWithoutYSorting()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop tree = new Prop("tree", 20, 40);
+        Prop rock = new Prop("rock", 8, 8);
+        world.addObject(tree, 10, 20);
+        world.addObject(rock, 30, 25);
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+        tree.setSortOffset(-16);
+
+        assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** An actor with no image at all sorts by its position, and does not blow up. */
+    public void testBottomAnchorWithNoImage()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        Prop ghost = new Prop("ghost", 8, 8);
+        Prop rock = new Prop("rock", 8, 8);
+        ghost.setImage((GreenfootImage) null);
+        world.addObject(ghost, 10, 30);
+        world.addObject(rock, 30, 25);
+        world.setZSortByY(true);
+        world.setZSortAnchor(ZSortAnchor.BOTTOM);
+
+        // ghost: 30 + nothing = 30, rock: 25 + 4 = 29.
+        assertEquals("rock,ghost", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** There is no "no anchor": asking for null is a mistake worth saying out loud. */
+    public void testNullAnchorRejected()
+    {
+        World world = WorldCreator.createWorld(50, 50, 1);
+        try
+        {
+            world.setZSortAnchor(null);
+            fail("expected IllegalArgumentException");
+        }
+        catch (IllegalArgumentException expected)
+        {
+            assertEquals(ZSortAnchor.CENTRE, world.getZSortAnchor());
+        }
     }
 }

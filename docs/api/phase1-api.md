@@ -39,11 +39,67 @@ is on screen.
 | `Actor.setZ(double)` / `getZ()` | Higher z paints later (in front). Ties keep insertion order. Never triggers `addedToWorld`/`removedFromWorld`; never changes act order. |
 | `World.setZSortByY(boolean)` | Paint key becomes (precise y, z, insertion). |
 | `World.setGlobalZOrder(boolean)` | Ignore class paint order; one global (y, z) order. Default off: z sorts **within** each `setPaintOrder` group (decision D6). |
+| `World.setZSortAnchor(ZSortAnchor)` / `getZSortAnchor()` | Added 0.1.4. Which part of an actor's image counts as its ground line: `CENTRE` (default, as before) or `BOTTOM`. See below. |
+| `Actor.setSortOffset(double)` / `getSortOffset()` | Added 0.1.4. Pixels to move this actor's ground line down, on top of the world's anchor. |
 
 Implementation: `World.getObjectsInFinalPaintOrder()` returns the live
 class-ordered set when no depth feature is in use (zero cost), otherwise a
 stably sorted snapshot built once per paint. Mouse picking follows paint order
 automatically because it uses the renderer's paint sequence numbers.
+
+### The sort anchor (0.1.4)
+
+Greenfoot draws an actor centred on its position, so y-sorting by that position
+asks a tall picture to stand on its own middle. The way to make a tree look
+right was to pad its picture with empty rows below until the foot of the trunk
+reached the centre. For a picture that draws nothing below its feet that is
+**twice the height for nothing**, in memory and in every cached variant of it.
+It is why Tenth Realm shares twelve cached sprites per kind of tree (TR17)
+instead of giving every tree its own look.
+
+`ZSortAnchor.BOTTOM` measures from the bottom edge of the image instead, so the
+picture can be exactly as tall as what it draws:
+
+```java
+setZSortByY(true);
+setZSortAnchor(ZSortAnchor.BOTTOM);
+```
+
+The height is read at every sort, so an actor that swaps its image - a walk
+cycle, a tree felled into a stump - needs nothing else. Where the feet are not
+quite at the bottom edge, because a shadow or a tuft of grass is drawn below
+them, the individual actor trims the line:
+
+```java
+tree.setSortOffset(-6);   // the trunk ends 6 pixels above the picture's edge
+```
+
+**The key.** With an anchor or an offset in play, the sort key is worked out in
+pixels rather than cells, so an image measurement means the same thing at any
+cell size:
+
+```
+key = preciseY * cellSize
+    + (anchor == BOTTOM ? imageHeight / 2 : 0)
+    + sortOffset
+```
+
+Ties still fall through to z, then to insertion order.
+
+**What it does not do.** The anchor and the offset change paint order and
+nothing else: the actor is drawn, dragged, picked and collided with exactly
+where it was. Neither has any effect unless `setZSortByY(true)` is on. An actor
+with no image contributes no height rather than failing.
+
+**Cost.** A world that uses neither keeps the original comparator, so the plain
+y-sorting path is byte for byte what it was. Otherwise the key is computed from
+the `image` field directly rather than through `getImage()`, which a subclass
+may override - a comparator has to answer the same question the same way every
+time or the sort will not terminate.
+
+Demo: `super-scenarios/PrecisionDemo`, the grove at the bottom. Press A to switch
+anchors and watch the walker pass among the trees: with `CENTRE` it strolls in
+front of a tree it is plainly standing behind.
 
 ## World: smooth rendering (decision D7, opt-in)
 

@@ -112,6 +112,13 @@ public abstract class Actor
     /** Paint depth within this actor's paint-order group. Higher z is painted later (on top). */
     double z = 0;
 
+    /**
+     * SuperGreenfoot: how far below this actor's position its ground line sits, in
+     * pixels. Added to the y-sorting key, on top of whatever the world's
+     * {@link ZSortAnchor} contributes.
+     */
+    double sortOffset = 0;
+
     /** Reference to the world that this actor is a part of. */
     World world;
 
@@ -452,6 +459,70 @@ public abstract class Actor
     public double getZ()
     {
         return z;
+    }
+
+    /**
+     * Move this actor's ground line, the point that y-sorting treats as where it
+     * stands. Positive values move it down the screen, negative values up. The offset
+     * is in pixels, whatever the world's cell size, and it has no effect unless
+     * {@link World#setZSortByY(boolean)} is on.
+     *
+     * <p>It is applied on top of the world's {@link World#setZSortAnchor(ZSortAnchor)}.
+     * With the default {@link ZSortAnchor#CENTRE} the line starts at the middle of the
+     * image; with {@link ZSortAnchor#BOTTOM} it starts at the image's bottom edge and
+     * this trims it, which is what a picture with a shadow or a tuft of grass drawn
+     * below the feet needs:
+     *
+     * <pre>
+     * world.setZSortByY(true);
+     * world.setZSortAnchor(ZSortAnchor.BOTTOM);
+     * tree.setSortOffset(-4);   // the trunk ends 4 pixels above the picture's edge
+     * </pre>
+     *
+     * <p>Nothing else about the actor changes: it is drawn, dragged and collided with
+     * exactly where it was. Only the paint order is affected.
+     *
+     * @param sortOffset Pixels to move the ground line down (default 0).
+     * @since SuperGreenfoot 0.1.4
+     */
+    public void setSortOffset(double sortOffset)
+    {
+        this.sortOffset = sortOffset;
+        if (sortOffset != 0 && world != null) {
+            world.noteSortOffsetUsed();
+        }
+    }
+
+    /**
+     * @return How far below this actor's position its ground line sits, in pixels
+     *         (default 0).
+     * @see #setSortOffset(double)
+     * @since SuperGreenfoot 0.1.4
+     */
+    public double getSortOffset()
+    {
+        return sortOffset;
+    }
+
+    /**
+     * SuperGreenfoot: the y this actor sorts at when y-sorting is on, in pixels, so
+     * that the anchor and the offset can be expressed in image pixels whatever the
+     * world's cell size.
+     *
+     * @param cellSize     the world's cell size in pixels
+     * @param bottomAnchor true to measure from the bottom edge of the image rather
+     *                     than from the actor's position
+     */
+    double sortY(int cellSize, boolean bottomAnchor)
+    {
+        double y = preciseY * cellSize + sortOffset;
+        // The field, not getImage(): a subclass may override that, and a sort has to
+        // ask the same question the same way every time or it will not terminate.
+        if (bottomAnchor && image != null)
+        {
+            y += image.getHeight() / 2.0;
+        }
+        return y;
     }
 
     /**
@@ -996,6 +1067,9 @@ public abstract class Actor
         this.setWorld(world, null);
         if (z != 0) {
             world.noteZUsed();
+        }
+        if (sortOffset != 0) {
+            world.noteSortOffsetUsed();
         }
         
         // This call is not necessary, however setLocation may be overridden

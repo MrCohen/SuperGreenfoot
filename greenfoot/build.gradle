@@ -259,7 +259,8 @@ task userJavadoc(type: Javadoc) {
                 'greenfoot/NetClient.java',
                 'greenfoot/NetEvent.java',
                 'greenfoot/UserInfo.java',
-                'greenfoot/World.java']
+                'greenfoot/World.java',
+                'greenfoot/ZSortAnchor.java']
     destinationDir = file("../bluej/doc/API")
     classpath = sourceSets.main.output.classesDirs + project.configurations.compileClasspath
 }
