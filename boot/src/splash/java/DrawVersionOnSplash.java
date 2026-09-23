@@ -14,12 +14,13 @@ import java.io.IOException;
  */
 public class DrawVersionOnSplash
 {
-    // Takes seven args: original image path, string to draw, font file, size, X position, Y position, output image path
+    // Takes seven args: original image path, string to draw, font file, size, X position, Y position, output image path.
+    // SuperGreenfoot: any number of further (string, X position, Y position) triples draw more strings in the same font.
     public static void main(String[] args)
     {
-        if (args.length != 7)
+        if (args.length < 7 || (args.length - 7) % 3 != 0)
         {
-            System.err.println("Wrong number of args (" + args.length + "), should be 6: original-image-path, string, size, X, Y, output-image-path");
+            System.err.println("Wrong number of args (" + args.length + "), should be 7: original-image-path, string, font-file, size, X, Y, output-image-path, then optional (string, X, Y) triples");
             System.exit(-1);
         }
         try
@@ -44,6 +45,10 @@ public class DrawVersionOnSplash
                 g2d.addRenderingHints(hints);
             }
             g.drawString(stringToDraw, xPosition, yPosition);
+            for (int i = 7; i + 2 < args.length; i += 3)
+            {
+                g.drawString(args[i], Integer.parseInt(args[i + 1]), Integer.parseInt(args[i + 2]));
+            }
             ImageIO.write(image, "png", destFile);
         }
         catch (IOException | NumberFormatException | FontFormatException e)

@@ -293,6 +293,9 @@ menu.tools.recompileAll=Recompile Scenario
 
 menu.help=Help
 menu.help.about=About Super Greenfoot...
+# SuperGreenfoot: the About box names the fork; the upstream team line keeps "Greenfoot"
+about.version=Super Greenfoot version
+about.theTeam=Greenfoot team:
 menu.help.classDoc=Greenfoot Class Documentation
 menu.help.javadoc=Java Library Documentation
 menu.help.tutorial=Greenfoot Tutorial

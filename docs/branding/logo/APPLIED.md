@@ -39,11 +39,14 @@ no upstream artwork remains in the tree.
   for *their* footprint (`greenfoot-icon-{128,256-shadow,64,big,huge,medium}.psd`).
   Nothing in the build reads them. They are the upstream mark in editable form
   and should almost certainly be deleted rather than replaced.
-- **`docs/branding/SuperGreenfootSplash.dsimp`**, **`SuperGreenfootAbout.dsimp`**,
-  **`SuperGreenfootDMG.dsimp`** and their `@2x.png` exports — per
-  `SPLASH_CREDITS.md` these *incorporate the upstream footprint image* from
-  `greenfoot-icon-256-shadow.png`. Swapping in the new mark would remove the
-  last upstream artwork from the shipped product.
+- **`docs/branding/SuperGreenfootAbout.dsimp`**, **`SuperGreenfootDMG.dsimp`**
+  and their `@2x.png` exports — per their credits files these *incorporate the
+  upstream footprint image* from `greenfoot-icon-256-shadow.png`. Swapping in
+  the new mark would remove the last upstream artwork from the shipped product.
+  The splash was redone on 2026-09-23 (`SuperGreenfootSplash-v2.dsimp`, shipped
+  as `greenfoot/resources/images/greenfoot-splash{,@2x}.png`) with the new
+  mark and the emerald accent; the original `SuperGreenfootSplash.dsimp` stays
+  in the tree for reference only.
 
 ## Regenerating
 

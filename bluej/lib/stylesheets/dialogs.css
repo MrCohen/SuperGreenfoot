@@ -136,6 +136,100 @@
     -fx-font-weight: bold;
 }
 
+/* SuperGreenfoot: the Greenfoot About dialog in the splash's navy and emerald
+   (AboutDialogTemplate adds .super-about only when running as Greenfoot) */
+.super-about {
+    -fx-base: #14283E;
+    -fx-background: #14283E;
+    -fx-control-inner-background: #14283E;
+    -fx-accent: #34D399;
+    -fx-focus-color: #34D399;
+    -fx-faint-focus-color: #34D39922;
+    -fx-background-color: #14283E;
+}
+.super-about > .content {
+    -fx-padding: 0;
+}
+.super-about .label {
+    -fx-text-fill: #D5E7E8;
+}
+.super-about .about-tabs > .tab-header-area {
+    -fx-padding: 0.4em 0.8em 0 0.8em;
+}
+.super-about .about-tabs > .tab-header-area > .tab-header-background {
+    -fx-background-color: #0B192B;
+}
+.super-about .about-tabs > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 3 0;
+    -fx-padding: 0.3em 0.9em 0.4em 0.9em;
+}
+.super-about .about-tabs > .tab-header-area > .headers-region > .tab:selected {
+    -fx-border-color: transparent transparent #34D399 transparent;
+}
+.super-about .about-tabs > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: #A8C1C4;
+    -fx-font-weight: bold;
+}
+.super-about .about-tabs > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: white;
+}
+.super-about .about-tabs > .tab-header-area > .headers-region > .tab:selected .focus-indicator {
+    -fx-border-color: transparent;
+}
+.super-about .about-dialog-content {
+    -fx-padding: 0;
+    -fx-background-color: #14283E;
+}
+.super-about .about-more-info {
+    -fx-padding: 1em 1.6em 0.5em 1.6em;
+    -fx-pref-width: 536;
+    -fx-max-width: 536;
+}
+.super-about .about-more-info .label {
+    -fx-wrap-text: true;
+}
+.super-about .about-team {
+    -fx-text-fill: #A8C1C4;
+}
+.super-about .about-debuglog .button {
+    -fx-min-width: 7em;
+}
+.super-about .about-version,
+.super-about .about-version-last,
+.super-about .about-contributors-title {
+    -fx-text-fill: #34D399;
+}
+.super-about .hyperlink {
+    -fx-text-fill: #34D399;
+    -fx-border-color: transparent;
+}
+.super-about .button {
+    -fx-background-color: #34D399;
+    -fx-background-radius: 6;
+    -fx-text-fill: #0B192B;
+    -fx-font-weight: bold;
+}
+.super-about .button:hover {
+    -fx-background-color: #5EE0B0;
+}
+.super-about > .button-bar {
+    -fx-background-color: #0B192B;
+    -fx-padding: 0.8em;
+}
+.super-about .about-contributors {
+    -fx-padding: 0 1.6em 1em 1.6em;
+}
+.super-about .about-translators-table,
+.super-about .about-translators-table .table-row-cell {
+    -fx-background-color: transparent;
+}
+.super-about .about-translators-table .table-row-cell .table-cell {
+    -fx-text-fill: #D5E7E8;
+}
+
 /* Version check dialog */
 .version-check-dialog-content {
     -fx-padding: 1em;

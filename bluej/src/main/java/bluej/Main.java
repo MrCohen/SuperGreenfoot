@@ -275,7 +275,10 @@ public class Main
             // Get the toolkit
             MenuToolkit menuToolkit = MenuToolkit.toolkit();
             // Create the default Application menu
-            Menu defaultApplicationMenu = menuToolkit.createDefaultApplicationMenu(Config.getApplicationName());
+            // SuperGreenfoot: "About/Hide/Quit Super Greenfoot" rather than the internal name
+            // (Config.getApplicationName() also names the preferences file, so it stays "Greenfoot")
+            String menuAppName = Config.isGreenfoot() ? "Super Greenfoot" : Config.getApplicationName();
+            Menu defaultApplicationMenu = menuToolkit.createDefaultApplicationMenu(menuAppName);
             // Update the existing Application menu
             menuToolkit.setApplicationMenu(defaultApplicationMenu);
 

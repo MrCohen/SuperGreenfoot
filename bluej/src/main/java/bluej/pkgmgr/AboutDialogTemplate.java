@@ -73,7 +73,8 @@ public class AboutDialogTemplate extends Dialog<Void>
     {
         initOwner(parent);
         initModality(Modality.WINDOW_MODAL);
-        setTitle(Config.getString("menu.help.about"));
+        // SuperGreenfoot: the menu label ends in "..."; the window title should not
+        setTitle(Config.getString("menu.help.about").replaceAll("(\\.\\.\\.|\u2026)$", ""));
         setDialogPane(new DialogPane() {
             @Override
             @OnThread(Tag.FX)
@@ -86,6 +87,11 @@ public class AboutDialogTemplate extends Dialog<Void>
             }
         });
         Config.addDialogStylesheets(getDialogPane());
+        if (Config.isGreenfoot())
+        {
+            // SuperGreenfoot: dark navy and emerald, matching the splash (dialogs.css .super-about)
+            JavaFXUtil.addStyleClass(getDialogPane(), "super-about");
+        }
         getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 
         TabPane tabs = JavaFXUtil.withStyleClass(new TabPane(
@@ -205,7 +211,7 @@ public class AboutDialogTemplate extends Dialog<Void>
         Tab tab = new Tab(Config.getString("about.contributors.title"));
         tab.setClosable(false);
 
-        VBox vbox = new VBox();
+        VBox vbox = JavaFXUtil.withStyleClass(new VBox(), "about-contributors");
         if (previousTeamMembers != null)
         {
             Label teamTitle = new Label("\n" + Config.getString("about.previousTeamMembers.title") + "\n");

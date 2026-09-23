@@ -187,6 +187,27 @@ task runGreenfoot(type: JavaExec) {
     // SuperGreenfoot: without these a run from source shows in the Dock as a generic "java"
     if (System.getProperty('os.name').contains('Mac')) {
         jvmArgs "-Xdock:name=SuperGreenfoot", "-Xdock:icon=" + file('resources/images/greenfoot.icns').absolutePath
+        // ...and JavaFX names the bold application menu after the process, so the IDE's JVM
+        // runs through a link called SuperGreenfoot. Gradle treats the executable's folder as
+        // a JDK and runs its bin/java, so that "java" is a script handing over to the link.
+        executable = file("$buildDir/launcher/bin/java").absolutePath
+        dependsOn 'superGreenfootLauncher'
+    }
+}
+task superGreenfootLauncher {
+    def bin = file("$buildDir/launcher/bin")
+    inputs.property 'javaHome', System.getProperty('java.home')
+    outputs.dir bin
+    doLast {
+        bin.mkdirs()
+        // the JDK Gradle runs on, which is what runGreenfoot used before
+        def link = new File(bin, 'SuperGreenfoot').toPath()
+        java.nio.file.Files.deleteIfExists(link)
+        java.nio.file.Files.createSymbolicLink(link,
+                java.nio.file.Paths.get(System.getProperty('java.home'), 'bin', 'java'))
+        def script = new File(bin, 'java')
+        script.text = '#!/bin/sh\nexec "$(dirname "$0")/SuperGreenfoot" "$@"\n'
+        script.setExecutable(true)
     }
 }
 runGreenfoot.dependsOn build
