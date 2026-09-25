@@ -7,6 +7,8 @@
 #   ./dev app                 build an unsigned SuperGreenfoot.app (about 1 min) and open it
 #   ./dev dmg                 signed + notarized installer onto the Desktop (about 8 min)
 #   ./dev install             same as dmg, then replace /Applications/SuperGreenfoot.app
+#   ./dev winzip              Windows standalone zip (runs from a USB key, no install) onto the Desktop
+#   ./dev usb <folder>        winzip, then copy it into <folder> (e.g. /Volumes/USB\ DISK) beside anything there
 #
 # The IDE from "run" and "app" shares preferences with the installed SuperGreenfoot
 # (~/Library/Preferences/org.supergreenfoot); its log is greenfoot-debuglog.txt there.
@@ -57,7 +59,16 @@ case "$cmd" in
       echo "Installed."
     fi
     ;;
+  winzip)
+    installer/windows/build-standalone.sh --out build/installer-windows
+    cp build/installer-windows/SuperGreenfoot-windows-standalone-*.zip ~/Desktop/
+    echo "Zip copied to the Desktop."
+    ;;
+  usb)
+    [[ $# -ge 1 && -d "$1" ]] || { echo "usage: ./dev usb <folder, e.g. /Volumes/USB\\ DISK>"; exit 2; }
+    installer/windows/build-standalone.sh --out build/installer-windows --install "$1"
+    ;;
   *)
-    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
     ;;
 esac

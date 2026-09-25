@@ -12,6 +12,8 @@ cd ~/Developer/SuperGreenfoot/supergreenfoot
 ./dev app                                         # unsigned SuperGreenfoot.app, about 1 min, then opens it
 ./dev dmg                                         # signed and notarized installer onto the Desktop, about 8 min
 ./dev install                                     # dmg, then replace /Applications/SuperGreenfoot.app
+./dev winzip                                      # Windows standalone zip onto the Desktop, about 1 min
+./dev usb /Volumes/USB\ DISK                      # the same, copied onto a USB key beside what is there
 ./dev help                                        # this list
 ```
 
@@ -24,6 +26,7 @@ cd ~/Developer/SuperGreenfoot/supergreenfoot
 | Anything, before committing | `./dev test` | Runs the headless engine and IDE tests. `./dev run` skips them to stay fast. |
 | Something that only matters when packaged (export, bundled runtime, file locations) | `./dev app` | Builds the real app bundle, unsigned, for this Mac only. This is the check that would have caught the 2026-09-16 export bug. |
 | You want to hand the build to someone, or update your own install | `./dev dmg` or `./dev install` | Signs with your Developer ID, notarizes, staples, and copies the DMG to the Desktop. `install` also replaces the app in /Applications. |
+| Windows PCs where you cannot install anything (school labs) | `./dev winzip` or `./dev usb <folder>` | Builds the Windows standalone on the Mac: `SuperGreenfoot.exe` plus a `SuperGreenfoot\` folder with its own Java. Unzip it anywhere writable, or run it from a USB key. See below. |
 
 ## Good to know
 
@@ -35,6 +38,30 @@ cd ~/Developer/SuperGreenfoot/supergreenfoot
 - A window opened by `./dev run`, `./dev player` or `./dev app` takes keyboard focus, like any newly launched app.
 - If a double-clicked exported `.jar` bounces in the Dock and then does nothing, quit `JavaLauncher` in Activity Monitor and try again (see `docs/api/phase4-native-packaging.md`).
 
+## Windows standalone
+
+`installer/windows/build-standalone.sh` is the Mac-side equivalent of upstream's `windows-standalone`
+Ant target, which needs Windows. It needs `brew install mingw-w64` once (to compile upstream's
+launchers with SuperGreenfoot's name) and downloads, the first time only, into
+`~/Library/Caches/SuperGreenfoot/windows`: Temurin JDK 21 for Windows, the same Temurin release for
+the Mac (only for its `jlink`, which must match the target's version exactly), and the Windows JavaFX
+jars. `SGF_WIN_JDK_REFRESH=1` picks up a newer Temurin release.
+
+The result, on a key or unzipped:
+
+```
+SuperGreenfoot.exe              start here: runs SuperGreenfoot\SuperGreenfoot.exe
+SuperGreenfoot\
+  SuperGreenfoot.exe            the normal launcher (also works on its own)
+  Start SuperGreenfoot.cmd      fallback for PCs that block unknown .exe files
+  jdk\  lib\
+userhome\supergreenfoot\        preferences, created on first run
+```
+
+It sits beside a stock Greenfoot standalone (`greenfoot.exe`, `greenfoot\`, `userhome\greenfoot\`)
+without sharing anything. `./dev usb` replaces only `SuperGreenfoot.exe` and `SuperGreenfoot\`.
+The launchers are unsigned, so Windows SmartScreen may ask once ("More info", "Run anyway").
+
 ## Overrides (environment variables)
 
 | Variable | Default | Meaning |
@@ -42,3 +69,4 @@ cd ~/Developer/SuperGreenfoot/supergreenfoot
 | `SGF_JAVA_HOME` | `/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | A full JDK 21 or later (needs `jlink` and `jpackage` for `app`, `dmg`, `install`). |
 | `SGF_SIGN_NAME` | `Jordan Cohen (QTS5DK2S8Q)` | The name part of the "Developer ID Application" certificate. |
 | `SGF_NOTARY_PROFILE` | `SuperGreenfoot` | The keychain profile created with `xcrun notarytool store-credentials`. |
+| `SGF_WIN_CACHE` | `~/Library/Caches/SuperGreenfoot/windows` | Where `winzip` and `usb` keep the downloaded Windows JDK and JavaFX. |

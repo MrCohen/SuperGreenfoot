@@ -53,7 +53,7 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ```
 
 The owner's shortcut for all of this is the `./dev` script in the repo root
-(`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`); keep it
+(`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`, `winzip`, `usb <folder>`); keep it
 working when build steps change.
 
 On Windows, use `gradlew.bat` from a Windows shell (PowerShell or `cmd`), with
