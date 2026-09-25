@@ -56,6 +56,7 @@ before any public release.
 
 ## Action items
 
-- [ ] Phase 7: regenerate the library list from Gradle.
+- [x] 0.2.0: AtlantaFX and IBM Plex added to `greenfoot/doc/THIRDPARTYLICENSE.txt`.
+- [ ] Regenerate the library list from Gradle (the upstream list is stale).
 - [ ] Add an `LPC-credits.txt` next to `sword_guy.png` before publishing
       the reference scenario.

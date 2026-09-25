@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/branding/SuperGreenfootSplash@2x.png" alt="Super Greenfoot: make worlds, make them move" width="640">
+  <img src="docs/branding/SuperGreenfootSplash-v2@2x.png" alt="Super Greenfoot: make worlds, make them move" width="640">
 </p>
 
 <p align="center">
@@ -12,8 +12,9 @@
 
 Super Greenfoot is [Greenfoot](https://www.greenfoot.org/), the friendly Java
 environment for making games and simulations, with the features my students
-kept asking for: smooth movement, layers, proper sound, full screen, and a way
-to turn a finished game into a real app.
+kept asking for: smooth movement, layers, proper sound, full screen, windows
+inside the world, multiplayer over the network, and a way to turn a finished
+game into a real app.
 
 Everything you already know still works. Open your existing Greenfoot
 scenarios and they run exactly as before. The new features are there when you
@@ -67,7 +68,13 @@ from source with [one extra step](#run-from-source).
 | **Export as an app** | Share a game as a runnable `.jar`, or on a Mac as a signed `.app`. |
 | **Saving** | Store scores and progress with simple `Save.putInt` and `Save.getInt` calls, with no slot limits. |
 | **Text measuring** | Find the width and height of text, and draw it centred, without scanning pixels. |
+| **Windows in the world** | `SuperWindow` is an actor that holds other actors: a title bar, dragging, scrolling, layers, an inventory or a pause menu in a few lines. |
+| **Multiplayer** | One scenario hosts, others join, and they exchange text messages you poll from `act()`. Nothing ever calls your code from another thread. An exported game can run as a dedicated server. |
+| **Mouse** | Releases, held buttons, a hidden or custom cursor. |
+| **A second IDE** | The Super Greenfoot IDE puts the class diagram in folders and docks the editors beside the world, in a light or dark look. Switch to it from the Tools menu at any time; the classic IDE stays the default. |
 | **One app on the Mac** | One Super Greenfoot icon in the Dock and the app switcher, not two. A `JOptionPane` from your code pops up in front, ready to type. |
+
+The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
 
 A taste of the new calls:
 
@@ -102,8 +109,8 @@ public class Space extends World
 
 To learn more:
 
-- Try the example scenarios in [super-scenarios](super-scenarios): PrecisionDemo, SoundDemo and DisplayDemo.
-- Read the API notes in [docs/api](docs/api).
+- Try the example scenarios in [super-scenarios](super-scenarios): PrecisionDemo, SoundDemo, DisplayDemo and SuperWindowDemo.
+- Read the API notes in [docs/api](docs/api): [windows](docs/api/superwindow.md), [networking](docs/api/network.md), [mouse](docs/api/mouse-input.md), [display and cursor](docs/api/phase2d-display-api.md).
 
 Web export, an online gallery, and online high scores are planned and are not
 part of this release.
@@ -118,7 +125,7 @@ This works on Windows, Linux and any Mac. You need two things installed:
 Then, on macOS or Linux:
 
 ```sh
-git clone --depth 1 --branch v0.1.2 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.0 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 ./gradlew runGreenfoot -x test
 ```
@@ -126,7 +133,7 @@ cd SuperGreenfoot
 On Windows, in Command Prompt or PowerShell:
 
 ```bat
-git clone --depth 1 --branch v0.1.2 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.0 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 gradlew.bat runGreenfoot -x test
 ```
@@ -142,7 +149,7 @@ What to expect:
 
 - The source build and the tests run on Linux on every change. Windows and
   Intel Macs use the same build as the original Greenfoot, which supports
-  them, but Super Greenfoot has not been tested there yet.
+  them, but this release has not been tested there yet.
 - Exporting a game as a runnable `.jar` works everywhere. The jar runs on any
   computer with Java 21.
 - Exporting a native app has only been verified from the installed Mac app so far.
@@ -168,7 +175,8 @@ separate project. Its own way to share games on the web is planned.
 ## For developers
 
 - [DEV_SCRIPT_INSTRUCTIONS.md](DEV_SCRIPT_INSTRUCTIONS.md) covers the `dev` helper script for building, testing and packaging on a Mac.
-- [docs/provenance.md](docs/provenance.md) lists every upstream file this fork changes.
+- [docs/provenance.md](docs/provenance.md) lists every upstream file this fork changes, and what changed in which release: the notice of modification the GPL asks for.
+- [CHANGELOG.md](CHANGELOG.md) is the release history.
 
 ## Credits and license
 
@@ -183,7 +191,11 @@ the Classpath Exception. See [LICENSE.txt](LICENSE.txt) for the full terms.
 Image sources and modification notices are in the
 [splash artwork credits](docs/branding/SPLASH_CREDITS.md),
 [About artwork credits](docs/branding/ABOUT_CREDITS.md) and
-[macOS installer artwork credits](docs/branding/DMG_CREDITS.md).
+[macOS installer artwork credits](docs/branding/DMG_CREDITS.md). The
+Super Greenfoot IDE's look uses [AtlantaFX](https://github.com/mkpaz/atlantafx)
+(MIT) and the [IBM Plex](https://github.com/IBM/plex) fonts (SIL Open Font
+License); every third-party library is listed in
+[greenfoot/doc/THIRDPARTYLICENSE.txt](greenfoot/doc/THIRDPARTYLICENSE.txt).
 
 <details>
 <summary>The original BlueJ and Greenfoot README</summary>

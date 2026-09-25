@@ -1,6 +1,6 @@
 /*
  This file is part of the BlueJ program. 
- Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024  Michael Kolling and John Rosenberg
+ Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2026  Michael Kolling and John Rosenberg
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -62,7 +62,7 @@ public class Boot
     public static final String BLUEJ_VERSION = "5.4.1";
     public static final String GREENFOOT_VERSION = "3.9.0";
     /** SuperGreenfoot release version; stamped from version.properties by the build. */
-    public static final String SUPER_VERSION = "0.1.4";
+    public static final String SUPER_VERSION = "0.2.0";
     public static final String GREENFOOT_API_VERSION = "3.1.0";
 
     public static final String BLUEJ_VERSION_TITLE = "BlueJ " + BLUEJ_VERSION;

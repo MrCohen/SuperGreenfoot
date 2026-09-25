@@ -161,6 +161,12 @@ public final class NetServer
             String refusal = null;
             boolean overloaded = false;
             synchronized (lock) {
+                if (stopped) {
+                    // stop() sets the flag before it takes this lock to close what is pending, so a
+                    // socket accepted in between is either seen here or was in its snapshot.
+                    closeQuietly(client);
+                    break;
+                }
                 if (links.size() >= maxConnections) {
                     refusal = "the server is full";
                 }

@@ -38,6 +38,17 @@ Copyright (c) 2005 Brian Goetz and Tim Peierls. See http://www.jcip.net
 
 The following is a list of the libraries used in Greenfoot, and their licenses:
 
+Super Greenfoot adds these (the licence texts are in lib/superide):
+
+- AtlantaFX (atlantafx-base 2.1.0), by mkpaz, https://github.com/mkpaz/atlantafx
+  MIT License. The Super Greenfoot IDE's JavaFX theme. Licence text:
+  lib/superide/LICENSE-AtlantaFX.txt.
+
+- IBM Plex Sans and IBM Plex Mono fonts, Copyright 2017 IBM Corp., with
+  Reserved Font Name "Plex", https://github.com/IBM/plex
+  SIL Open Font License 1.1. Bundled unmodified for the Super Greenfoot IDE.
+  Licence text: lib/superide/fonts/OFL.txt.
+
 
 Apple Java Extensions (BSD-like license)
 ----------------------------------------
@@ -257,4 +268,7 @@ wellbehavedfx-0.3.3.jar                 BSD License
 sequence-library-1.0.3.jar               BSD License
 xom-1.3.7.jar                            Lesser GPL v2.1
 
+Added by Super Greenfoot:
 
+atlantafx-base-2.1.0.jar                 MIT License
+IBM Plex Sans / IBM Plex Mono (fonts)    SIL Open Font License 1.1
