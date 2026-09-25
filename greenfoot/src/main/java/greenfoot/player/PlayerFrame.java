@@ -551,6 +551,9 @@ public class PlayerFrame implements DisplayDelegate
     private void installInput(JComponent target)
     {
         target.setFocusable(true);
+        // Swing keeps Tab and Shift+Tab for moving focus and never passes
+        // them to key listeners, so Greenfoot.isKeyDown("tab") was never true
+        target.setFocusTraversalKeysEnabled(false);
         target.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e)

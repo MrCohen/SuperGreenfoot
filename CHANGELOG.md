@@ -6,6 +6,14 @@ notes are in [docs/api](docs/api), and [docs/provenance.md](docs/provenance.md)
 records every upstream file this fork changes, with what changed and in which
 release, as the notice of modification the GPL asks for.
 
+## Unreleased
+
+### Fixes
+
+- **Tab reaches the scenario in an exported game.** The standalone player
+  used Tab and Shift+Tab to move focus, so `Greenfoot.isKeyDown("tab")` and
+  `Greenfoot.getKey()` never saw them there. (The IDE was not affected.)
+
 ## 0.2.0 (2026-09-25)
 
 Everything since 0.1.1, the last public release. Versions 0.1.2 to 0.1.4 were
