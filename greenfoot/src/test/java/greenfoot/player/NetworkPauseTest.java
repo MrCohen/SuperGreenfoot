@@ -161,7 +161,10 @@ public class NetworkPauseTest extends TestCase
             for (int i = 0; i < 3000; i++) {
                 c.send("m" + i);
             }
-            waitFor("the messages to arrive", () -> server.getBytesReceived() >= c.getBytesSent());
+            // All written (the outbox is empty, so getBytesSent is final) and all read by the host.
+            waitFor("the messages to arrive", () -> c.getPendingBytes() == 0
+                    && server.getBytesReceived() >= c.getBytesSent());
+            Thread.sleep(50);
             assertTrue("still connected through the pause", c.isConnected());
             assertEquals(1, server.getConnectionCount());
 

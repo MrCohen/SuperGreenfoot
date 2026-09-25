@@ -307,7 +307,9 @@ public class NetworkAbuseTest extends TestCase
                 mostPending = Math.max(mostPending, s.getPendingBytes(id));
             }
         }
-        assertTrue("at most one pong pending, saw " + mostPending + " bytes", mostPending <= 2 + 125);
+        // One pong queued behind the one the writer is sending: pendingBytes counts a frame until it is written.
+        assertTrue("at most one pong pending plus one in flight, saw " + mostPending + " bytes",
+                mostPending <= 2 * (2 + 125));
         NetEvent gone = next(s);
         assertEquals(NetEvent.DISCONNECTED, gone.getType());
         assertTrue(gone.getText(), gone.getText().contains("timed out"));
@@ -421,7 +423,10 @@ public class NetworkAbuseTest extends TestCase
         for (int i = 0; i < 3000; i++) {
             c.send("m" + i);
         }
-        waitFor("the messages to arrive", () -> s.getBytesReceived() >= c.getBytesSent());
+        // All written (the outbox is empty, so getBytesSent is final) and all read by the server.
+        waitFor("the messages to arrive", () -> c.getPendingBytes() == 0
+                && s.getBytesReceived() >= c.getBytesSent());
+        Thread.sleep(50);
         assertTrue("still connected while the host is paused", c.isConnected());
         assertEquals(1, s.getConnectionCount());
         // The host resumes and reads: the first 2,000 are there, in order, the rest were discarded.
