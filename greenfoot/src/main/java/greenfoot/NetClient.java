@@ -22,6 +22,7 @@
 package greenfoot;
 
 import greenfoot.net.Addresses;
+import greenfoot.net.Inbox;
 import greenfoot.net.Link;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -35,10 +36,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * <p>Connecting takes a moment and happens in the background, so check
  * {@link #getStatus()} from your act method: it goes from {@code CONNECTING}
  * to {@code CONNECTED}, or to {@code FAILED} with {@link #getError()} saying
- * why in words ("no such host", "connection refused", "timed out"). Once
- * connected, {@link #poll()} gives you the server's messages in order and,
- * at the end, one {@code DISCONNECTED} event with the reason; {@link #send(String)}
- * queues a message and never blocks.</p>
+ * why in words ("no such host", "connection refused", "timed out", "the
+ * server is full"). Once connected, {@link #poll()} gives you the server's
+ * messages in order and, at the end, one {@code DISCONNECTED} event with the
+ * reason; {@link #send(String)} queues a message and never blocks.</p>
  *
  * <p>A client is not tied to the world that made it: you can connect in one
  * world, wait for the server's first message, and then build the real world
@@ -74,7 +75,38 @@ public final class NetClient
         else {
             address = parsed.toUrl();
             badAddress = null;
-            link = Link.connect(parsed, events);
+            link = Link.connect(parsed, new ClientInbox(), () -> Network.forget(this));
+        }
+    }
+
+    /** Begin connecting, in the background. */
+    void start()
+    {
+        if (link != null) {
+            link.start();
+        }
+    }
+
+    @OnThread(Tag.Any)
+    private final class ClientInbox implements Inbox
+    {
+        @Override
+        public void connected(int id)
+        {
+            events.add(new NetEvent(NetEvent.CONNECTED, 0, ""));
+        }
+
+        @Override
+        public boolean message(int id, String text)
+        {
+            events.add(new NetEvent(NetEvent.MESSAGE, 0, text));
+            return true;
+        }
+
+        @Override
+        public void disconnected(int id, String reason)
+        {
+            events.add(new NetEvent(NetEvent.DISCONNECTED, 0, reason));
         }
     }
 
@@ -86,8 +118,8 @@ public final class NetClient
     public NetEvent poll()
     {
         NetEvent e = events.poll();
-        if (e != null && link != null) {
-            link.polled(e);
+        if (e != null && link != null && e.getType() == NetEvent.MESSAGE) {
+            link.polledMessage(e.getText());
         }
         return e;
     }
@@ -97,12 +129,15 @@ public final class NetClient
      * connection is up go out as soon as it is; messages sent after it has
      * closed are dropped.
      *
-     * @throws IllegalArgumentException if the text is longer than {@link Network#MAX_MESSAGE_LENGTH} bytes.
+     * @throws IllegalArgumentException if the text is null or longer than {@link Network#MAX_MESSAGE_LENGTH} bytes.
      */
     public void send(String text)
     {
         if (link != null) {
             link.send(text);
+        }
+        else {
+            Link.encodeText(text, false);   // still refuse a bad message, so the mistake shows
         }
     }
 

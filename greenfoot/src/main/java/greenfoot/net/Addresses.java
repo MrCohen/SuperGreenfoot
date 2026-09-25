@@ -85,6 +85,12 @@ public final class Addresses
         if (s.isEmpty()) {
             return null;
         }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 0x20 || c == 0x7F) {
+                return null;    // control characters have no place in an address (or a request line)
+            }
+        }
         boolean secure = false;
         int schemeEnd = s.indexOf("://");
         if (schemeEnd >= 0) {

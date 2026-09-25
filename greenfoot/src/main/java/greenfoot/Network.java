@@ -134,6 +134,7 @@ public final class Network
             synchronized (clients) {
                 clients.add(client);
             }
+            client.start();     // after it is listed, so a client that fails at once is forgotten cleanly
         }
         return client;
     }

@@ -231,6 +231,9 @@ public final class PlayerMain
                 }
             }
             greenfoot.Save.flush();
+            // Tell the players "server stopped" before the JVM halts.
+            greenfoot.Network.closeAll();
+            greenfoot.net.Link.awaitAllClosed(2000);
             System.out.println(session.isRunning()
                     ? "SuperGreenfoot dedicated server: the world did not stop within 5 seconds; stopping anyway."
                     : "SuperGreenfoot dedicated server: stopped.");
@@ -249,7 +252,10 @@ public final class PlayerMain
         }
         System.out.println("SuperGreenfoot dedicated server: the world has stopped.");
         session.shutdown();
+        // The network threads are daemons: wait for the close frames to go out,
+        // so players see "server stopped" rather than "connection lost".
         greenfoot.Network.closeAll();
+        greenfoot.net.Link.awaitAllClosed(2000);
         System.exit(0);
     }
 

@@ -21,15 +21,19 @@
  */
 package greenfoot;
 
+import greenfoot.net.Inbox;
 import greenfoot.net.Link;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
 import java.io.IOException;
 import java.net.BindException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,11 +59,11 @@ import java.util.concurrent.atomic.AtomicLong;
  * bytes of UTF-8 text; sending a longer one throws
  * {@code IllegalArgumentException}, and a connection that sends one is
  * dropped. A connection that will not take what you send it (more than
- * 256 KB waiting) is dropped rather than letting your game wait, and so is
- * one that sends faster than you poll (more than 2,000 unread messages).
- * A connection nothing has been heard from for 20 seconds is dropped as
- * lost. Every drop shows up as a {@code DISCONNECTED} event with the reason
- * in words.</p>
+ * 256 KB waiting, or nothing taken for 20 seconds) is dropped rather than
+ * letting your game wait, and so is one that sends faster than you poll
+ * (more than 2,000 unread messages). A connection nothing has been heard
+ * from for 20 seconds is dropped as lost. Every drop shows up as a
+ * {@code DISCONNECTED} event with the reason in words.</p>
  *
  * @author SuperGreenfoot contributors
  * @since SuperGreenfoot 0.2.0
@@ -67,9 +71,19 @@ import java.util.concurrent.atomic.AtomicLong;
 @OnThread(Tag.Any)
 public final class NetServer
 {
+    private static final String NOT_READING = "the server is not reading messages (is the host's game paused?)";
+
     private final ConcurrentLinkedQueue<NetEvent> events = new ConcurrentLinkedQueue<>();
+    /** Connections whose handshake is done: the ones that count. */
     private final Map<Integer, Link> links = new ConcurrentHashMap<>();
+    /** Sockets still in their handshake; they hold no connection slot. */
+    private final Map<Integer, Link> pending = new ConcurrentHashMap<>();
+    /** Handshakes in progress per remote address (guarded by lock). */
+    private final Map<String, Integer> pendingByHost = new HashMap<>();
+    private final Object lock = new Object();
     private final AtomicInteger nextId = new AtomicInteger(1);
+    private final AtomicInteger unpolledEvents = new AtomicInteger();
+    private final AtomicLong unpolledChars = new AtomicLong();
     private final AtomicLong retiredSent = new AtomicLong();
     private final AtomicLong retiredReceived = new AtomicLong();
     private final ServerSocket serverSocket;
@@ -80,11 +94,21 @@ public final class NetServer
 
     NetServer(int requestedPort, int maxConnections)
     {
+        this(requestedPort, maxConnections, null);
+    }
+
+    /**
+     * @param bindAddress  The interface to listen on, or null for every interface.
+     */
+    NetServer(int requestedPort, int maxConnections, InetAddress bindAddress)
+    {
         this.maxConnections = maxConnections;
         ServerSocket socket = null;
         String problem = null;
         try {
-            socket = new ServerSocket(requestedPort);
+            // The same defaults as new ServerSocket(port) (reuse-address differs per platform; leave it).
+            socket = new ServerSocket();
+            socket.bind(new InetSocketAddress(bindAddress, requestedPort));
         }
         catch (BindException e) {
             problem = "port " + requestedPort + " is already in use (is another server running?)";
@@ -94,6 +118,15 @@ public final class NetServer
         }
         catch (IOException e) {
             problem = "could not open port " + requestedPort + ": " + e.getMessage();
+        }
+        if (problem != null && socket != null) {
+            try {
+                socket.close();
+            }
+            catch (IOException e) {
+                // nothing to keep
+            }
+            socket = null;
         }
         serverSocket = socket;
         error = problem;
@@ -118,23 +151,140 @@ public final class NetServer
             catch (IOException e) {
                 break;          // the server socket was closed: we are stopping
             }
-            int id = nextId.getAndIncrement();
-            if (links.size() >= maxConnections) {
-                Link.accept(id, client, events, "the server is full", null);
+            if (stopped) {
+                closeQuietly(client);   // accepted just as stop() ran
+                break;
             }
-            else {
-                links.put(id, Link.accept(id, client, events, null, () -> retire(id)));
+            String host = hostOf(client);
+            String refusal = null;
+            boolean overloaded = false;
+            synchronized (lock) {
+                if (links.size() >= maxConnections) {
+                    refusal = "the server is full";
+                }
+                else if (unpolledEvents.get() >= Link.serverMaxInboxMessages()
+                        || unpolledChars.get() >= Link.serverMaxInboxChars()) {
+                    refusal = NOT_READING;
+                }
+                else if (pending.size() >= Link.MAX_HANDSHAKES
+                        || pendingByHost.getOrDefault(host, 0) >= Link.maxHandshakesPerAddress()) {
+                    overloaded = true;
+                }
+                else {
+                    int id = nextId.getAndIncrement();
+                    pendingByHost.merge(host, 1, Integer::sum);
+                    Link link = Link.accept(id, client, new ServerInbox(), this::admit, () -> finished(id, host));
+                    pending.put(id, link);
+                    link.start();
+                }
+            }
+            if (refusal != null) {
+                // No thread for a refusal: a short answer that says why, on this thread.
+                Link.refuseSocket(client, refusal);
+            }
+            else if (overloaded) {
+                closeQuietly(client);
             }
         }
     }
 
-    /** A link is over (on its own thread): it no longer counts as a connection, but its bytes still do. */
-    private void retire(int id)
+    /** Asked on the reader thread once a handshake is done: null admits it, a reason refuses it. */
+    private String admit(Link link)
     {
-        Link link = links.remove(id);
-        if (link != null) {
-            retiredSent.addAndGet(link.getBytesSent());
-            retiredReceived.addAndGet(link.getBytesReceived());
+        synchronized (lock) {
+            if (pending.remove(link.getId()) != null) {
+                handshakeOver(link.getRemoteHost());
+            }
+            if (stopped) {
+                return "server stopped";
+            }
+            if (links.size() >= maxConnections) {
+                return "the server is full";
+            }
+            if (unpolledEvents.get() >= Link.serverMaxInboxMessages()
+                    || unpolledChars.get() >= Link.serverMaxInboxChars()) {
+                return NOT_READING;
+            }
+            links.put(link.getId(), link);
+            return null;
+        }
+    }
+
+    /** A link is over (on its own thread): it no longer counts as a connection, but its bytes still do. */
+    private void finished(int id, String host)
+    {
+        synchronized (lock) {
+            if (pending.remove(id) != null) {
+                handshakeOver(host);
+            }
+            Link link = links.remove(id);
+            if (link != null) {
+                retiredSent.addAndGet(link.getBytesSent());
+                retiredReceived.addAndGet(link.getBytesReceived());
+            }
+        }
+    }
+
+    private void handshakeOver(String host)
+    {
+        Integer n = pendingByHost.get(host);
+        if (n != null) {
+            if (n <= 1) {
+                pendingByHost.remove(host);
+            }
+            else {
+                pendingByHost.put(host, n - 1);
+            }
+        }
+    }
+
+    private static String hostOf(Socket socket)
+    {
+        if (socket.getInetAddress() != null) {
+            return socket.getInetAddress().getHostAddress();
+        }
+        return "";
+    }
+
+    private static void closeQuietly(Socket socket)
+    {
+        try {
+            socket.close();
+        }
+        catch (IOException e) {
+            // already closed
+        }
+    }
+
+    /** The links report here. Everything counts against the server-wide inbox limit. */
+    @OnThread(Tag.Any)
+    private final class ServerInbox implements Inbox
+    {
+        @Override
+        public void connected(int id)
+        {
+            unpolledEvents.incrementAndGet();
+            events.add(new NetEvent(NetEvent.CONNECTED, id, ""));
+        }
+
+        @Override
+        public boolean message(int id, String text)
+        {
+            if (unpolledEvents.get() >= Link.serverMaxInboxMessages()
+                    || unpolledChars.get() >= Link.serverMaxInboxChars()) {
+                return false;
+            }
+            unpolledEvents.incrementAndGet();
+            unpolledChars.addAndGet(text.length());
+            events.add(new NetEvent(NetEvent.MESSAGE, id, text));
+            return true;
+        }
+
+        @Override
+        public void disconnected(int id, String reason)
+        {
+            unpolledEvents.incrementAndGet();
+            events.add(new NetEvent(NetEvent.DISCONNECTED, id, reason));
         }
     }
 
@@ -146,9 +296,13 @@ public final class NetServer
     {
         NetEvent e = events.poll();
         if (e != null) {
-            Link link = links.get(e.getConnectionId());
-            if (link != null) {
-                link.polled(e);
+            unpolledEvents.decrementAndGet();
+            if (e.getType() == NetEvent.MESSAGE) {
+                unpolledChars.addAndGet(-e.getText().length());
+                Link link = links.get(e.getConnectionId());
+                if (link != null) {
+                    link.polledMessage(e.getText());
+                }
             }
         }
         return e;
@@ -159,7 +313,7 @@ public final class NetServer
      * and goes out in the background, in order. Nothing happens if that
      * connection has gone.
      *
-     * @throws IllegalArgumentException if the text is longer than {@link Network#MAX_MESSAGE_LENGTH} bytes.
+     * @throws IllegalArgumentException if the text is null or longer than {@link Network#MAX_MESSAGE_LENGTH} bytes.
      */
     public void send(int connectionId, String text)
     {
@@ -167,13 +321,21 @@ public final class NetServer
         if (link != null) {
             link.send(text);
         }
+        else {
+            Link.encodeText(text, true);    // still refuse a bad message, so the mistake shows
+        }
     }
 
-    /** Send a message to every connection. */
+    /**
+     * Send a message to every connection.
+     *
+     * @throws IllegalArgumentException if the text is null or longer than {@link Network#MAX_MESSAGE_LENGTH} bytes.
+     */
     public void broadcast(String text)
     {
+        byte[] frame = Link.encodeText(text, true);     // encoded once, shared by every connection
         for (Link link : links.values()) {
-            link.send(text);
+            link.sendFrame(frame);
         }
     }
 
@@ -213,8 +375,17 @@ public final class NetServer
         catch (IOException e) {
             // already closed
         }
-        for (Link link : links.values()) {
+        List<Link> open;
+        List<Link> shaking;
+        synchronized (lock) {
+            open = new ArrayList<>(links.values());
+            shaking = new ArrayList<>(pending.values());
+        }
+        for (Link link : open) {
             link.close("server stopped");
+        }
+        for (Link link : shaking) {
+            link.dropNow("server stopped");
         }
         Network.forget(this);
     }

@@ -47,7 +47,7 @@ for the upstream base and every upstream file we change.
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew :greenfoot:compileJava      # engine + IDE
-./gradlew :greenfoot:test             # headless engine tests (252 pass on 2026-09-25)
+./gradlew :greenfoot:test             # headless engine tests (266 pass on 2026-09-25)
 ./gradlew :bluej:test                 # BlueJ-side tests, incl. the headless editor (492 pass)
 ./gradlew runGreenfoot                # launch the IDE
 ```
@@ -74,7 +74,7 @@ fails the build on thread-tag violations.
 | Debug-VM to IDE frames | `greenfoot/src/main/java/greenfoot/vmcomm/` |
 | IDE window / world view | `greenfoot/src/main/java/greenfoot/guifx/{GreenfootStage,WorldDisplay,ControlPanel}.java` |
 | Export | `greenfoot/src/main/java/greenfoot/export/`, `guifx/export/` |
-| Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`); `NetworkTest` runs real sockets on loopback |
+| Headless tests | `greenfoot/src/test/java/greenfoot/` (`WorldCreator`, `TestUtilDelegate`); `NetworkTest` and `net/NetworkAbuseTest` run real sockets on loopback |
 | Regression scenario | `super-scenarios/MrCohenLibrary150/` |
 | What the IDE writes into a scenario | `project.greenfoot` (settings only, no class layout: `bluej/pkgmgr/Package.java`), `supergreenfoot.properties` (folders, folds, panels: `guifx/superide/folders/ProjectSettingsFile.java`); no `.ctxt` files (`bluej/views/View.java` reads the cached parse). Window geometry is per user in `scenario-layouts.properties` (`bluej/pkgmgr/ProjectLayoutStore.java`). |
 | Window demo | `super-scenarios/SuperWindowDemo/` |

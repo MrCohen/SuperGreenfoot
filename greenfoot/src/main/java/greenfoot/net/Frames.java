@@ -27,6 +27,10 @@ import threadchecker.Tag;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 
 /**
@@ -49,6 +53,13 @@ final class Frames
     static final int OP_CLOSE = 0x8;
     static final int OP_PING = 0x9;
     static final int OP_PONG = 0xA;
+
+    /** Close codes (RFC 6455 section 7.4.1). */
+    static final int CLOSE_NORMAL = 1000;
+    static final int CLOSE_PROTOCOL_ERROR = 1002;
+    static final int CLOSE_BAD_DATA = 1007;
+    static final int CLOSE_TOO_BIG = 1009;
+    static final int CLOSE_TRY_AGAIN_LATER = 1013;
 
     /** The largest single frame we accept, as a guard against absurd lengths. */
     static final int MAX_FRAME = 4 * 1024 * 1024;
@@ -106,12 +117,18 @@ final class Frames
         if (length == 126) {
             length = in.readUnsignedShort();
             wire += 2;
+            if (length < 126) {
+                throw new ProtocolException("frame length not encoded minimally");
+            }
         }
         else if (length == 127) {
             length = in.readLong();
             wire += 8;
             if (length < 0) {
                 throw new ProtocolException("frame length out of range");
+            }
+            if (length < 65536) {
+                throw new ProtocolException("frame length not encoded minimally");
             }
         }
         boolean control = (opcode & 0x8) != 0;
@@ -122,7 +139,8 @@ final class Frames
             throw new ProtocolException(expectMasked ? "unmasked frame from a client" : "masked frame from a server");
         }
         if (length > maxPayload || length > MAX_FRAME) {
-            throw new ProtocolException("message too long (" + length + " bytes, the limit is " + maxPayload + ")");
+            throw new ProtocolException("message too long (" + length + " bytes, the limit is " + maxPayload + ")",
+                    CLOSE_TOO_BIG);
         }
         byte[] key = null;
         if (masked) {
@@ -197,14 +215,41 @@ final class Frames
         out.flush();
     }
 
-    /** The payload of a close frame: a 2-byte status code and a UTF-8 reason. */
+    /**
+     * The text of a text message.
+     *
+     * @throws ProtocolException (close code 1007) when the bytes are not valid UTF-8.
+     */
+    static String decodeText(byte[] payload) throws ProtocolException
+    {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(payload)).toString();
+        }
+        catch (CharacterCodingException e) {
+            throw new ProtocolException("a text message was not valid UTF-8", CLOSE_BAD_DATA);
+        }
+    }
+
+    /**
+     * The payload of a close frame: a 2-byte status code and a UTF-8 reason.
+     * A reason longer than a control frame holds is cut at a character
+     * boundary.
+     */
     static byte[] closePayload(int code, String reason)
     {
-        byte[] text = reason == null ? new byte[0] : reason.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] text = reason == null ? new byte[0] : reason.getBytes(StandardCharsets.UTF_8);
         if (text.length > 123) {
-            // A control frame holds 125 bytes; keep the reason whole at a character boundary.
-            String cut = new String(text, 0, 120, java.nio.charset.StandardCharsets.UTF_8);
-            text = cut.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            // A control frame holds 125 bytes; never cut a character in half.
+            int cut = 123;
+            while (cut > 0 && (text[cut] & 0xC0) == 0x80) {
+                cut--;
+            }
+            byte[] whole = new byte[cut];
+            System.arraycopy(text, 0, whole, 0, cut);
+            text = whole;
         }
         byte[] payload = new byte[2 + text.length];
         payload[0] = (byte) (code >> 8);
@@ -213,13 +258,37 @@ final class Frames
         return payload;
     }
 
-    /** The reason text of a close frame's payload ("" when there is none). */
+    /**
+     * Check a close frame's payload (RFC 6455 sections 5.5.1 and 7.4): empty,
+     * or a valid status code followed by UTF-8 text.
+     */
+    static void checkClosePayload(byte[] payload) throws ProtocolException
+    {
+        if (payload == null || payload.length == 0) {
+            return;
+        }
+        if (payload.length == 1) {
+            throw new ProtocolException("malformed close frame");
+        }
+        int code = closeCode(payload);
+        // 1004-1006 and 1015 are never sent on the wire; 1012-1014 are registered with IANA.
+        boolean known = (code >= 1000 && code <= 1003) || (code >= 1007 && code <= 1014)
+                || (code >= 3000 && code <= 4999);
+        if (!known) {
+            throw new ProtocolException("invalid close code " + code);
+        }
+        byte[] text = new byte[payload.length - 2];
+        System.arraycopy(payload, 2, text, 0, text.length);
+        decodeText(text);
+    }
+
+    /** The reason text of a close frame's payload ("" when there is none, or it is not valid UTF-8). */
     static String closeReason(byte[] payload)
     {
         if (payload == null || payload.length <= 2) {
             return "";
         }
-        return new String(payload, 2, payload.length - 2, java.nio.charset.StandardCharsets.UTF_8);
+        return new String(payload, 2, payload.length - 2, StandardCharsets.UTF_8);
     }
 
     /** The status code of a close frame's payload (1005 when there is none). */
@@ -234,9 +303,18 @@ final class Frames
     /** A frame or handshake that breaks the protocol; the message is fit to show. */
     static final class ProtocolException extends IOException
     {
+        /** The close code to answer with. */
+        final int closeCode;
+
         ProtocolException(String message)
         {
+            this(message, CLOSE_PROTOCOL_ERROR);
+        }
+
+        ProtocolException(String message, int closeCode)
+        {
             super(message);
+            this.closeCode = closeCode;
         }
     }
 }

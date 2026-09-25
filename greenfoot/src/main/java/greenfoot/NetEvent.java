@@ -62,13 +62,13 @@ public final class NetEvent
     private final String text;
 
     /**
-     * Make an event. The engine makes these for you; scenarios only read them.
+     * Make an event. The engine makes these; scenarios only read them.
      *
      * @param type          CONNECTED, MESSAGE or DISCONNECTED
      * @param connectionId  which connection it is about (0 on a client)
      * @param text          the message, the reason for a disconnect, or ""
      */
-    public NetEvent(int type, int connectionId, String text)
+    NetEvent(int type, int connectionId, String text)
     {
         this.type = type;
         this.connectionId = connectionId;
@@ -79,6 +79,24 @@ public final class NetEvent
     public int getType()
     {
         return type;
+    }
+
+    /** @return True for a {@code CONNECTED} event. */
+    public boolean isConnected()
+    {
+        return type == CONNECTED;
+    }
+
+    /** @return True for a {@code MESSAGE} event; {@link #getText()} is the message. */
+    public boolean isMessage()
+    {
+        return type == MESSAGE;
+    }
+
+    /** @return True for a {@code DISCONNECTED} event; {@link #getText()} is the reason. */
+    public boolean isDisconnected()
+    {
+        return type == DISCONNECTED;
     }
 
     /**

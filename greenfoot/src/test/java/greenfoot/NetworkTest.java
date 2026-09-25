@@ -284,11 +284,42 @@ public class NetworkTest extends TestCase
         assertEvent(NetEvent.CONNECTED, "", next(a));
         assertEvent(NetEvent.CONNECTED, "", next(s));
         NetClient b = client(s);
-        assertEvent(NetEvent.CONNECTED, "", next(b));
-        assertEvent(NetEvent.DISCONNECTED, "the server is full", next(b));
+        waitFor("b to be refused", () -> b.getStatus() == NetClient.FAILED);
         assertEquals("the server is full", b.getError());
+        assertNull("a refused client never reports CONNECTED", b.poll());
         assertNull("the server never reports a refused connection", s.poll());
         assertEquals(1, s.getConnectionCount());
+
+        // Room again once someone leaves.
+        a.close("done");
+        assertEvent(NetEvent.DISCONNECTED, "done", next(s));
+        NetClient c = client(s);
+        assertEvent(NetEvent.CONNECTED, "", next(c));
+        assertEvent(NetEvent.CONNECTED, "", next(s));
+    }
+
+    public void testSendNullIsExplained() throws Exception
+    {
+        NetServer s = server(8);
+        NetClient c = client(s);
+        assertEvent(NetEvent.CONNECTED, "", next(c));
+        int id = next(s).getConnectionId();
+        try {
+            c.send(null);
+            fail("null should be refused");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("null"));
+        }
+        try {
+            s.broadcast(null);
+            fail("null should be refused");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("null"));
+        }
+        s.send(id, "still fine");
+        assertEvent(NetEvent.MESSAGE, "still fine", next(c));
     }
 
     public void testCloseAllFreesThePort() throws Exception
@@ -404,6 +435,10 @@ public class NetworkTest extends TestCase
         assertEquals("to raw", raw.readPayload(0x1));
         raw.close(1000, "raw done");
         assertEvent(NetEvent.DISCONNECTED, "raw done", next(s));
+        // The server echoes the close (RFC 6455 5.5.1) and only then hangs up.
+        assertEquals("close echo", 1000, raw.readCloseCode());
+        assertEquals("then end of stream", -1, raw.in.read());
+        raw.close();
     }
 
     public void testPlainHttpGetsAnAnswerNotAConnection() throws Exception
@@ -481,6 +516,8 @@ public class NetworkTest extends TestCase
         assertNull(Network.normalizeAddress("ftp://host:21", 7777));
         assertNull(Network.normalizeAddress("host:70000", 7777));
         assertNull(Network.normalizeAddress("localhost", 0));
+        assertNull("no control characters", Network.normalizeAddress("host\r\nX-Injected: yes", 7777));
+        assertNull("no control characters", Network.normalizeAddress("ws://host:7777/\tpath", 7777));
         assertTrue(Network.canHost());
         assertFalse(Network.isDedicatedServer());
         assertNotNull(Network.getLocalAddresses());
@@ -494,7 +531,7 @@ public class NetworkTest extends TestCase
     {
         private final Socket socket;
         private final OutputStream out;
-        private final DataInputStream in;
+        final DataInputStream in;
         private final Random random = new Random(1);
 
         RawClient(int port) throws IOException
@@ -550,6 +587,11 @@ public class NetworkTest extends TestCase
         /** Read one frame, check its opcode, and return its payload as text. */
         String readPayload(int expectedOpcode) throws IOException
         {
+            return new String(readFrame(expectedOpcode), StandardCharsets.UTF_8);
+        }
+
+        byte[] readFrame(int expectedOpcode) throws IOException
+        {
             int b0 = in.readUnsignedByte();
             int b1 = in.readUnsignedByte();
             assertEquals("opcode", expectedOpcode, b0 & 0x0F);
@@ -560,7 +602,14 @@ public class NetworkTest extends TestCase
             }
             byte[] payload = new byte[len];
             in.readFully(payload);
-            return new String(payload, StandardCharsets.UTF_8);
+            return payload;
+        }
+
+        /** Read a close frame and return its status code. */
+        int readCloseCode() throws IOException
+        {
+            byte[] payload = readFrame(0x8);
+            return payload.length < 2 ? 1005 : ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF);
         }
 
         void close(int code, String reason) throws IOException
