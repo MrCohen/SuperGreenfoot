@@ -96,6 +96,9 @@ public class NetworkAbuseTest extends TestCase
         Link.maxHandshakesPerAddress = Link.MAX_HANDSHAKES_PER_ADDRESS;
         Link.serverMaxInboxMessages = Link.SERVER_MAX_INBOX_MESSAGES;
         Link.serverMaxInboxChars = Link.SERVER_MAX_INBOX_CHARS;
+        Link.pausedDiscardMessages = Link.PAUSED_DISCARD_MESSAGES;
+        Link.pausedDiscardBytes = Link.PAUSED_DISCARD_BYTES;
+        Link.setHostPausedCheck(() -> false);
     }
 
     private NetServer server(int max)
@@ -406,6 +409,91 @@ public class NetworkAbuseTest extends TestCase
         // Once polled, new players are welcome again.
         NetClient again = client(s);
         assertEquals(NetEvent.CONNECTED, next(again).getType());
+    }
+
+    public void testPausedHostKeepsItsPlayersAndDiscardsTheOverflow() throws Exception
+    {
+        Link.setHostPausedCheck(() -> true);
+        NetServer s = server(8);
+        NetClient c = client(s);
+        assertEquals(NetEvent.CONNECTED, next(c).getType());
+        int id = next(s).getConnectionId();
+        for (int i = 0; i < 3000; i++) {
+            c.send("m" + i);
+        }
+        waitFor("the messages to arrive", () -> s.getBytesReceived() >= c.getBytesSent());
+        assertTrue("still connected while the host is paused", c.isConnected());
+        assertEquals(1, s.getConnectionCount());
+        // The host resumes and reads: the first 2,000 are there, in order, the rest were discarded.
+        int got = 0;
+        NetEvent e;
+        while ((e = s.poll()) != null) {
+            assertEquals("m" + got, e.getText());
+            got++;
+        }
+        assertEquals(Link.MAX_INBOX_MESSAGES, got);
+        // And the connection works as before: messages flow again.
+        c.send("after");
+        assertEquals("after", next(s).getText());
+        s.send(id, "welcome back");
+        assertEquals("welcome back", next(c).getText());
+    }
+
+    public void testPausedHostStillDropsAFlooder() throws Exception
+    {
+        Link.setHostPausedCheck(() -> true);
+        Link.maxInboxMessages = 50;
+        Link.pausedDiscardMessages = 200;
+        NetServer s = server(8);
+        NetClient c = client(s);
+        assertEquals(NetEvent.CONNECTED, next(c).getType());
+        next(s);
+        for (int i = 0; i < 400; i++) {
+            c.send("m" + i);
+        }
+        NetEvent gone = next(c);
+        assertEquals(NetEvent.DISCONNECTED, gone.getType());
+        assertTrue(gone.getText(), gone.getText().startsWith("flooding: far too many"));
+    }
+
+    // ---- exposure ----
+
+    public void testLocalOnlyServerIsReachableOnlyFromThisComputer() throws Exception
+    {
+        Link.connectTimeoutMs = 1500;   // an interface that filters the packets (a VPN) would otherwise wait 10 s
+        NetServer s = Network.startServer(0, 8, true);
+        servers.add(s);
+        assertNull(s.getError());
+        assertTrue(s.isLocalOnly());
+        assertFalse(server(8).isLocalOnly());
+        NetClient local = client(s);
+        assertEquals(NetEvent.CONNECTED, next(local).getType());
+        for (String address : Network.getLocalAddresses()) {
+            String typed = address.contains(":") ? "[" + address + "]:" + s.getPort() : address + ":" + s.getPort();
+            NetClient outside = Network.connect(typed);
+            clients.add(outside);
+            waitFor("a connection from the network address to fail", () -> outside.getStatus() == NetClient.FAILED);
+            assertTrue(outside.getError(), outside.getError().contains("refused")
+                    || outside.getError().contains("timed out") || outside.getError().contains("could not connect"));
+        }
+    }
+
+    public void testOriginIsRecordedButNotEnforced() throws Exception
+    {
+        NetServer s = server(8);
+        Socket sock = new Socket("localhost", s.getPort());
+        sock.getOutputStream().write(("GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                + "Origin: https://example.org\r\n"
+                + "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n")
+                .getBytes(StandardCharsets.ISO_8859_1));
+        sock.getOutputStream().flush();
+        int browser = next(s).getConnectionId();
+        assertEquals("https://example.org", s.getOrigin(browser));
+        NetClient c = client(s);
+        int desktop = next(s).getConnectionId();
+        assertEquals("", s.getOrigin(desktop));
+        assertEquals("", s.getOrigin(999));
+        sock.close();
     }
 
     // ---- the wire ----

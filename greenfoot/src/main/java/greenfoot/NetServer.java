@@ -88,6 +88,7 @@ public final class NetServer
     private final AtomicLong retiredReceived = new AtomicLong();
     private final ServerSocket serverSocket;
     private final int port;
+    private final boolean localOnly;
     private final String error;
     private volatile int maxConnections;
     private volatile boolean stopped;
@@ -103,6 +104,7 @@ public final class NetServer
     NetServer(int requestedPort, int maxConnections, InetAddress bindAddress)
     {
         this.maxConnections = maxConnections;
+        this.localOnly = bindAddress != null && bindAddress.isLoopbackAddress();
         ServerSocket socket = null;
         String problem = null;
         try {
@@ -427,6 +429,29 @@ public final class NetServer
     {
         Link link = links.get(connectionId);
         return link == null ? "" : link.getRemoteAddress();
+    }
+
+    /**
+     * @return The web page a connection came from, when it came from a web
+     *         browser: the {@code Origin} the browser sent, such as
+     *         {@code https://example.org}. "" for a connection from a
+     *         SuperGreenfoot scenario, or one that has gone. The server
+     *         does not act on it; a scenario that wants to allow only its
+     *         own web page can check it and kick the rest.
+     */
+    public String getOrigin(int connectionId)
+    {
+        Link link = links.get(connectionId);
+        return link == null ? "" : link.getOrigin();
+    }
+
+    /**
+     * @return True when only programs on this computer can reach the server
+     *         (started with {@link Network#startServer(int, int, boolean)}).
+     */
+    public boolean isLocalOnly()
+    {
+        return localOnly;
     }
 
     /**

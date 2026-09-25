@@ -148,6 +148,22 @@ public class Simulation extends Thread
     public static synchronized void initialize()
     {
         instance = new Simulation();
+        // SuperGreenfoot: the network module treats a paused host gently (messages
+        // that arrive while it cannot poll are kept, then discarded, never dropped).
+        greenfoot.net.Link.setHostPausedCheck(() -> {
+            Simulation s = getInstance();
+            return s != null && s.isPaused();
+        });
+    }
+
+    /**
+     * SuperGreenfoot: whether the simulation is paused (or has not been
+     * started), so that act methods are not running.
+     */
+    @OnThread(Tag.Any)
+    public synchronized boolean isPaused()
+    {
+        return paused;
     }
 
     /**

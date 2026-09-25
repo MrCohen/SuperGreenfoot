@@ -56,6 +56,13 @@ public class NetworkTest extends TestCase
     private final List<NetClient> clients = new ArrayList<>();
 
     @Override
+    protected void setUp()
+    {
+        // Another test class may have left a paused Simulation behind: these cases are about a running host.
+        greenfoot.net.Link.setHostPausedCheck(() -> false);
+    }
+
+    @Override
     protected void tearDown()
     {
         for (NetClient c : clients) {

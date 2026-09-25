@@ -81,8 +81,9 @@ browser build must keep them.
 | One message | 64 KiB of UTF-8 (`Network.MAX_MESSAGE_LENGTH`) | `send` throws `IllegalArgumentException` (so does `send(null)`); a peer that sends one is dropped ("message too long", close code 1009) |
 | Unsent bytes per connection (outbox) | 256 KiB, counting every queued frame (messages, the one pending pong, the close frame) | that connection is dropped: "send buffer full"; `getPendingBytes(id)` shows it growing |
 | One write | 20 s for the other side to take it | dropped: "send timed out: the other side stopped taking data" (a peer that reads nothing cannot hold the writer forever) |
-| Unpolled messages per connection (inbox) | 2,000 messages or 1 MiB of text (counted in characters, which is what they cost in memory) | the peer is dropped: "flooding: too many messages not yet read" (close code 1013) |
-| Unpolled events per server, over every connection, live or gone | 20,000 events or 16 MiB of text | the connection that overruns it is dropped, and new connections are refused, with "the server is not reading messages (is the host's game paused?)"; polling frees it |
+| Unpolled messages per connection (inbox) | 2,000 messages or 1 MiB of text (counted in characters, which is what they cost in memory) | while the host is running, the peer is dropped: "flooding: too many messages not yet read" (close code 1013); while the host is paused, the newest messages are discarded instead (below) |
+| Unpolled events per server, over every connection, live or gone | 20,000 events or 16 MiB of text | new connections are refused with "the server is not reading messages (is the host's game paused?)"; the connection that overruns it is dropped with the same words while the host is running, or discarded from while it is paused; polling frees it |
+| Discarded while paused | 100,000 messages or 64 MiB from one connection, reset once the host polls it again | dropped after all: "flooding: far too many messages while the host was paused" |
 | Silence | ping after 5 s with nothing to send; dropped after 20 s without anything heard | "timed out: nothing heard for 20 seconds" |
 | Connect | 10 s to connect, then 10 s in total for the handshake, from the moment the socket was opened or accepted (a byte at a time does not restart it) | "timed out connecting to host:port"; a server closes the socket unanswered |
 | Handshakes in progress | 64 per server, 8 per remote address; a handshake holds no connection slot, and a slot is counted only once the handshake completes | further sockets are closed unanswered |
@@ -94,6 +95,32 @@ older one, as RFC 6455 allows, so a peer that pings without reading cannot
 fill the outbox. A large frame arriving over a very slow link counts as
 silence until it is complete; at 64 KiB in 20 s that is a link too slow to
 play on anyway.
+
+## A paused host
+
+Pausing in the IDE (or stepping with Act) stops the act methods, so nothing
+polls; the network threads carry on, so players stay connected and pings
+keep the links alive. Two things make this work as a pause rather than a
+slow disconnect:
+
+- **Tell the players.** Stock Greenfoot calls the world's `stopped()` when
+  the simulation pauses and `started()` when it resumes, on the simulation
+  thread. A host overrides them and broadcasts, say, `PAUSED` and
+  `RESUMED`; the frames go out although nothing is acting, and a client can
+  show "the host is paused" and stop sending input. Leaving is never a
+  message: a player who quits closes the connection, and that always arrives
+  as `DISCONNECTED`, paused or not.
+- **Players who keep sending are not dropped.** While the host is paused
+  (`Simulation.isPaused()`, which is also true before Run is pressed) a
+  connection that overruns its inbox has its newest messages discarded
+  instead: the first 2,000 wait, in order, for the host to resume and are
+  then delivered; the rest are lost. A connection that sends 100,000
+  messages or 64 MiB into a paused host is dropped after all, so the pause
+  cannot be used against the host. A running host that does not poll is a
+  different matter, a bug or an attack, and still drops the flooder.
+
+A dedicated server never pauses. `NetworkPauseTest` runs a real headless
+session through pause and resume.
 
 ## The wire
 
@@ -112,14 +139,28 @@ play on anyway.
 
 ## Exposure
 
-- **A server listens on every interface** of the machine, so anyone who can
-  reach the computer on the network can connect to the port: friends on the
-  same Wi-Fi, and anyone else on it. On a school network, that is the whole
-  school. Stop the server (or reset the scenario) when you are not playing.
-- **No Origin check.** A web page open in a browser on the same machine (or
-  network) can open a WebSocket to the server; the server records the
-  browser's `Origin` header but does not act on it. A game should not trust
-  a connection just because it exists: check what the first message says.
+- **A server listens on every interface** of the machine unless told
+  otherwise, so anyone who can reach the computer on the network can
+  connect to the port: friends on the same Wi-Fi, and anyone else on it. On
+  a school network, that is the whole school. That is the default because
+  friends joining is the point. Stop the server (or reset the scenario) when
+  you are not playing.
+- **Local-only:** `Network.startServer(port, max, true)` binds the loopback
+  address, so only programs on the same computer can connect, at
+  `localhost` (or `127.0.0.1`); `server.isLocalOnly()` says which. Right for
+  testing with two copies side by side, and for a class that should not be
+  reachable from the corridor; a friend on another computer cannot join it.
+  A dedicated server scenario that wants a setting for this can read one
+  (`Network.getServerSetting("bind")`, say) and pass it in.
+- **Origin is recorded, not enforced.** A web page open in a browser on the
+  same machine (or network) can open a WebSocket to the server; browsers do
+  not stop that. Browsers send an `Origin` header (`https://example.org`)
+  and `server.getOrigin(id)` returns it, "" for a connection from a
+  SuperGreenfoot scenario. The server refuses nothing by default, since the
+  browser build's own players will carry an origin one day; a scenario that
+  wants only its own page can check and kick. Either way a game should not
+  trust a connection just because it exists: check what the first message
+  says.
 - **Passwords:** a scenario that wants one reads it with
   `Network.getServerSetting("password")` and checks it in its own first
   message. Put it in `server.properties` rather than on the command line
@@ -136,8 +177,8 @@ play on anyway.
   (IPv4 first, never loopback) for "join me at ...".
 - `Network.canHost()` is true on the desktop; the browser build will return
   false, so a title screen can grey out Host.
-- `server.getConnectionIds()`, `getRemoteAddress(id)`, `getConnectionCount()`,
-  `setMaxConnections(n)`.
+- `server.getConnectionIds()`, `getRemoteAddress(id)`, `getOrigin(id)`,
+  `getConnectionCount()`, `setMaxConnections(n)`, `isLocalOnly()`.
 - `NetEvent.isConnected()`, `isMessage()`, `isDisconnected()` beside `getType()`.
 - **Reset closes everything.** `WorldHandler.discardWorld()` calls
   `Network.closeAll()`, so an IDE reset or a player reset frees the port at
@@ -196,7 +237,7 @@ raw client, a plain HTTP request, address parsing, and the JDK's own
 `java.net.http.WebSocket` client as an independent check that the server
 speaks WebSocket. It runs in about 0.3 s.
 
-`greenfoot/src/test/java/greenfoot/net/NetworkAbuseTest.java` (12) shrinks
+`greenfoot/src/test/java/greenfoot/net/NetworkAbuseTest.java` (16) shrinks
 the limits and timeouts (package-private knobs in `Link`) and checks what a
 hostile or broken peer can and cannot do: a handshake sent a byte at a time
 is cut off at the total deadline and holds no slot; handshakes in progress
@@ -208,5 +249,11 @@ still closes it within the grace; a reconnect flood against a host that
 never polls stays under the server-wide cap, and polling makes room again;
 a close is echoed before the socket closes; the close codes for invalid
 UTF-8, non-minimal lengths, bad close payloads and binary frames; the
-handshake's version and key checks. About 5 s, all of it waiting on the
-shrunken timeouts.
+handshake's version and key checks; a paused host keeps a player who
+sends 3,000 messages and delivers the first 2,000 on resume, yet drops one
+past the discard fuse; a local-only server refuses the machine's network
+addresses; the origin is recorded. About 6 s, all of it waiting on the
+shrunken timeouts. `greenfoot/player/NetworkPauseTest.java` (1) drives a
+real headless session: `stopped()`'s broadcast reaches the client while
+paused, the client survives 3,000 messages, `started()` announces the
+resume and the kept messages are counted, in order.

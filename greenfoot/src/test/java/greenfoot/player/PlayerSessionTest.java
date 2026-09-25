@@ -85,6 +85,16 @@ public class PlayerSessionTest extends TestCase
         }
     }
 
+    @Override
+    protected void setUp() throws Exception
+    {
+        // The engine's default actor image is loaded once, by whichever delegate is installed when
+        // Actor first loads. Load it through the test delegate (as the IDE would) before a headless
+        // session installs the player delegate, whose logo resource is not on the test classpath.
+        greenfoot.util.GreenfootUtil.initialise(new greenfoot.TestUtilDelegate());
+        Class.forName("greenfoot.Actor", true, getClass().getClassLoader());
+    }
+
     public void testHeadlessSessionRunsActsAndRendersFrames() throws Exception
     {
         SoundMixer.installForTesting(false);

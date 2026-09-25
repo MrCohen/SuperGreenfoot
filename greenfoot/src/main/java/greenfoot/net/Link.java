@@ -55,6 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 /**
@@ -142,6 +143,26 @@ public final class Link
     static volatile int serverMaxInboxMessages = SERVER_MAX_INBOX_MESSAGES;
     static volatile long serverMaxInboxChars = SERVER_MAX_INBOX_CHARS;
     static volatile int timerPeriodMs = 100;
+    /** Messages a paused host may discard from one connection before it is dropped as flooding after all. */
+    public static final int PAUSED_DISCARD_MESSAGES = 100000;
+    /** Bytes a paused host may discard from one connection before it is dropped. */
+    public static final long PAUSED_DISCARD_BYTES = 64L * 1024 * 1024;
+    static volatile int pausedDiscardMessages = PAUSED_DISCARD_MESSAGES;
+    static volatile long pausedDiscardBytes = PAUSED_DISCARD_BYTES;
+
+    /** Whether the host's act methods are not running, so nothing is polling. Set by the engine. */
+    private static volatile BooleanSupplier hostPaused = () -> false;
+
+    /**
+     * Tell the module how to know that the host is paused (or not yet
+     * started). While it is, an inbox that overruns its limit discards the
+     * newest messages instead of dropping the connection: a host that pauses
+     * to look at something keeps its players.
+     */
+    public static void setHostPausedCheck(BooleanSupplier check)
+    {
+        hostPaused = check == null ? () -> false : check;
+    }
 
     /** Handshakes a server may have in progress at once (the value in force). */
     public static int maxHandshakes()
@@ -192,6 +213,8 @@ public final class Link
     private final AtomicLong bytesReceived = new AtomicLong();
     private final AtomicInteger unreadMessages = new AtomicInteger();
     private final AtomicLong unreadChars = new AtomicLong();
+    private final AtomicInteger discardedMessages = new AtomicInteger();
+    private final AtomicLong discardedBytes = new AtomicLong();
     private final AtomicBoolean closing = new AtomicBoolean();
     private final AtomicBoolean finished = new AtomicBoolean();
     private final CountDownLatch peerClosed = new CountDownLatch(1);
@@ -389,6 +412,9 @@ public final class Link
     {
         unreadMessages.decrementAndGet();
         unreadChars.addAndGet(-text.length());
+        // The host is reading again: a paused stretch is over.
+        discardedMessages.set(0);
+        discardedBytes.set(0);
     }
 
     // ---- the watchdog: one thread for every link in the process ----
@@ -783,7 +809,8 @@ public final class Link
     private void deliver(byte[] payload) throws Frames.ProtocolException
     {
         if (unreadMessages.get() >= maxInboxMessages || unreadChars.get() >= maxInboxChars) {
-            throw new Frames.ProtocolException("flooding: too many messages not yet read", Frames.CLOSE_TRY_AGAIN_LATER);
+            discardOrDrop(payload.length, "flooding: too many messages not yet read");
+            return;
         }
         String text = Frames.decodeText(payload);
         unreadMessages.incrementAndGet();
@@ -791,9 +818,26 @@ public final class Link
         if (!inbox.message(id, text)) {
             unreadMessages.decrementAndGet();
             unreadChars.addAndGet(-text.length());
-            throw new Frames.ProtocolException("the server is not reading messages (is the host's game paused?)",
-                    Frames.CLOSE_TRY_AGAIN_LATER);
+            discardOrDrop(payload.length, "the server is not reading messages (is the host's game paused?)");
         }
+    }
+
+    /**
+     * The inbox is full. A running host that does not poll is a bug or an
+     * attack: drop the connection. A paused host is just paused: discard the
+     * message and keep the player, unless this connection has sent so much
+     * meanwhile that it is plainly flooding.
+     */
+    private void discardOrDrop(int bytes, String reason) throws Frames.ProtocolException
+    {
+        if (serverSide && hostPaused.getAsBoolean()) {
+            if (discardedMessages.incrementAndGet() <= pausedDiscardMessages
+                    && discardedBytes.addAndGet(bytes) <= pausedDiscardBytes) {
+                return;
+            }
+            reason = "flooding: far too many messages while the host was paused";
+        }
+        throw new Frames.ProtocolException(reason, Frames.CLOSE_TRY_AGAIN_LATER);
     }
 
     /**

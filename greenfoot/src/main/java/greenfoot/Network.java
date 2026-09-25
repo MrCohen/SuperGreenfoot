@@ -27,6 +27,7 @@ import greenfoot.net.ServerMode;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -98,7 +99,23 @@ public final class Network
      */
     public static NetServer startServer(int port, int maxConnections)
     {
-        NetServer server = new NetServer(port, maxConnections);
+        return startServer(port, maxConnections, false);
+    }
+
+    /**
+     * Start a server that, when {@code localOnly} is true, only programs on
+     * this same computer can reach (at {@code localhost}): right for testing
+     * with two copies of your scenario side by side, and safer on a shared
+     * network, but a friend on another computer cannot join it. Otherwise
+     * the server answers on every network address this computer has, so
+     * anyone on the same network can connect.
+     *
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static NetServer startServer(int port, int maxConnections, boolean localOnly)
+    {
+        NetServer server = new NetServer(port, maxConnections,
+                localOnly ? InetAddress.getLoopbackAddress() : null);
         if (server.isListening()) {
             synchronized (servers) {
                 servers.add(server);
