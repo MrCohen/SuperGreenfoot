@@ -24,12 +24,13 @@ package bluej.pkgmgr;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Properties;
 
+import bluej.utility.AtomicFiles;
+import bluej.utility.SortedProperties;
 import threadchecker.OnThread;
 import threadchecker.Tag;
 
@@ -94,9 +95,20 @@ public class GreenfootProjectFile
         String header = "Greenfoot project file";
         // SuperGreenfoot: render first, and leave the file alone when it would
         // come out identical, so an unchanged scenario is not touched (its
-        // modification time, Dropbox, git, a read-only folder).
+        // modification time, Dropbox, git, a read-only folder). Always sorted
+        // with '\n' line ends, so the same settings give the same bytes on
+        // Windows and elsewhere and a scenario moving between them is not
+        // rewritten just for that.
         ByteArrayOutputStream rendered = new ByteArrayOutputStream();
-        props.store(rendered, header);
+        SortedProperties sorted;
+        if (props instanceof SortedProperties) {
+            sorted = (SortedProperties) props;
+        }
+        else {
+            sorted = new SortedProperties();
+            sorted.putAll(props);
+        }
+        sorted.store(rendered, header, "\n");
         byte[] bytes = rendered.toByteArray();
         if (hasContent(pkgFile, bytes))
         {
@@ -108,22 +120,16 @@ public class GreenfootProjectFile
             throw new IOException("Greenfoot project file not writable: " + this);
         }
 
-        FileOutputStream output = null;
+        // SuperGreenfoot: write a temporary file and move it into place, so a
+        // failed or interrupted save (a full disk, a crash, a sync client
+        // holding the file) leaves the old file whole rather than truncated.
         try
         {
-            output = new FileOutputStream(pkgFile);
-            output.write(bytes);
+            AtomicFiles.write(pkgFile.toPath(), bytes);
         }
         catch (IOException e)
         {
-            throw new IOException("Error when storing properties to Greenfoot project file: " + this);
-        }
-        finally
-        {
-            if (output != null)
-            {
-                output.close();
-            }
+            throw new IOException("Error when storing properties to Greenfoot project file: " + this, e);
         }
     }
     

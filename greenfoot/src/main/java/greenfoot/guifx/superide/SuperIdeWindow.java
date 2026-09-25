@@ -751,12 +751,14 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
                 settings.put(key, null);
             }
         }
-        settings.put(KEY_CLASSES_OPEN, Boolean.toString(leftOpenProperty().get()));
-        settings.put(KEY_INSPECTOR_OPEN, Boolean.toString(rightOpenProperty().get()));
-        settings.put(KEY_OUTPUT_OPEN, Boolean.toString(bottomOpenProperty().get()));
-        settings.put(KEY_CLASS_VIEW, getClassBrowser().viewProperty().get() == ClassBrowserPane.View.INHERITANCE
-                ? "inheritance" : "folders");
-        settings.put(KEY_ZOOM, getWorldHost().zoomProperty().get() == WorldHost.Zoom.PIXEL_PERFECT ? "pixel" : "fit");
+        // A setting still at its default is not added, so a scenario that was
+        // only opened and closed gets no settings file.
+        settings.putUnlessDefault(KEY_CLASSES_OPEN, Boolean.toString(leftOpenProperty().get()), "true");
+        settings.putUnlessDefault(KEY_INSPECTOR_OPEN, Boolean.toString(rightOpenProperty().get()), "true");
+        settings.putUnlessDefault(KEY_OUTPUT_OPEN, Boolean.toString(bottomOpenProperty().get()), "true");
+        settings.putUnlessDefault(KEY_CLASS_VIEW, getClassBrowser().viewProperty().get() == ClassBrowserPane.View.INHERITANCE
+                ? "inheritance" : "folders", "folders");
+        settings.putUnlessDefault(KEY_ZOOM, getWorldHost().zoomProperty().get() == WorldHost.Zoom.PIXEL_PERFECT ? "pixel" : "fit", "fit");
         folders.writeTo(settings, classTargets.isEmpty() ? null : classTargets.keySet());
         writeSettingsFile();
     }

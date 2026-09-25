@@ -25,6 +25,7 @@ package greenfoot.guifx.controller;
 import bluej.Config;
 import bluej.Main;
 import bluej.pkgmgr.Project;
+import bluej.pkgmgr.ProjectLayoutStore;
 import bluej.utility.Debug;
 import bluej.utility.DialogManager;
 import bluej.utility.Utility;
@@ -357,6 +358,9 @@ public final class ProjectRegistry
         GreenfootProjectController controller = old.getController();
         int index = windows.indexOf(old);
         old.saveWindowSettings();
+        // The geometry just went to the layout store; write it now, as a
+        // project save would, so a switch followed by a crash keeps it.
+        ProjectLayoutStore.get().flush();
         if (controller != null)
         {
             old.detachProject();
@@ -430,6 +434,7 @@ public final class ProjectRegistry
                 focusedIndex = controllers.size();
             }
             old.saveWindowSettings();
+            ProjectLayoutStore.get().flush();
             GreenfootProjectController controller = old.getController();
             if (controller != null)
             {

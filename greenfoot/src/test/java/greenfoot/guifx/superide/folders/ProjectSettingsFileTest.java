@@ -83,4 +83,75 @@ public class ProjectSettingsFileTest
         assertTrue(text.startsWith("# Super Greenfoot settings"));
         assertTrue(text.contains("rewrites this file"));
     }
+
+    @Test
+    public void anUnreadableFileIsCopiedAsideBeforeItIsReplaced() throws Exception
+    {
+        File dir = Files.createTempDirectory("scenario").toFile();
+        File file = new File(dir, ProjectSettingsFile.FILE_NAME);
+        // A malformed unicode escape makes Properties.load throw
+        byte[] broken = "version=1\nclass.Boar.folder=Enemies\nbad=\\u12\n".getBytes(StandardCharsets.ISO_8859_1);
+        Files.write(file.toPath(), broken);
+
+        ProjectSettingsFile settings = ProjectSettingsFile.load(dir);
+        assertTrue(settings.isUnreadable());
+        settings.put("ui.panel.classes.open", "false");
+        settings.save();
+
+        File backup = new File(dir, ProjectSettingsFile.FILE_NAME + ".bak");
+        assertTrue(backup.isFile());
+        assertTrue(Arrays.equals(broken, Files.readAllBytes(backup.toPath())));
+        assertFalse(settings.isUnreadable());
+        assertEquals("false", ProjectSettingsFile.load(dir).get("ui.panel.classes.open"));
+
+        // A later save of a readable file makes no further copies
+        settings.put("ui.panel.classes.open", "true");
+        settings.save();
+        assertFalse(new File(dir, ProjectSettingsFile.FILE_NAME + ".bak2").exists());
+
+        // A second unreadable file never overwrites the first copy
+        Files.write(file.toPath(), broken);
+        ProjectSettingsFile again = ProjectSettingsFile.load(dir);
+        again.put("x", "1");
+        again.save();
+        assertTrue(Arrays.equals(broken, Files.readAllBytes(backup.toPath())));
+        assertTrue(new File(dir, ProjectSettingsFile.FILE_NAME + ".bak2").isFile());
+    }
+
+    @Test
+    public void defaultValuesDoNotCreateTheFile() throws Exception
+    {
+        File dir = Files.createTempDirectory("scenario").toFile();
+        File file = new File(dir, ProjectSettingsFile.FILE_NAME);
+        ProjectSettingsFile settings = ProjectSettingsFile.load(dir);
+        settings.putUnlessDefault("ui.panel.classes.open", "true", "true");
+        settings.putUnlessDefault("ui.world.zoom", "fit", "fit");
+        assertFalse(settings.isDirty());
+        settings.save();
+        assertFalse("opening and closing with defaults writes nothing", file.exists());
+
+        settings.putUnlessDefault("ui.world.zoom", "pixel", "fit");
+        assertTrue(settings.isDirty());
+        settings.save();
+        assertEquals("pixel", ProjectSettingsFile.load(dir).get("ui.world.zoom"));
+
+        // Once present, going back to the default is a change that is written
+        ProjectSettingsFile reloaded = ProjectSettingsFile.load(dir);
+        reloaded.putUnlessDefault("ui.world.zoom", "fit", "fit");
+        assertTrue(reloaded.isDirty());
+        reloaded.save();
+        assertEquals("fit", ProjectSettingsFile.load(dir).get("ui.world.zoom"));
+    }
+
+    @Test
+    public void saveLeavesNoTemporaryFiles() throws Exception
+    {
+        File dir = Files.createTempDirectory("scenario").toFile();
+        ProjectSettingsFile settings = ProjectSettingsFile.load(dir);
+        settings.put("folder.Enemies", "Boar");
+        settings.save();
+        settings.put("folder.Enemies", "Wolf");
+        settings.save();
+        assertEquals(Arrays.asList(ProjectSettingsFile.FILE_NAME), Arrays.asList(dir.list()));
+    }
 }

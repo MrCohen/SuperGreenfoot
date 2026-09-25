@@ -21,6 +21,7 @@
  */
 package greenfoot.guifx.superide.folders;
 
+import bluej.utility.AtomicFiles;
 import bluej.utility.Debug;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -28,11 +29,8 @@ import threadchecker.Tag;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -58,7 +56,9 @@ import java.util.Properties;
  * kept and written back unchanged. Saving is atomic and deterministic
  * (sorted keys, no timestamp, '\n' line ends) so that the file diffs cleanly
  * in git and syncs cleanly through Dropbox. If the file exists but can't be
- * read, it is treated as empty and left alone until something is changed.
+ * read, it is treated as empty and left alone until something is changed;
+ * the first save after that copies it to {@value #FILE_NAME}.bak (or .bak2...)
+ * before replacing it.
  */
 @OnThread(Tag.Any)
 public class ProjectSettingsFile
@@ -83,6 +83,8 @@ public class ProjectSettingsFile
     private String header = "";
     private boolean dirty = false;
     private boolean unreadable = false;
+    /** True once an unreadable file has been copied aside (so a failed save does not copy it again). */
+    private boolean backedUp = false;
 
     private ProjectSettingsFile(File file)
     {
@@ -222,6 +224,21 @@ public class ProjectSettingsFile
         }
     }
 
+    /**
+     * Set a value, except that a key that is absent stays absent when the
+     * value is its default: so merely opening and closing a scenario with
+     * everything at its defaults does not create or change the file. A key
+     * that is present is updated as by {@link #put}.
+     */
+    public void putUnlessDefault(String key, String value, String defaultValue)
+    {
+        if (!values.containsKey(key) && value != null && value.equals(defaultValue))
+        {
+            return;
+        }
+        put(key, value);
+    }
+
     /** All keys, in the order they are written. */
     public List<String> getKeys()
     {
@@ -245,30 +262,33 @@ public class ProjectSettingsFile
         {
             values.put(VERSION_KEY, Integer.toString(VERSION));
         }
-        Path target = file.toPath();
-        Path dir = target.toAbsolutePath().getParent();
-        Path temp = Files.createTempFile(dir, "." + FILE_NAME + ".", ".tmp");
-        try
+        if (unreadable && !backedUp && file.exists())
         {
-            try (Writer out = Files.newBufferedWriter(temp, StandardCharsets.ISO_8859_1))
-            {
-                out.write(toText());
-            }
-            try
-            {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            }
-            catch (AtomicMoveNotSupportedException e)
-            {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            backUpUnreadable();
+            backedUp = true;
         }
-        finally
-        {
-            Files.deleteIfExists(temp);
-        }
+        AtomicFiles.write(file.toPath(), toText().getBytes(StandardCharsets.ISO_8859_1));
         dirty = false;
         unreadable = false;
+    }
+
+    /**
+     * The file could not be read, so what is about to be written replaces
+     * settings that were never seen (folder assignments, folds). Copy it
+     * aside first, to {@value #FILE_NAME}.bak or, if that is taken by an
+     * earlier copy, .bak2, .bak3 and so on; an existing copy is never
+     * overwritten. If the copy fails the save fails, and the file stays.
+     */
+    private void backUpUnreadable() throws IOException
+    {
+        File backup = new File(file.getParentFile(), FILE_NAME + ".bak");
+        for (int i = 2; backup.exists(); i++)
+        {
+            backup = new File(file.getParentFile(), FILE_NAME + ".bak" + i);
+        }
+        Files.copy(file.toPath(), backup.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
+        Debug.message("Could not read " + file + " when it was loaded, so it was copied to "
+                + backup.getName() + " before being rewritten");
     }
 
     /** The exact text {@link #save()} writes (ASCII, '\n' line ends). */

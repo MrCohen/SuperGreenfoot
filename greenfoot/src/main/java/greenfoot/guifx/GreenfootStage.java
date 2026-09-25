@@ -420,25 +420,27 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
             String value = layouts.get(projectDir, key);
             return value != null ? value : lastSavedProperties.getProperty(key);
         };
-        String xPosition = geometry.apply("xPosition");
-        String yPosition = geometry.apply("yPosition");
+        // A value that is not a number (a hand-edited or damaged file) counts
+        // as missing, so the window opens at its default place and size.
+        Double xPosition = ProjectLayoutStore.parseNumber(geometry.apply("xPosition"));
+        Double yPosition = ProjectLayoutStore.parseNumber(geometry.apply("yPosition"));
         
         if (xPosition != null && yPosition != null)
         {
-            Point2D location = Config.ensureOnScreen(Double.valueOf(xPosition).intValue(), Double.valueOf(yPosition).intValue());
+            Point2D location = Config.ensureOnScreen(xPosition.intValue(), yPosition.intValue());
             setX(location.getX());
             setY(location.getY());
         }
 
-        String width = geometry.apply("width");
-        String height = geometry.apply("height");
-        if (width != null)
+        Double width = ProjectLayoutStore.parseNumber(geometry.apply("width"));
+        Double height = ProjectLayoutStore.parseNumber(geometry.apply("height"));
+        if (width != null && width > 0)
         {
-            setWidth(Double.valueOf(width));
+            setWidth(width);
         }
-        if (height != null)
+        if (height != null && height > 0)
         {
-            setHeight(Double.valueOf(height));
+            setHeight(height);
         }
 
         if (!alreadyLive)

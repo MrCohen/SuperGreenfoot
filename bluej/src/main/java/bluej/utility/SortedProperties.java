@@ -103,11 +103,21 @@ public class SortedProperties extends Properties
     @SuppressWarnings("unchecked")
     public void store(OutputStream out, String header) throws IOException
     {
+        store(out, header, System.lineSeparator());
+    }
+
+    /**
+     * SuperGreenfoot: store with the given line separator rather than the
+     * platform's, so a file shared between Windows and other systems comes
+     * out byte-identical everywhere.
+     */
+    public void store(OutputStream out, String header, String lineSeparator) throws IOException
+    {
         BufferedWriter awriter;
         awriter = new BufferedWriter(new OutputStreamWriter(out, "8859_1"));
         if (header != null) {
             awriter.write("#" + header);
-            awriter.newLine();
+            awriter.write(lineSeparator);
         }
 
         // Properties maps String to String, but unfortunately doesn't implement
@@ -125,7 +135,7 @@ public class SortedProperties extends Properties
             String val = saveConvert(mapEntry.getValue());
 
             awriter.write(key + "=" + val);
-            awriter.newLine();
+            awriter.write(lineSeparator);
         }
         awriter.flush();
     }

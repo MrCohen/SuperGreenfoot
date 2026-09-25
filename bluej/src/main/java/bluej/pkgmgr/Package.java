@@ -1295,12 +1295,7 @@ public final class Package
             }
         }
 
-        SortedProperties props = new SortedProperties();
-        // SuperGreenfoot: keep every key from the file that this save does not
-        // itself produce (main.class, project.name, scenario.lock, anything a
-        // user or a tool put there), so saving never silently drops it.
-        keepUnmanagedKeys(lastSavedProps, props);
-        props.putAll(frameProperties);
+        SortedProperties props = propertiesToSave(lastSavedProps, frameProperties);
 
         // SuperGreenfoot: in Greenfoot mode the class-diagram layout (target
         // positions, the readme target, the "uses" arrows) is not written.
@@ -1357,6 +1352,21 @@ public final class Package
             Dependency d = usesArrows.get(i);
             d.save(props, "dependency" + (i + 1));
         }
+    }
+
+    /**
+     * SuperGreenfoot: the settings a save starts from: every key of the last
+     * loaded file that this save does not itself produce (main.class,
+     * project.name, scenario.lock, anything a user or a tool put there), so
+     * saving never silently drops it, overlaid with the caller's own keys.
+     * In Greenfoot mode this is the whole file; BlueJ adds the diagram layout.
+     */
+    static SortedProperties propertiesToSave(Properties lastSaved, Properties frameProperties)
+    {
+        SortedProperties props = new SortedProperties();
+        keepUnmanagedKeys(lastSaved, props);
+        props.putAll(frameProperties);
+        return props;
     }
 
     /**

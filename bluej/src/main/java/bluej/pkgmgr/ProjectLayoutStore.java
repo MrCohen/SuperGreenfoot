@@ -21,14 +21,21 @@
  */
 package bluej.pkgmgr;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
 
 import bluej.Config;
+import bluej.utility.AtomicFiles;
 import bluej.utility.Debug;
 import bluej.utility.SortedProperties;
 import threadchecker.OnThread;
@@ -41,23 +48,47 @@ import threadchecker.Tag;
  * by the scenario's path, not in the scenario, which travels between
  * machines and screens. Values are read on first use and written by
  * {@link #flush()} when something changed.
+ *
+ * <p>Each key is {@code <canonical scenario path>|<setting>}. Writing a
+ * scenario's settings also stamps {@code <path>|}{@value #STAMP_KEY} with the
+ * time. A flush re-reads the file and applies only this process's changes
+ * on top, so two IDEs running at once keep each other's entries (the last
+ * writer wins per key). Scenarios whose folder is gone are dropped, and only
+ * the {@value #MAX_SCENARIOS} most recently written are kept; entries from
+ * builds before the stamp count as the oldest.
  */
 @OnThread(Tag.Any)
 public final class ProjectLayoutStore
 {
     /** The file in the user's preferences folder. */
     public static final String FILE_NAME = "scenario-layouts.properties";
+    /** The per-scenario setting holding when its layout was last written (milliseconds). */
+    static final String STAMP_KEY = "layout.lastWritten";
+    /** How many scenarios are kept. */
+    static final int MAX_SCENARIOS = 200;
+
+    private static final String HEADER = "SuperGreenfoot: window positions and sizes per scenario, for this user";
 
     private static ProjectLayoutStore instance;
 
     private final File file;
-    private final SortedProperties props = new SortedProperties();
+    private final Predicate<File> scenarioExists;
+    private final int maxScenarios;
+    private SortedProperties props = new SortedProperties();
+    /** This process's changes since the last flush, by full key; a null value is a removal. */
+    private final Map<String, String> changes = new LinkedHashMap<>();
     private boolean loaded = false;
-    private boolean dirty = false;
 
     ProjectLayoutStore(File file)
     {
+        this(file, File::isDirectory, MAX_SCENARIOS);
+    }
+
+    ProjectLayoutStore(File file, Predicate<File> scenarioExists, int maxScenarios)
+    {
         this.file = file;
+        this.scenarioExists = scenarioExists;
+        this.maxScenarios = maxScenarios;
     }
 
     /** The store in the user's preferences folder. */
@@ -73,42 +104,68 @@ public final class ProjectLayoutStore
     /** The value of {@code key} for the scenario in {@code projectDir}, or null. */
     public synchronized String get(File projectDir, String key)
     {
-        load();
-        return props.getProperty(keyFor(projectDir, key));
+        return getRaw(pathOf(projectDir), key);
     }
 
     /** Set (or with null, remove) the value of {@code key} for the scenario in {@code projectDir}. */
     public synchronized void put(File projectDir, String key, String value)
     {
+        putRaw(pathOf(projectDir), key, value);
+    }
+
+    /** The value of {@code key} for the scenario whose canonical path is {@code path}. */
+    synchronized String getRaw(String path, String key)
+    {
         load();
-        String full = keyFor(projectDir, key);
+        return props.getProperty(path + "|" + key);
+    }
+
+    /** Set or remove the value of {@code key} for the scenario whose canonical path is {@code path}. */
+    synchronized void putRaw(String path, String key, String value)
+    {
+        load();
+        String full = path + "|" + key;
         String old = props.getProperty(full);
         if (value == null ? old == null : value.equals(old))
         {
             return;
         }
-        if (value == null)
-        {
-            props.remove(full);
-        }
-        else
-        {
-            props.setProperty(full, value);
-        }
-        dirty = true;
+        set(props, full, value);
+        changes.put(full, value);
+        String stamp = Long.toString(System.currentTimeMillis());
+        props.setProperty(path + "|" + STAMP_KEY, stamp);
+        changes.put(path + "|" + STAMP_KEY, stamp);
     }
 
-    /** Write the file if anything changed since it was read or last written. */
+    /**
+     * Write the file if anything changed since it was read or last written:
+     * the file as it is now on disk, with this process's changes on top.
+     */
     public synchronized void flush()
     {
-        if (!dirty)
+        if (changes.isEmpty())
         {
             return;
         }
-        try (OutputStream out = new FileOutputStream(file))
+        SortedProperties merged = read();
+        if (merged == null)
         {
-            props.store(out, "SuperGreenfoot: window positions and sizes per scenario, for this user");
-            dirty = false;
+            // Missing or unreadable: what this process knows is the best there is.
+            merged = new SortedProperties();
+            merged.putAll(props);
+        }
+        for (Map.Entry<String, String> change : changes.entrySet())
+        {
+            set(merged, change.getKey(), change.getValue());
+        }
+        prune(merged);
+        try
+        {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            merged.store(out, HEADER, "\n");
+            AtomicFiles.write(file.toPath(), out.toByteArray());
+            props = merged;
+            changes.clear();
         }
         catch (IOException e)
         {
@@ -123,33 +180,134 @@ public final class ProjectLayoutStore
             return;
         }
         loaded = true;
+        SortedProperties read = read();
+        if (read != null)
+        {
+            props = read;
+            prune(props);
+        }
+    }
+
+    /** The file as it is on disk, or null if it is missing or cannot be read. */
+    private SortedProperties read()
+    {
         if (!file.isFile())
         {
-            return;
+            return null;
         }
-        try (InputStream in = new FileInputStream(file))
+        SortedProperties read = new SortedProperties();
+        try (InputStream in = Files.newInputStream(file.toPath()))
         {
-            props.load(in);
+            read.load(in);
+            return read;
         }
         catch (IOException | IllegalArgumentException e)
         {
-            Debug.message("Could not read " + file + "; starting empty: " + e.getMessage());
-            props.clear();
+            Debug.message("Could not read " + file + "; ignoring it: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Drop the scenarios whose folder no longer exists, then all but the
+     * most recently written {@code maxScenarios}.
+     */
+    private void prune(SortedProperties p)
+    {
+        Map<String, List<String>> keysByPath = new HashMap<>();
+        for (String key : p.stringPropertyNames())
+        {
+            int bar = key.lastIndexOf('|');
+            if (bar > 0)
+            {
+                keysByPath.computeIfAbsent(key.substring(0, bar), k -> new ArrayList<>()).add(key);
+            }
+        }
+        List<String> kept = new ArrayList<>();
+        for (Map.Entry<String, List<String>> scenario : keysByPath.entrySet())
+        {
+            if (scenarioExists.test(new File(scenario.getKey())))
+            {
+                kept.add(scenario.getKey());
+            }
+            else
+            {
+                scenario.getValue().forEach(p::remove);
+            }
+        }
+        if (kept.size() > maxScenarios)
+        {
+            kept.sort(Comparator.comparingLong((String path) -> stampOf(p, path)).reversed()
+                    .thenComparing(Comparator.naturalOrder()));
+            for (String path : kept.subList(maxScenarios, kept.size()))
+            {
+                keysByPath.get(path).forEach(p::remove);
+            }
+        }
+    }
+
+    private static long stampOf(SortedProperties p, String path)
+    {
+        try
+        {
+            return Long.parseLong(p.getProperty(path + "|" + STAMP_KEY, "0").trim());
+        }
+        catch (NumberFormatException e)
+        {
+            return 0;
+        }
+    }
+
+    private static void set(SortedProperties p, String key, String value)
+    {
+        if (value == null)
+        {
+            p.remove(key);
+        }
+        else
+        {
+            p.setProperty(key, value);
+        }
+    }
+
+    /**
+     * A stored window coordinate or size, or null if it is missing or is not
+     * a finite number (a hand-edited or damaged file), so the caller falls
+     * back to its default rather than failing while the window opens.
+     */
+    public static Double parseNumber(String value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+        try
+        {
+            double d = Double.parseDouble(value.trim());
+            return Double.isFinite(d) ? d : null;
+        }
+        catch (NumberFormatException e)
+        {
+            return null;
         }
     }
 
     /** The property key for a scenario folder and a setting name. */
     static String keyFor(File projectDir, String key)
     {
-        String path;
+        return pathOf(projectDir) + "|" + key;
+    }
+
+    /** The scenario folder's canonical path (its absolute path if that fails). */
+    private static String pathOf(File projectDir)
+    {
         try
         {
-            path = projectDir.getCanonicalPath();
+            return projectDir.getCanonicalPath();
         }
         catch (IOException e)
         {
-            path = projectDir.getAbsolutePath();
+            return projectDir.getAbsolutePath();
         }
-        return path + "|" + key;
     }
 }
