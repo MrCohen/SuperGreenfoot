@@ -33,7 +33,8 @@ package greenfoot.util;
  * ticks in 1 ms steps, so a 60 acts-a-second scenario ran at 52-53 on a Mac
  * and 61 on a PC. This version sleeps in shrinking steps, always asking for
  * less than the time left, and spins for the last fraction of a millisecond.
- * It costs about 2% of one core at 60 acts a second.
+ * The spin costs up to one millisecond of one core per act, so at most about
+ * 6% of a core at 60 acts a second, usually less.
  * 
  * @author Poul Henriksen
  */
@@ -82,7 +83,8 @@ public class HDTimer
         }
 
         // Then busy-wait for the last fraction of a millisecond.
-        while (System.nanoTime() < deadline) {
+        // (deadline - now > 0 rather than now < deadline: nanoTime may wrap around.)
+        while (deadline - System.nanoTime() > 0) {
             if (Thread.interrupted()) {
                 throw new InterruptedException("HDTimer.sleepUntil interrupted in busy loop.");
             }

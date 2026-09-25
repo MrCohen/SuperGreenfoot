@@ -111,7 +111,9 @@ public class MouseInfo
     /**
      * How far the mouse wheel was turned during this act, in pixels. Positive means
      * the wheel was rolled towards you (the content should scroll down); negative
-     * means away. Zero if the wheel was not used. Use
+     * means away. Zero if the wheel was not used. One notch of a mouse wheel is 40
+     * pixels, in the IDE and in an exported game alike; a trackpad reports its own,
+     * finer movement. Use
      * {@link Greenfoot#mouseScrolled(Object)} to find out whether the wheel was used
      * over a particular actor or window.
      *

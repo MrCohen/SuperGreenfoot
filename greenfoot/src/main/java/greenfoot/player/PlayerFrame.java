@@ -638,13 +638,13 @@ public class PlayerFrame implements DisplayDelegate
                 Point p = worldPanel.toWorld(e.getPoint());
                 int amount;
                 if (e.getScrollType() == MouseWheelEvent.WHEEL_BLOCK_SCROLL) {
-                    amount = e.getWheelRotation() * 100;
+                    amount = e.getWheelRotation() * MousePollingManager.PIXELS_PER_WHEEL_PAGE;
                 }
                 else {
-                    amount = (int) Math.round(e.getPreciseWheelRotation() * 30);
+                    amount = (int) Math.round(e.getPreciseWheelRotation() * MousePollingManager.PIXELS_PER_WHEEL_NOTCH);
                 }
                 if (amount == 0 && e.getWheelRotation() != 0) {
-                    amount = e.getWheelRotation() * 30;
+                    amount = e.getWheelRotation() * MousePollingManager.PIXELS_PER_WHEEL_NOTCH;
                 }
                 mouseManager().mouseScrolled(p.x, p.y, amount);
             }

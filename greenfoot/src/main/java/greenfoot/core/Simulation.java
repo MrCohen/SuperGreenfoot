@@ -1003,7 +1003,7 @@ public class Simulation extends Thread
 
         fireSimulationEventSync(SyncEvent.DELAY_LOOP_ENTERED);
 
-        while (System.nanoTime() < deadline)
+        while (deadline - System.nanoTime() > 0)   // not now < deadline: nanoTime may wrap
         {
             try
             {

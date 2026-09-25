@@ -87,6 +87,15 @@ public class MousePollingManager
      * 
      * <p>Accessed only from the simulation thread.
      */
+    /**
+     * SuperGreenfoot: the scroll amount, in pixels, that one notch of a mouse wheel
+     * reports, the same in the IDE and in an exported game. Trackpads report their
+     * own finer movement in pixels.
+     */
+    public static final int PIXELS_PER_WHEEL_NOTCH = 40;
+    /** SuperGreenfoot: the scroll amount for a wheel set to scroll a page per notch. */
+    public static final int PIXELS_PER_WHEEL_PAGE = 100;
+
     private MouseEventData currentData = new MouseEventData();
 
     /**

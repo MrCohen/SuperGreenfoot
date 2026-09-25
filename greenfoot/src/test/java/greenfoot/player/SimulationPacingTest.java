@@ -106,6 +106,11 @@ public class SimulationPacingTest extends TestCase
         System.out.println("SimulationPacingTest: " + report);
 
         session.shutdown();
-        assertTrue(report, rate > 59.0 && rate < 61.0);
+        // The median interval is the pacing itself (16.667 ms); a busy machine can
+        // stall a few acts, which moves the overall rate but hardly the median. The
+        // old pacing gave about 18.8 ms, and speed 51 gives about 14.7 ms.
+        double median = gaps.length > 0 ? gaps[gaps.length / 2] / 1e6 : 0;
+        assertTrue(report, median > 16.2 && median < 17.2);
+        assertTrue(report, rate > 55.0 && rate < 65.0);
     }
 }

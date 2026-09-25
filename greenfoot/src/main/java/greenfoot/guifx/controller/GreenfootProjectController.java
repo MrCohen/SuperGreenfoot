@@ -72,6 +72,7 @@ import greenfoot.Actor;
 import greenfoot.core.ProjectManager;
 import greenfoot.export.ScenarioSaver;
 import greenfoot.export.mygame.ScenarioInfo;
+import greenfoot.gui.input.mouse.MousePollingManager;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
 import greenfoot.guifx.FullScreenView;
 import greenfoot.record.GreenfootRecorder;
@@ -237,6 +238,8 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     // Bumped when the debug VM ends: a call from the old VM that reports late
     // must not uncount a call running in the new one.
     private int vmGeneration = 0;
+    // Trackpad scrolling smaller than a whole pixel, waiting to be sent with the next event:
+    private double scrollRemainder = 0;
 
     // The full-screen play window, or null when not in full screen.  It has no owner
     // window, so it is not affected by which window shows the project:
@@ -1641,8 +1644,25 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         {
             return;
         }
-        // JavaFX deltaY is negative when scrolling down; the scenario wants positive = down.
-        int amount = (int) Math.round(-e.getDeltaY());
+        // JavaFX deltas are negative when scrolling down; the scenario wants positive = down.
+        // A wheel reports lines (or pages), converted to the same pixels as the exported
+        // player; a trackpad reports pixels, and fractions are carried to the next event.
+        double pixels;
+        switch (e.getTextDeltaYUnits())
+        {
+            case LINES:
+                pixels = -e.getTextDeltaY() * MousePollingManager.PIXELS_PER_WHEEL_NOTCH;
+                break;
+            case PAGES:
+                pixels = -e.getTextDeltaY() * MousePollingManager.PIXELS_PER_WHEEL_PAGE;
+                break;
+            default:
+                pixels = -e.getDeltaY();
+                break;
+        }
+        scrollRemainder += pixels;
+        int amount = (int) scrollRemainder;
+        scrollRemainder -= amount;
         if (amount != 0)
         {
             debugHandler.getVmComms().sendScrollEvent((int) worldPos.getX(), (int) worldPos.getY(), amount);
