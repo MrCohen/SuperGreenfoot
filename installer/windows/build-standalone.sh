@@ -190,7 +190,10 @@ BEGIN
 	END
 END
 EOF
-sed -E -e "s/version=\"[0-9.]+\"/version=\"${WIN_VERSION//,/.}\"/" \
+# Anchor on assemblyIdentity: a bare version="..." also matches the <?xml?>
+# declaration, and Windows refuses an exe whose manifest is not XML 1.0
+# ("side-by-side configuration is incorrect").
+sed -E -e "s/(<assemblyIdentity version=)\"[0-9.]+\"/\\1\"${WIN_VERSION//,/.}\"/" \
        -e 's/processorArchitecture="X86"/processorArchitecture="amd64"/' \
        -e 's/name="Greenfoot"/name="SuperGreenfoot"/' \
        -e 's#<description>Greenfoot</description>#<description>SuperGreenfoot</description>#' \
@@ -203,6 +206,13 @@ sed -e 's#"../winlaunch/#"#' "$WINPKG/winusblaunch/usblaunch.rc" \
            -e 's/"BlueJ group"/"SuperGreenfoot contributors"/' > "$LW/usblaunch.rc"
 sed -E -e 's/processorArchitecture="X86"/processorArchitecture="amd64"/' \
   "$WINPKG/winusblaunch/usbmanifest.xml" > "$LW/usbmanifest.xml"
+for m in "$LW/gfmanifest.xml" "$LW/usbmanifest.xml"; do
+  xmllint --noout "$m" && head -1 "$m" | grep -q '^<?xml version="1.0"' \
+    && grep -q "processorArchitecture=\"amd64\"" "$m" \
+    || { echo "generated manifest $m is not valid; Windows would refuse the exe"; exit 1; }
+done
+grep -q "<assemblyIdentity version=\"${WIN_VERSION//,/.}\"" "$LW/gfmanifest.xml" \
+  || { echo "version not stamped into gfmanifest.xml"; exit 1; }
 (
   cd "$LW"
   CXX=x86_64-w64-mingw32-g++; RC=x86_64-w64-mingw32-windres; JNI=(-I"$WINJDK/include" -I"$WINJDK/include/win32")
