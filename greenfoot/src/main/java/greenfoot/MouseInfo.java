@@ -36,6 +36,23 @@ import threadchecker.Tag;
 @OnThread(Tag.Any)
 public class MouseInfo
 {    
+    /**
+     * The left mouse button, as returned by {@link #getButton()} and taken by
+     * {@link Greenfoot#isMouseButtonDown(int)}.
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static final int LEFT = 1;
+    /**
+     * The middle mouse button (often the wheel, pressed down).
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static final int MIDDLE = 2;
+    /**
+     * The right mouse button.
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static final int RIGHT = 3;
+
     private Actor actor;
     private int button;
     private int x;
@@ -94,7 +111,8 @@ public class MouseInfo
      * The number of the pressed or clicked button (if any).
      * 
      * @return The button number. Usually 1 is the left button, 2 is the middle
-     *         button and 3 is the right button.
+     *         button and 3 is the right button: compare it with {@link #LEFT},
+     *         {@link #MIDDLE} and {@link #RIGHT}.
      */
     public int getButton() {
         return button;
@@ -118,7 +136,7 @@ public class MouseInfo
      * over a particular actor or window.
      *
      * @return The scroll amount, in pixels; 0 if the wheel was not used.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public int getScrollAmount()
     {
@@ -135,7 +153,7 @@ public class MouseInfo
      * </pre>
      *
      * @return The window under the mouse, or null.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     @OnThread(value = Tag.Simulation, ignoreParent = true)
     public SuperWindow getWindow()

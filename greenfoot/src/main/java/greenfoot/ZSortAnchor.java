@@ -30,8 +30,8 @@ package greenfoot;
  * of a tall picture counts as "lower": the middle of the image, or the feet.
  *
  * @see World#setZSortAnchor(ZSortAnchor)
- * @see Actor#setSortOffset(double)
- * @since SuperGreenfoot 0.1.4
+ * @see Actor#setZSortOffset(double)
+ * @since SuperGreenfoot 0.2.0
  */
 public enum ZSortAnchor
 {
@@ -44,7 +44,7 @@ public enum ZSortAnchor
      * its trunk. That padding costs memory: a picture with nothing below its feet ends
      * up twice as tall as it needs to be.
      */
-    CENTRE,
+    CENTER,
 
     /**
      * Sort by the bottom edge of the actor's image, so a picture can be exactly as
@@ -52,7 +52,7 @@ public enum ZSortAnchor
      *
      * <p>The height is read at every sort, so changing an actor's image - a walk cycle,
      * a tree becoming a stump - needs nothing else. Where the feet are not quite at the
-     * bottom edge, {@link Actor#setSortOffset(double)} moves the line.
+     * bottom edge, {@link Actor#setZSortOffset(double)} moves the line.
      */
     BOTTOM
 }

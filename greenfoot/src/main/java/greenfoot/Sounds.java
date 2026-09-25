@@ -60,7 +60,7 @@ import java.util.Set;
  * volume (0-100). Sounds played while the scenario is paused are held and
  * resume when it runs again.
  *
- * @since SuperGreenfoot 1.0
+ * @since SuperGreenfoot 0.1.0
  */
 @OnThread(Tag.Any)
 public final class Sounds

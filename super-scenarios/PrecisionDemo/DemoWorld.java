@@ -10,16 +10,16 @@ import greenfoot.*;
  * The shadow under each walker uses z = -1 so it always draws beneath its walker.
  *
  * The grove at the bottom shows the sort anchor. Press A to switch between
- * ZSortAnchor.CENTRE and ZSortAnchor.BOTTOM and watch the walker pass among the
- * trees. With CENTRE the trees sort by the middle of their pictures, so the walker
+ * ZSortAnchor.CENTER and ZSortAnchor.BOTTOM and watch the walker pass among the
+ * trees. With CENTER the trees sort by the middle of their pictures, so the walker
  * strolls in front of a tree it is clearly standing behind; with BOTTOM they sort by
  * the foot of the trunk, which is where they actually stand. The tree pictures are no
- * taller than what they draw - with CENTRE the only fix would be to pad each one with
+ * taller than what they draw - with CENTER the only fix would be to pad each one with
  * empty rows until its trunk reached the middle, at nearly twice the memory.
  */
 public class DemoWorld extends World
 {
-    private Label anchorLabel = new Label(anchorText(ZSortAnchor.CENTRE));
+    private Label anchorLabel = new Label(anchorText(ZSortAnchor.CENTER));
 
     public DemoWorld()
     {
@@ -60,7 +60,7 @@ public class DemoWorld extends World
     {
         if ("a".equals(Greenfoot.getKey())) {
             ZSortAnchor next = getZSortAnchor() == ZSortAnchor.BOTTOM
-                    ? ZSortAnchor.CENTRE : ZSortAnchor.BOTTOM;
+                    ? ZSortAnchor.CENTER : ZSortAnchor.BOTTOM;
             setZSortAnchor(next);
             removeObject(anchorLabel);
             anchorLabel = new Label(anchorText(next));

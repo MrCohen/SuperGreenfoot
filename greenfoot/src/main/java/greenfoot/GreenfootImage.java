@@ -792,7 +792,7 @@ public class GreenfootImage
      * @param string the text to draw; may contain newlines.
      * @param centerX the <i>x</i> coordinate of the centre.
      * @param centerY the <i>y</i> coordinate of the centre.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void drawCenteredString(String string, int centerX, int centerY)
     {

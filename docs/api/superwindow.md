@@ -20,7 +20,7 @@ Class template. Keyboard focus and nested windows are deferred.
   on the actor's `getX()`, `getY()`, `setLocation`, `move`, `isAtEdge` and the
   precise variants are all in the **window's coordinates**: (0,0) is the
   top-left cell of the content area. The actor moves with the window. Nothing
-  in the actor's own code changes; `actor.getWindow()` says which window it is
+  in the actor's own code changes; `actor.getParentWindow()` says which window it is
   in (null for an actor placed directly in the world).
 - The window's contents **join and leave the world with it**. Add actors to a
   window before it is in a world, add the window to a world, remove it, add it
@@ -125,7 +125,7 @@ Constants: `DEFAULT_TITLE_BAR_HEIGHT` (20), `DEFAULT_BORDER_THICKNESS` (2),
 
 | Method | Notes |
 |---|---|
-| `Actor.getWindow()` | The containing window or null. |
+| `Actor.getParentWindow()` | The containing window or null. |
 | `World.getWindows()` | Windows back to front. |
 | `World.getWindowAt(int x, int y)` | Front-most open window covering a world position, or null. |
 | `MouseInfo.getWindow()` | Window under the mouse, or null. |

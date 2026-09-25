@@ -8,7 +8,7 @@ import greenfoot.*;
  * below it until the trunk's foot reaches the middle, or the tree sorts as if it
  * stood where its canopy is. That padding would make this image nearly twice as
  * tall for nothing. With World.setZSortAnchor(ZSortAnchor.BOTTOM) the picture
- * stays this size, and setSortOffset trims the few pixels of shadow that are
+ * stays this size, and setZSortOffset trims the few pixels of shadow that are
  * drawn below the trunk's foot.
  */
 public class Tree extends Actor
@@ -37,6 +37,6 @@ public class Tree extends Actor
         img.fillOval(8, 4, WIDTH - 22, (trunkTop + 8) / 2);
 
         setImage(img);
-        setSortOffset(-SHADOW_DEPTH);
+        setZSortOffset(-SHADOW_DEPTH);
     }
 }

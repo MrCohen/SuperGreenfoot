@@ -26,7 +26,7 @@ package greenfoot;
  * for example in full screen or in an enlarged player window.
  *
  * @see Greenfoot#setScaleMode(ScaleMode)
- * @since SuperGreenfoot 1.0
+ * @since SuperGreenfoot 0.1.0
  */
 public enum ScaleMode
 {

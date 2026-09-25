@@ -1,6 +1,6 @@
 # Mouse input: releases and held buttons
 
-SuperGreenfoot 0.1.4. Added because a game that lets you *hold* a mouse button —
+SuperGreenfoot 0.2.0. Added because a game that lets you *hold* a mouse button —
 aim with the left, block with the right — could not ask the engine about it.
 Upstream Greenfoot reports a press, a click, a drag and a drag ending, so holding
 a button had to be reconstructed from a click and a drag-end, and a plain release
@@ -38,7 +38,7 @@ before.
 if (Greenfoot.mouseReleased(this))
 {
     MouseInfo mouse = Greenfoot.getMouseInfo();
-    if (mouse.getButton() == 3)
+    if (mouse.getButton() == MouseInfo.RIGHT)
     {
         stopBlocking();
     }
@@ -47,8 +47,8 @@ if (Greenfoot.mouseReleased(this))
 
 ## `Greenfoot.isMouseButtonDown(int button)`
 
-True while that button is held: `1` left, `2` middle, `3` right, matching
-`MouseInfo.getButton()`. Any other number throws `IllegalArgumentException`
+True while that button is held: `MouseInfo.LEFT`, `MouseInfo.MIDDLE` or
+`MouseInfo.RIGHT` (the numbers 1, 2 and 3, matching `MouseInfo.getButton()`). Any other number throws `IllegalArgumentException`
 rather than quietly answering false.
 
 Unlike every other mouse method this is a **state, not an event**. It stays true
@@ -62,7 +62,7 @@ the next act onward. That matches how the rest of the mouse API is frame-based.
 ```java
 public void act()
 {
-    if (Greenfoot.isMouseButtonDown(1))
+    if (Greenfoot.isMouseButtonDown(MouseInfo.LEFT))
     {
         charge = Math.min(charge + 1, MAX_CHARGE);   // hold to charge
     }

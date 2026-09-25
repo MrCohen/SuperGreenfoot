@@ -29,7 +29,7 @@ import threadchecker.Tag;
  * {@link Sounds}. A sound's final loudness is its own volume, times the volume
  * of its category, times the master volume.
  *
- * @since SuperGreenfoot 1.0
+ * @since SuperGreenfoot 0.1.0
  */
 @OnThread(Tag.Any)
 public enum SoundCategory

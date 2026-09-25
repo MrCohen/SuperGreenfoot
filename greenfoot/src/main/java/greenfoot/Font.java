@@ -207,7 +207,7 @@ public class Font
      *
      * @param text The text to measure.
      * @return The width of the drawn text in pixels (0 for empty text).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getStringWidth(String text)
     {
@@ -226,7 +226,7 @@ public class Font
      *
      * @param text The text to measure.
      * @return The height of the drawn text in pixels (0 for empty text).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getStringHeight(String text)
     {
@@ -253,7 +253,7 @@ public class Font
      * the top of the tallest characters (such as capital letters and "l").
      *
      * @return The ascent in pixels.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getAscent()
     {
@@ -265,7 +265,7 @@ public class Font
      * to the bottom of characters with descenders (such as "g", "p" and "y").
      *
      * @return The descent in pixels.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getDescent()
     {
@@ -278,7 +278,7 @@ public class Font
      * {@link GreenfootImage#drawString(String, int, int)}.
      *
      * @return The line height in pixels.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getLineHeight()
     {

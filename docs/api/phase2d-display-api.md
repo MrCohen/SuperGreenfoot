@@ -53,7 +53,7 @@ shared-memory channel (`greenfoot.vmcomm`):
 - The stage keeps the full-screen preferences (pixel-perfect, controls
   visible, locked) while no view is open, so a scenario can set them before
   entering full screen and they survive leaving and re-entering.
-- **Cursor** (added in 0.1.4). `setCursorVisible` is a fifth flag on the same
+- **Cursor** (added in 0.2.0). `setCursorVisible` is a fifth flag on the same
   request word (`DisplayState.CURSOR_HIDDEN`; the mask bits moved up to bits
   8-15 to make room) and is echoed back in the state. `setCursor` is a separate
   request after the keyboard-return counter: a sequence number, the hot spot,

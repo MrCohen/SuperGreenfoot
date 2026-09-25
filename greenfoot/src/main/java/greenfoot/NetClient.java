@@ -45,6 +45,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * and hand the client over to it.</p>
  *
  * @author SuperGreenfoot contributors
+ * @since SuperGreenfoot 0.2.0
  */
 @OnThread(Tag.Any)
 public final class NetClient

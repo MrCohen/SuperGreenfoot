@@ -278,7 +278,7 @@ public class Greenfoot
      *            the wheel was used over the world background (not over an actor).
      *            If an Actor, it will return true if the wheel was used over that actor.
      * @return True if the mouse wheel was used as explained above.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public static boolean mouseScrolled(Object obj)
     {
@@ -303,7 +303,7 @@ public class Greenfoot
      *            return true only if the release was over the world background and not
      *            over an actor. If an Actor, only if it was over that actor.
      * @return True if a mouse button was released as explained above
-     * @since SuperGreenfoot 0.1.4
+     * @since SuperGreenfoot 0.2.0
      */
     public static boolean mouseReleased(Object obj)
     {
@@ -322,11 +322,18 @@ public class Greenfoot
      * A button is no longer counted as held when the scenario starts running, or when
      * the world loses keyboard focus, since the release may then never arrive.
      *
-     * @param button 1 for the left button, 2 for the middle, 3 for the right, matching
-     *               {@link MouseInfo#getButton()}
+     * <pre>
+     * if (Greenfoot.isMouseButtonDown(MouseInfo.RIGHT)) {
+     *     block();
+     * }
+     * </pre>
+     *
+     * @param button {@link MouseInfo#LEFT}, {@link MouseInfo#MIDDLE} or
+     *               {@link MouseInfo#RIGHT} (1, 2 or 3, matching
+     *               {@link MouseInfo#getButton()})
      * @return True if that button is down right now
      * @throws IllegalArgumentException if the button number is not 1, 2 or 3
-     * @since SuperGreenfoot 0.1.4
+     * @since SuperGreenfoot 0.2.0
      */
     public static boolean isMouseButtonDown(int button)
     {
@@ -395,7 +402,7 @@ public class Greenfoot
      * Shortcut+Shift+F.
      *
      * @param fullScreen true for full screen, false for a window.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static void setFullScreen(boolean fullScreen)
     {
@@ -404,7 +411,7 @@ public class Greenfoot
 
     /**
      * @return true if the scenario is currently shown full screen.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static boolean isFullScreen()
     {
@@ -414,7 +421,7 @@ public class Greenfoot
     /**
      * @return true if this environment can show the scenario full screen
      *         (the exported game and the IDE can; a web page may not).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static boolean isFullScreenSupported()
     {
@@ -429,7 +436,7 @@ public class Greenfoot
      * changed, also across entering and leaving full screen.
      *
      * @param mode the scaling mode.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static void setScaleMode(ScaleMode mode)
     {
@@ -441,7 +448,7 @@ public class Greenfoot
 
     /**
      * @return the current scaling mode.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static ScaleMode getScaleMode()
     {
@@ -454,7 +461,7 @@ public class Greenfoot
      * screen, a fraction such as 2.25 when scaled smoothly.
      *
      * @return the current world-to-screen scale factor.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static double getDisplayScale()
     {
@@ -469,7 +476,7 @@ public class Greenfoot
      * for a 1920x1080 screen, 640x360 fills it at 3x and 960x540 at 2x.
      *
      * @return the screen width in pixels, or 0 if it is not known.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static int getScreenWidth()
     {
@@ -481,7 +488,7 @@ public class Greenfoot
      *
      * @return the screen height in pixels, or 0 if it is not known.
      * @see #getScreenWidth()
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static int getScreenHeight()
     {
@@ -496,7 +503,7 @@ public class Greenfoot
      * back with Escape unless they are locked.
      *
      * @param visible true to show the controls.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static void setControlsVisible(boolean visible)
     {
@@ -505,7 +512,7 @@ public class Greenfoot
 
     /**
      * @return true if the run controls are currently shown.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static boolean isControlsVisible()
     {
@@ -518,7 +525,7 @@ public class Greenfoot
      * game and to the IDE full-screen view.
      *
      * @param locked true to lock the controls hidden.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static void setControlsLocked(boolean locked)
     {
@@ -527,7 +534,7 @@ public class Greenfoot
 
     /**
      * @return true if the run controls are locked hidden.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static boolean isControlsLocked()
     {
@@ -541,7 +548,7 @@ public class Greenfoot
      * crisp with {@link ScaleMode#PIXEL_PERFECT}. No effect in the IDE.
      *
      * @param scale the factor, between 0.25 and 8.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static void setWindowScale(double scale)
     {
@@ -550,7 +557,7 @@ public class Greenfoot
 
     /**
      * @return the window scale factor set with {@link #setWindowScale(double)} (1.0 by default).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static double getWindowScale()
     {
@@ -559,7 +566,7 @@ public class Greenfoot
 
     /**
      * @return true when running as an exported standalone game rather than in the IDE.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public static boolean isStandalone()
     {
@@ -577,7 +584,7 @@ public class Greenfoot
      * To replace the cursor with a picture instead, see {@link #setCursor(String)}.
      *
      * @param visible false to hide the cursor over the world, true to show it.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public static void setCursorVisible(boolean visible)
     {
@@ -586,7 +593,7 @@ public class Greenfoot
 
     /**
      * @return false if the cursor was hidden with {@link #setCursorVisible(boolean)}.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public static boolean isCursorVisible()
     {
@@ -604,7 +611,7 @@ public class Greenfoot
      * @param imageName the file name of the image in the images folder, or null
      *                  for the normal cursor.
      * @throws IllegalArgumentException if the image cannot be found.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public static void setCursor(String imageName)
     {
@@ -622,7 +629,7 @@ public class Greenfoot
      * @param hotSpotY  the y coordinate of the hot spot within the image.
      * @throws IllegalArgumentException if the image cannot be found.
      * @see #setCursor(String)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public static void setCursor(String imageName, int hotSpotX, int hotSpotY)
     {

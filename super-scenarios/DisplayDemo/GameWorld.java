@@ -57,7 +57,7 @@ public class GameWorld extends World
     /** Hold the left button to charge, let go to fire a ball from the pointer. */
     private void handleMouse()
     {
-        if (Greenfoot.isMouseButtonDown(1)) {
+        if (Greenfoot.isMouseButtonDown(MouseInfo.LEFT)) {
             charge = Math.min(charge + 1, MAX_CHARGE);
         }
         if (!Greenfoot.mouseReleased(null)) {

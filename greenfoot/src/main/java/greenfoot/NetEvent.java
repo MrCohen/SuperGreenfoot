@@ -45,6 +45,7 @@ import threadchecker.Tag;
  * </pre>
  *
  * @author SuperGreenfoot contributors
+ * @since SuperGreenfoot 0.2.0
  */
 @OnThread(Tag.Any)
 public final class NetEvent

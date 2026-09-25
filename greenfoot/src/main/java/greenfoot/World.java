@@ -110,7 +110,7 @@ public abstract class World
     /** When true, actors are painted in order of their precise y (then z, then insertion). */
     private boolean zSortByY = false;
     /** SuperGreenfoot: which part of an actor's image y-sorting treats as its feet. */
-    private ZSortAnchor zSortAnchor = ZSortAnchor.CENTRE;
+    private ZSortAnchor zSortAnchor = ZSortAnchor.CENTER;
     /** SuperGreenfoot: set once any actor is given a sort offset, to keep the plain path plain. */
     private boolean sortOffsetUsed = false;
 
@@ -1020,7 +1020,7 @@ public abstract class World
      * precedence unless {@link #setGlobalZOrder(boolean)} is enabled.
      *
      * @param sortByY true to enable y-sorting, false to disable it.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setZSortByY(boolean sortByY)
     {
@@ -1030,7 +1030,7 @@ public abstract class World
     /**
      * @return true if actors are painted in order of their y position.
      * @see #setZSortByY(boolean)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public boolean isZSortByY()
     {
@@ -1039,12 +1039,12 @@ public abstract class World
 
     /**
      * Choose which part of an actor's image counts as the point it stands on when
-     * y-sorting is on. The default, {@link ZSortAnchor#CENTRE}, uses the actor's own
+     * y-sorting is on. The default, {@link ZSortAnchor#CENTER}, uses the actor's own
      * position, which is the middle of its image; {@link ZSortAnchor#BOTTOM} uses the
      * bottom edge instead.
      *
      * <p>BOTTOM is what a top-down game usually wants. Greenfoot draws an actor
-     * centred on its position, so with CENTRE a tall picture only stands correctly
+     * centred on its position, so with CENTER a tall picture only stands correctly
      * among its neighbours if it is padded with empty rows below until its feet reach
      * the middle - which makes a picture with nothing below its feet twice as tall as
      * it needs to be, in memory as well as on disk. With BOTTOM the picture can be
@@ -1057,30 +1057,30 @@ public abstract class World
      *
      * <p>The image height is read at every sort, so an actor that changes its image
      * needs nothing else. Where the feet are not quite at the bottom edge, individual
-     * actors adjust with {@link Actor#setSortOffset(double)}.
+     * actors adjust with {@link Actor#setZSortOffset(double)}.
      *
      * <p>This setting does nothing on its own: it only has an effect while
      * {@link #setZSortByY(boolean)} is on, and it never moves an actor or changes what
      * it collides with, only the order things are painted in.
      *
-     * @param anchor Where an actor's ground line sits (default {@link ZSortAnchor#CENTRE}).
-     * @since SuperGreenfoot 0.1.4
+     * @param anchor Where an actor's ground line sits (default {@link ZSortAnchor#CENTER}).
+     * @since SuperGreenfoot 0.2.0
      */
     public void setZSortAnchor(ZSortAnchor anchor)
     {
         if (anchor == null)
         {
             throw new IllegalArgumentException("The sort anchor cannot be null;"
-                    + " use ZSortAnchor.CENTRE or ZSortAnchor.BOTTOM.");
+                    + " use ZSortAnchor.CENTER or ZSortAnchor.BOTTOM.");
         }
         this.zSortAnchor = anchor;
     }
 
     /**
      * @return Which part of an actor's image y-sorting treats as its ground line
-     *         (default {@link ZSortAnchor#CENTRE}).
+     *         (default {@link ZSortAnchor#CENTER}).
      * @see #setZSortAnchor(ZSortAnchor)
-     * @since SuperGreenfoot 0.1.4
+     * @since SuperGreenfoot 0.2.0
      */
     public ZSortAnchor getZSortAnchor()
     {
@@ -1094,7 +1094,7 @@ public abstract class World
      *
      * @param global true for a single global depth order, false (the default) to
      *               keep class paint order as the primary key.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setGlobalZOrder(boolean global)
     {
@@ -1104,7 +1104,7 @@ public abstract class World
     /**
      * @return true if z ordering ignores class paint order.
      * @see #setGlobalZOrder(boolean)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public boolean isGlobalZOrder()
     {
@@ -1122,7 +1122,7 @@ public abstract class World
      * image rotation, whichever mode is active.
      *
      * @param smooth true to enable smooth rendering.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setSmoothRendering(boolean smooth)
     {
@@ -1132,7 +1132,7 @@ public abstract class World
     /**
      * @return true if smooth rendering is enabled.
      * @see #setSmoothRendering(boolean)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public boolean isSmoothRendering()
     {
@@ -1155,7 +1155,7 @@ public abstract class World
      * Get the windows in this world, from the back to the front.
      *
      * @return A new list of the windows in paint order (empty if none).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public List<SuperWindow> getWindows()
     {
@@ -1170,7 +1170,7 @@ public abstract class World
      * @param x The x position in the world, in cells.
      * @param y The y position in the world, in cells.
      * @return The window whose frame covers that position, or null.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
     public SuperWindow getWindowAt(int x, int y)
     {
@@ -1270,7 +1270,7 @@ public abstract class World
         {
             return BY_Z;
         }
-        if (zSortAnchor == ZSortAnchor.CENTRE && !sortOffsetUsed)
+        if (zSortAnchor == ZSortAnchor.CENTER && !sortOffsetUsed)
         {
             return BY_Y_THEN_Z;
         }

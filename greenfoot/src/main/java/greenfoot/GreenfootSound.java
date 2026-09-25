@@ -194,7 +194,7 @@ public class GreenfootSound
      * True if the sound is currently paused.
      *
      * @return True if the sound is currently paused, false otherwise.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public boolean isPaused()
     {
@@ -239,7 +239,7 @@ public class GreenfootSound
      * (the default) and 1 is fully right.
      *
      * @param pan The stereo position, from -1.0 to 1.0.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setPan(double pan)
     {
@@ -251,7 +251,7 @@ public class GreenfootSound
 
     /**
      * @return The stereo position, from -1.0 (left) to 1.0 (right).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPan()
     {
@@ -265,7 +265,7 @@ public class GreenfootSound
      * less mechanical.
      *
      * @param rate The playback rate, from 0.05 to 16.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setPlaybackRate(double rate)
     {
@@ -277,7 +277,7 @@ public class GreenfootSound
 
     /**
      * @return The playback rate (1.0 is normal).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPlaybackRate()
     {
@@ -290,7 +290,7 @@ public class GreenfootSound
      * {@link SoundCategory#EFFECTS}.
      *
      * @param category The category; must not be null.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setCategory(SoundCategory category)
     {
@@ -305,7 +305,7 @@ public class GreenfootSound
 
     /**
      * @return The category of this sound.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public SoundCategory getCategory()
     {
@@ -314,7 +314,7 @@ public class GreenfootSound
 
     /**
      * The name of the file this sound was loaded from.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public String getFilename()
     {

@@ -67,7 +67,7 @@ import java.util.List;
  *
  * @author Jordan Cohen (original SuperWindow library class)
  * @author SuperGreenfoot contributors
- * @since SuperGreenfoot 1.0
+ * @since SuperGreenfoot 0.2.0
  */
 public class SuperWindow extends Actor
 {

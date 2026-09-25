@@ -255,7 +255,7 @@ public abstract class Actor
      *
      * @return The precise x-coordinate.
      * @throws IllegalStateException If the actor has not been added into a world.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPreciseX()
     {
@@ -269,7 +269,7 @@ public abstract class Actor
      *
      * @return The precise y-coordinate.
      * @throws IllegalStateException If the actor has not been added into a world.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPreciseY()
     {
@@ -283,7 +283,7 @@ public abstract class Actor
      * value rounded to the nearest whole degree.
      *
      * @return The precise rotation in degrees.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPreciseRotation()
     {
@@ -301,7 +301,7 @@ public abstract class Actor
      *
      * @param rotation The rotation in degrees.
      * @see #turn(double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setRotation(double rotation)
     {
@@ -315,7 +315,7 @@ public abstract class Actor
      *
      * @param amount The number of degrees to turn.
      * @see #setRotation(double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void turn(double amount)
     {
@@ -327,7 +327,7 @@ public abstract class Actor
      *
      * @param x The precise x-coordinate to turn towards
      * @param y The precise y-coordinate to turn towards
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void turnTowards(double x, double y)
     {
@@ -339,7 +339,7 @@ public abstract class Actor
      * Turn this actor to face towards another actor.
      *
      * @param other The actor to face; must not be null.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void turnTowards(Actor other)
     {
@@ -352,7 +352,7 @@ public abstract class Actor
      *
      * @param other The other actor; must not be null.
      * @return The distance between the two actors.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double distanceTo(Actor other)
     {
@@ -370,7 +370,7 @@ public abstract class Actor
      * at an angle, or for a turret that aims independently of its vehicle.
      *
      * @param degrees The image rotation in degrees (any value; normalised to 0-359).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setImageRotation(double degrees)
     {
@@ -384,7 +384,7 @@ public abstract class Actor
      * whole degrees. Unless the image rotation is locked this equals {@link #getRotation()}.
      *
      * @return The image rotation in degrees (0-359).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public int getImageRotation()
     {
@@ -395,7 +395,7 @@ public abstract class Actor
      * Return the precise rotation at which this actor's image is currently drawn.
      *
      * @return The image rotation in degrees, 0 (inclusive) to 360 (exclusive).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getPreciseImageRotation()
     {
@@ -409,7 +409,7 @@ public abstract class Actor
      *
      * @param locked true to lock the image rotation, false to unlock it.
      * @see #setImageRotation(double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setImageRotationLocked(boolean locked)
     {
@@ -422,7 +422,7 @@ public abstract class Actor
     /**
      * @return true if the image rotation is currently locked independently of the
      *         actor's rotation.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public boolean isImageRotationLocked()
     {
@@ -441,7 +441,7 @@ public abstract class Actor
      * <p>Changing z never removes the actor from the world or affects act order.
      *
      * @param z The new depth (default 0).
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setZ(double z)
     {
@@ -454,7 +454,7 @@ public abstract class Actor
     /**
      * @return The paint depth of this actor (default 0).
      * @see #setZ(double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public double getZ()
     {
@@ -468,7 +468,7 @@ public abstract class Actor
      * {@link World#setZSortByY(boolean)} is on.
      *
      * <p>It is applied on top of the world's {@link World#setZSortAnchor(ZSortAnchor)}.
-     * With the default {@link ZSortAnchor#CENTRE} the line starts at the middle of the
+     * With the default {@link ZSortAnchor#CENTER} the line starts at the middle of the
      * image; with {@link ZSortAnchor#BOTTOM} it starts at the image's bottom edge and
      * this trims it, which is what a picture with a shadow or a tuft of grass drawn
      * below the feet needs:
@@ -476,17 +476,22 @@ public abstract class Actor
      * <pre>
      * world.setZSortByY(true);
      * world.setZSortAnchor(ZSortAnchor.BOTTOM);
-     * tree.setSortOffset(-4);   // the trunk ends 4 pixels above the picture's edge
+     * tree.setZSortOffset(-4);   // the trunk ends 4 pixels above the picture's edge
      * </pre>
      *
      * <p>Nothing else about the actor changes: it is drawn, dragged and collided with
      * exactly where it was. Only the paint order is affected.
      *
      * @param sortOffset Pixels to move the ground line down (default 0).
-     * @since SuperGreenfoot 0.1.4
+     * @throws IllegalArgumentException if the offset is not a number or infinite.
+     * @since SuperGreenfoot 0.2.0
      */
-    public void setSortOffset(double sortOffset)
+    public void setZSortOffset(double sortOffset)
     {
+        if (Double.isNaN(sortOffset) || Double.isInfinite(sortOffset)) {
+            throw new IllegalArgumentException("The z-sort offset must be an ordinary number of pixels, not "
+                    + sortOffset + ".");
+        }
         this.sortOffset = sortOffset;
         if (sortOffset != 0 && world != null) {
             world.noteSortOffsetUsed();
@@ -496,10 +501,10 @@ public abstract class Actor
     /**
      * @return How far below this actor's position its ground line sits, in pixels
      *         (default 0).
-     * @see #setSortOffset(double)
-     * @since SuperGreenfoot 0.1.4
+     * @see #setZSortOffset(double)
+     * @since SuperGreenfoot 0.2.0
      */
-    public double getSortOffset()
+    public double getZSortOffset()
     {
         return sortOffset;
     }
@@ -535,9 +540,9 @@ public abstract class Actor
      * content area, and the actor moves with the window.
      *
      * @return The containing window, or null if this actor is not inside a window.
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.2.0
      */
-    public SuperWindow getWindow()
+    public SuperWindow getParentWindow()
     {
         return window;
     }
@@ -700,7 +705,7 @@ public abstract class Actor
      * @param x Precise location on the x-axis
      * @param y Precise location on the y-axis
      * @see #move(double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void setLocation(double x, double y)
     {
@@ -715,7 +720,7 @@ public abstract class Actor
      *
      * @param distance The distance to move (in cell-size units); negative moves backwards.
      * @see #setLocation(double, double)
-     * @since SuperGreenfoot 1.0
+     * @since SuperGreenfoot 0.1.0
      */
     public void move(double distance)
     {

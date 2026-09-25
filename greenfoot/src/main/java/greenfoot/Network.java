@@ -62,6 +62,7 @@ import java.util.List;
  * that run.</p>
  *
  * @author SuperGreenfoot contributors
+ * @since SuperGreenfoot 0.2.0
  */
 @OnThread(Tag.Any)
 public final class Network

@@ -57,7 +57,7 @@ import java.util.TreeSet;
  * live in the player's application-data folder. If storage is unavailable the
  * methods still work for the current run and simply forget everything after.
  *
- * @since SuperGreenfoot 1.0
+ * @since SuperGreenfoot 0.1.0
  */
 @OnThread(Tag.Any)
 public final class Save

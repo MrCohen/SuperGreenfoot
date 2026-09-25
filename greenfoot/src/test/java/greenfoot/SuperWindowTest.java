@@ -146,7 +146,7 @@ public class SuperWindowTest extends TestCase
         win.addObject(item, 10, 20);
 
         assertNull(item.getWorld());
-        assertSame(win, item.getWindow());
+        assertSame(win, item.getParentWindow());
         assertEquals(10, item.getX());
         assertEquals(20, item.getY());
         assertEquals(1, win.numberOfObjects());
@@ -199,7 +199,7 @@ public class SuperWindowTest extends TestCase
         assertEquals(3, world2.numberOfObjects());
         assertSame(world2, a.getWorld());
         assertSame(world2, b.getWorld());
-        assertSame(win, a.getWindow());
+        assertSame(win, a.getParentWindow());
         assertEquals(5, a.getX());
         assertEquals(15, b.getX());
         assertEquals(2, win.numberOfObjects());
@@ -216,7 +216,7 @@ public class SuperWindowTest extends TestCase
         world.addObject(win, 100, 100);
         world.removeObject(win);
         assertNull(a.getWorld());
-        assertSame(win, a.getWindow());
+        assertSame(win, a.getParentWindow());
         assertEquals(5, a.getX());
         assertEquals(1, win.numberOfObjects());
         assertEquals(0, world.numberOfObjects());
@@ -233,12 +233,12 @@ public class SuperWindowTest extends TestCase
 
         win.removeObject(a);
         assertNull(a.getWorld());
-        assertNull(a.getWindow());
+        assertNull(a.getParentWindow());
         assertEquals(1, win.numberOfObjects());
 
         // Removing straight from the world also takes it out of the window
         world.removeObject(b);
-        assertNull(b.getWindow());
+        assertNull(b.getParentWindow());
         assertEquals(0, win.numberOfObjects());
         assertEquals(1, world.numberOfObjects());
     }
@@ -252,7 +252,7 @@ public class SuperWindowTest extends TestCase
         win.addObject(a, 5, 5);
 
         world.addObject(a, 30, 40);
-        assertNull(a.getWindow());
+        assertNull(a.getParentWindow());
         assertEquals(30, a.getX());
         assertEquals(0, win.numberOfObjects());
         assertEquals(2, world.numberOfObjects());
@@ -268,7 +268,7 @@ public class SuperWindowTest extends TestCase
         Item a = new Item("a");
         w1.addObject(a, 5, 5);
         w2.addObject(a, 7, 8);
-        assertSame(w2, a.getWindow());
+        assertSame(w2, a.getParentWindow());
         assertEquals(0, w1.numberOfObjects());
         assertEquals(1, w2.numberOfObjects());
         assertEquals(7, a.getX());

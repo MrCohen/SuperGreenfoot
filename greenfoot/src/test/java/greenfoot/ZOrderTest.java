@@ -227,7 +227,7 @@ public class ZOrderTest extends TestCase
     // SuperGreenfoot: the sort anchor. Greenfoot draws an actor centred on its
     // position, so y-sorting by that position only looks right if a tall picture is
     // padded with empty rows until its feet reach the middle. ZSortAnchor.BOTTOM and
-    // Actor.setSortOffset let the picture be exactly as tall as what it draws.
+    // Actor.setZSortOffset let the picture be exactly as tall as what it draws.
     // ----------------------------------------------------------------------------
 
     /** With a bottom anchor a tall thing stands where its feet are, not where its middle is. */
@@ -241,7 +241,7 @@ public class ZOrderTest extends TestCase
         world.setZSortByY(true);
 
         // By the middle of the image: the tree is higher up, so it paints behind.
-        assertEquals(ZSortAnchor.CENTRE, world.getZSortAnchor());
+        assertEquals(ZSortAnchor.CENTER, world.getZSortAnchor());
         assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
 
         // By the foot of the image: the tree's trunk (20 + 40/2 = 40) is below the
@@ -281,8 +281,8 @@ public class ZOrderTest extends TestCase
         assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
 
         // The trunk really ends 16 px above the picture's edge: 20 + 20 - 16 = 24.
-        tree.setSortOffset(-16);
-        assertEquals(-16.0, tree.getSortOffset(), 0.0);
+        tree.setZSortOffset(-16);
+        assertEquals(-16.0, tree.getZSortOffset(), 0.0);
         assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
     }
 
@@ -297,7 +297,7 @@ public class ZOrderTest extends TestCase
         world.setZSortByY(true);
         assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
 
-        tree.setSortOffset(20);   // 20 + 20 = 40, below the rock's 25
+        tree.setZSortOffset(20);   // 20 + 20 = 40, below the rock's 25
         assertEquals("rock,tree", join(world.getObjectsInFinalPaintOrder()));
     }
 
@@ -307,12 +307,31 @@ public class ZOrderTest extends TestCase
         World world = WorldCreator.createWorld(50, 50, 1);
         Prop a = new Prop("a", 8, 8);
         Prop b = new Prop("b", 8, 8);
-        b.setSortOffset(-20);
+        b.setZSortOffset(-20);
         world.addObject(a, 10, 20);
         world.addObject(b, 30, 25);
         world.setZSortByY(true);
         // b: 25 - 20 = 5, above a's 20.
         assertEquals("b,a", join(world.getObjectsInFinalPaintOrder()));
+    }
+
+    /** An offset that is not a number would make the sort inconsistent, so it is refused. */
+    public void testZSortOffsetRejectsNaNAndInfinity()
+    {
+        Prop a = new Prop("a", 8, 8);
+        for (double bad : new double[] {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+        {
+            try
+            {
+                a.setZSortOffset(bad);
+                fail("accepted " + bad);
+            }
+            catch (IllegalArgumentException e)
+            {
+                // expected
+            }
+        }
+        assertEquals(0.0, a.getZSortOffset(), 0.0);
     }
 
     /** Image measurements are pixels, so they mean the same thing at any cell size. */
@@ -341,7 +360,7 @@ public class ZOrderTest extends TestCase
         world.addObject(tree, 10, 20);
         world.setZSortByY(true);
         world.setZSortAnchor(ZSortAnchor.BOTTOM);
-        tree.setSortOffset(-16);
+        tree.setZSortOffset(-16);
 
         assertEquals(10, tree.getX());
         assertEquals(20, tree.getY());
@@ -358,7 +377,7 @@ public class ZOrderTest extends TestCase
         world.addObject(tree, 10, 20);
         world.addObject(rock, 30, 25);
         world.setZSortAnchor(ZSortAnchor.BOTTOM);
-        tree.setSortOffset(-16);
+        tree.setZSortOffset(-16);
 
         assertEquals("tree,rock", join(world.getObjectsInFinalPaintOrder()));
     }
@@ -390,7 +409,7 @@ public class ZOrderTest extends TestCase
         }
         catch (IllegalArgumentException expected)
         {
-            assertEquals(ZSortAnchor.CENTRE, world.getZSortAnchor());
+            assertEquals(ZSortAnchor.CENTER, world.getZSortAnchor());
         }
     }
 }

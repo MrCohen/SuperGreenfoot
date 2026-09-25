@@ -39,15 +39,15 @@ is on screen.
 | `Actor.setZ(double)` / `getZ()` | Higher z paints later (in front). Ties keep insertion order. Never triggers `addedToWorld`/`removedFromWorld`; never changes act order. |
 | `World.setZSortByY(boolean)` | Paint key becomes (precise y, z, insertion). |
 | `World.setGlobalZOrder(boolean)` | Ignore class paint order; one global (y, z) order. Default off: z sorts **within** each `setPaintOrder` group. |
-| `World.setZSortAnchor(ZSortAnchor)` / `getZSortAnchor()` | Added 0.1.4. Which part of an actor's image counts as its ground line: `CENTRE` (default, as before) or `BOTTOM`. See below. |
-| `Actor.setSortOffset(double)` / `getSortOffset()` | Added 0.1.4. Pixels to move this actor's ground line down, on top of the world's anchor. |
+| `World.setZSortAnchor(ZSortAnchor)` / `getZSortAnchor()` | Added 0.2.0. Which part of an actor's image counts as its ground line: `CENTER` (default, as before) or `BOTTOM`. See below. |
+| `Actor.setZSortOffset(double)` / `getZSortOffset()` | Added 0.2.0. Pixels to move this actor's ground line down, on top of the world's anchor. |
 
 Implementation: `World.getObjectsInFinalPaintOrder()` returns the live
 class-ordered set when no depth feature is in use (zero cost), otherwise a
 stably sorted snapshot built once per paint. Mouse picking follows paint order
 automatically because it uses the renderer's paint sequence numbers.
 
-### The sort anchor (0.1.4)
+### The sort anchor (0.2.0)
 
 Greenfoot draws an actor centred on its position, so y-sorting by that position
 asks a tall picture to stand on its own middle. The way to make a tree look
@@ -71,7 +71,7 @@ quite at the bottom edge, because a shadow or a tuft of grass is drawn below
 them, the individual actor trims the line:
 
 ```java
-tree.setSortOffset(-6);   // the trunk ends 6 pixels above the picture's edge
+tree.setZSortOffset(-6);   // the trunk ends 6 pixels above the picture's edge
 ```
 
 **The key.** With an anchor or an offset in play, the sort key is worked out in
@@ -98,7 +98,7 @@ may override - a comparator has to answer the same question the same way every
 time or the sort will not terminate.
 
 Demo: `super-scenarios/PrecisionDemo`, the grove at the bottom. Press A to switch
-anchors and watch the walker pass among the trees: with `CENTRE` it strolls in
+anchors and watch the walker pass among the trees: with `CENTER` it strolls in
 front of a tree it is plainly standing behind.
 
 ## World: smooth rendering (opt-in)

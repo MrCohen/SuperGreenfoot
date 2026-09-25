@@ -30,12 +30,12 @@ public class Item extends Actor
     public void act()
     {
         MouseInfo m = Greenfoot.getMouseInfo();
-        if (m == null || getWindow() == null) {
+        if (m == null || getParentWindow() == null) {
             return;
         }
         // Drag within the window: convert the world mouse position to window coordinates.
         if (Greenfoot.mouseDragged(this)) {
-            setLocation(getWindow().toLocalX(m.getX()), getWindow().toLocalY(m.getY()));
+            setLocation(getParentWindow().toLocalX(m.getX()), getParentWindow().toLocalY(m.getY()));
         }
     }
 }
