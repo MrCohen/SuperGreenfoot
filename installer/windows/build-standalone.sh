@@ -238,7 +238,37 @@ rem ..\userhome, like the launcher does when started from the key's root.
 cd /d "%~dp0.."
 start "" "%~dp0jdk\bin\javaw.exe" -Xmx512M -cp "%~dp0lib\boot.jar" bluej.Boot -greenfoot=true -bluej.compiler.showunchecked=false
 EOF
-sed -i '' 's/$/\r/' "$APPDIR/Start SuperGreenfoot.cmd"
+
+# For a PC where the IDE starts but never shows its window: run it with a
+# console, then save a thread dump of every Java process onto the key.
+cat > "$APPDIR/Diagnose SuperGreenfoot.cmd" <<'EOF'
+@echo off
+rem Starts SuperGreenfoot with a console, waits, then saves a thread dump of
+rem every running Java program (the IDE and its debug VM) for a developer.
+rem Everything goes to ..\userhome\supergreenfoot on the key.
+setlocal
+cd /d "%~dp0.."
+set "OUT=%CD%\userhome\supergreenfoot"
+if not exist "%OUT%" mkdir "%OUT%"
+set "JDK=%~dp0jdk\bin"
+echo Starting SuperGreenfoot. Leave this window open for about a minute...
+start "SuperGreenfoot" /b "%JDK%\java.exe" -Xmx512M -cp "%~dp0lib\boot.jar" bluej.Boot -greenfoot=true -bluej.compiler.showunchecked=false > "%OUT%\console.txt" 2>&1
+timeout /t 45 /nobreak >nul
+echo Saving diagnostics...
+"%JDK%\jcmd.exe" -l > "%OUT%\java-processes.txt" 2>&1
+type nul > "%OUT%\threads.txt"
+for /f "tokens=1" %%p in ('"%JDK%\jcmd.exe" -l') do (
+  echo ===== process %%p >> "%OUT%\threads.txt"
+  "%JDK%\jcmd.exe" %%p Thread.print -l >> "%OUT%\threads.txt" 2>&1
+)
+tasklist /v /fi "imagename eq java.exe" > "%OUT%\windows.txt" 2>&1
+echo.
+echo Done. The files are in %OUT%
+echo (console.txt, threads.txt, java-processes.txt, windows.txt).
+echo You can close SuperGreenfoot now.
+pause
+EOF
+sed -i '' 's/$/\r/' "$APPDIR/Start SuperGreenfoot.cmd" "$APPDIR/Diagnose SuperGreenfoot.cmd"
 
 # ---- 5. zip, and optionally install beside whatever is already there ----
 ZIP="$OUT/SuperGreenfoot-windows-standalone-$VERSION.zip"
