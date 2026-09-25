@@ -129,13 +129,15 @@ Constants: `DEFAULT_TITLE_BAR_HEIGHT` (20), `DEFAULT_BORDER_THICKNESS` (2),
 | `World.getWindows()` | Windows back to front. |
 | `World.getWindowAt(int x, int y)` | Front-most open window covering a world position, or null. |
 | `MouseInfo.getWindow()` | Window under the mouse, or null. |
-| `MouseInfo.getScrollAmount()` | Wheel movement this act, in pixels; positive rolled towards you (scroll down). |
+| `MouseInfo.getScrollAmount()` | Wheel movement this act, in pixels; positive rolled towards you (scroll down). One wheel notch is 40. |
 | `Greenfoot.mouseScrolled(Object)` | Same contract as `mouseMoved(Object)`: null, a World, or an Actor. Wheel events in one act add up and survive a click in the same act. |
 
 Mouse wheel plumbing: the IDE forwards JavaFX `ScrollEvent`s over the world
 view (Classic, the Super IDE and the full-screen view) as `Command.MOUSE_SCROLLED`;
 the Swing player listens for `MouseWheelEvent`s. Both report pixels, positive
-downwards.
+downwards, with one wheel notch worth 40 and a page 100
+(`MousePollingManager.PIXELS_PER_WHEEL_NOTCH`); trackpads report their own pixels,
+and the IDE carries fractions of a pixel to the next event.
 
 ## IDE integration
 
