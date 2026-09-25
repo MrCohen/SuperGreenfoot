@@ -672,7 +672,7 @@ public abstract class World
      */
     public <A> List<A> getObjectsAt(int x, int y, Class<A> cls)
     {
-        return filterVisible(collisionChecker.getObjectsAt(x, y, (Class)cls), cls);
+        return filterVisible(collisionChecker.getObjectsAt(x, y, (Class)cls), cls, x, y);
     }
 
     /**
@@ -954,19 +954,35 @@ public abstract class World
     }
 
     /**
-     * SuperGreenfoot: drop actors in closed or minimised windows, and windows
-     * themselves unless the query asked for windows by class.
+     * SuperGreenfoot: keep only what the player can see at cell (x, y). Drop actors
+     * in closed or minimised windows, and windows themselves unless the query asked
+     * for windows by class. An actor inside a window counts only where the window's
+     * content area shows it (not scrolled or clipped away) and no other window is in
+     * front of it there.
      */
-    private <A> List<A> filterVisible(List<A> list, Class<?> cls)
+    private <A> List<A> filterVisible(List<A> list, Class<?> cls, int x, int y)
     {
         if (windows.isEmpty()) {
             return list;
         }
         boolean windowsWanted = cls != null && SuperWindow.class.isAssignableFrom(cls);
+        int px = x * cellSize + cellSize / 2;
+        int py = y * cellSize + cellSize / 2;
+        SuperWindow front = null;
+        boolean frontKnown = false;
         for (Iterator<A> i = list.iterator(); i.hasNext(); ) {
             Actor a = (Actor) i.next();
             if (!a.isActive() || (!windowsWanted && a instanceof SuperWindow)) {
                 i.remove();
+            }
+            else if (a.window != null) {
+                if (!frontKnown) {
+                    front = getWindowAtPixel(px, py);
+                    frontKnown = true;
+                }
+                if (a.window != front || !a.window.contentContainsPixel(px, py)) {
+                    i.remove();
+                }
             }
         }
         return list;

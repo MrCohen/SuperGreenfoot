@@ -803,4 +803,196 @@ public class SuperWindowTest extends TestCase
         act(world);
         assertFalse(win.isMouseOver());
     }
+
+    // ---- audit fixes (0.2.0) ----
+
+    public void testEarlierThumbPressDoesNotScrollOnLaterWorldDrag()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        win.setContentSize(40, 100);
+        win.setScrollable(true);
+        render(world);
+        // The thumb sits at the top of the 8-pixel bar on the content's right edge.
+        int thumbX = 136, thumbY = 105;
+
+        mouse().mousePressed(thumbX, thumbY, 1);
+        act(world);
+        mouse().mouseDragged(thumbX, thumbY + 6, 1);
+        act(world);
+        int scrolled = win.getScrollY();
+        assertTrue(scrolled > 0);
+        mouse().mouseReleased(thumbX, thumbY + 6, 1);
+        act(world);
+
+        // A later press and drag on the bare world must leave the window alone.
+        mouse().mousePressed(10, 10, 1);
+        act(world);
+        mouse().mouseDragged(10, 60, 1);
+        act(world);
+        assertEquals(scrolled, win.getScrollY());
+        mouse().mouseReleased(10, 60, 1);
+        act(world);
+        assertEquals(scrolled, win.getScrollY());
+    }
+
+    public void testEarlierTitleBarPressDoesNotDragOnLaterWorldDrag()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 80, 30);
+        int titleY = win.getTop() + win.getBorderThickness() + 3;
+        // Press on the title bar and release without dragging.
+        mouse().mousePressed(105, titleY, 1);
+        act(world);
+        mouse().mouseClicked(105, titleY, 1, 1);
+        act(world);
+
+        mouse().mousePressed(10, 10, 1);
+        act(world);
+        mouse().mouseDragged(10, 40, 1);
+        act(world);
+        assertFalse(win.isBeingDragged());
+        assertEquals(100, win.toWorldX(0));
+        assertEquals(100, win.toWorldY(0));
+    }
+
+    public void testGetObjectsAtSkipsContentsScrolledOutOfView()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        win.setContentSize(40, 100);
+        Item item = new Item("item");
+        win.addObject(item, 10, 50);     // world (110, 150): below the visible content
+        assertFalse(world.getObjectsAt(110, 150, null).contains(item));
+        assertFalse(world.getObjectsAt(110, 150, Item.class).contains(item));
+
+        win.setScroll(0, 40);            // now at world (110, 110), inside the content
+        assertTrue(world.getObjectsAt(110, 110, Item.class).contains(item));
+
+        // Placed partly outside the content area: only the visible part counts.
+        Item edge = new Item("edge");
+        win.addObject(edge, -2, 45);     // world centre (98, 105): x 93..102
+        assertFalse(world.getObjectsAt(98, 105, null).contains(edge));
+        assertTrue(world.getObjectsAt(101, 105, null).contains(edge));
+    }
+
+    public void testGetObjectsAtSkipsContentsCoveredByAnotherWindow()
+    {
+        World world = newWorld();
+        Ground ground = new Ground();
+        world.addObject(ground, 110, 110);
+        SuperWindow back = placedWindow(world, 40, 30);
+        Item hidden = new Item("hidden");
+        back.addObject(hidden, 10, 10);  // world (110, 110)
+        SuperWindow front = new SuperWindow(40, 40, "Front");
+        world.addObject(front, 115, 115);
+        Item shown = new Item("shown");
+        front.addObject(shown, front.toLocalX(110), front.toLocalY(110));
+        front.bringToFront();
+
+        List<Actor> there = world.getObjectsAt(110, 110, null);
+        assertFalse(there.contains(hidden));
+        assertTrue(there.contains(shown));
+        assertTrue(there.contains(ground));
+
+        back.bringToFront();
+        there = world.getObjectsAt(110, 110, null);
+        assertTrue(there.contains(hidden));
+        assertFalse(there.contains(shown));
+    }
+
+    public void testSetImageNullReturnsToDrawnFrame()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        int fw = win.getFrameWidth(), fh = win.getFrameHeight();
+        win.setImage((GreenfootImage) null);
+        assertNotNull(win.getImage());
+        assertEquals(fw, win.getImage().getWidth());
+        assertEquals(fh, win.getImage().getHeight());
+        render(world);
+        win.setLocation(win.getX() + 5, win.getY() + 5);
+        win.setTopLeft(20, 20);
+        assertEquals(20, win.getLeft());
+        assertTrue(win.containsWorldPosition(30, 50));
+    }
+
+    /** A window with its own picture as the frame. */
+    private static class SkinnedWindow extends SuperWindow
+    {
+        final GreenfootImage skin;
+
+        SkinnedWindow()
+        {
+            super(40, 30, "Skin");
+            skin = new GreenfootImage(getFrameWidth(), getFrameHeight());
+            skin.setColor(Color.GREEN);
+            skin.fill();
+            setImage(skin);
+        }
+    }
+
+    public void testSkinSurvivesBeingAddedToWorldAndRedraws()
+    {
+        World world = newWorld();
+        SkinnedWindow win = new SkinnedWindow();
+        world.addObject(win, 100, 100);
+        assertSame(win.skin, win.getImage());
+        win.setTitle("Renamed");
+        win.setBorderColor(Color.BLACK);
+        assertSame(win.skin, win.getImage());
+
+        World other = newWorld();
+        other.addObject(win, 50, 50);
+        assertSame(win.skin, win.getImage());
+
+        // setImage(null) goes back to the drawn frame, which redraws follow again
+        win.setImage((GreenfootImage) null);
+        assertNotSame(win.skin, win.getImage());
+        GreenfootImage drawn = win.getImage();
+        win.setTitle("Again");
+        assertNotSame(drawn, win.getImage());
+
+        // A frame drawn by the window itself is not a skin
+        SuperWindow plain = new SuperWindow(40, 30, "Plain");
+        GreenfootImage before = plain.getImage();
+        world.addObject(plain, 100, 100);
+        assertNotSame(before, plain.getImage());
+    }
+
+    public void testPrecisePositionsSurviveMoveBetweenWorlds()
+    {
+        World world1 = newWorld();
+        SuperWindow win = new SuperWindow(80, 60, "Bag");
+        world1.addObject(win, 100, 100);
+        Item a = new Item("a");
+        win.addObject(a, 5, 5);
+        a.setLocation(5.3, 7.6);
+        assertEquals(5.3, a.getPreciseX(), 1e-9);
+
+        World world2 = newWorld();
+        world2.addObject(win, 60, 60);
+        assertEquals(5.3, a.getPreciseX(), 1e-9);
+        assertEquals(7.6, a.getPreciseY(), 1e-9);
+        assertEquals(5, a.getX());
+        assertEquals(8, a.getY());
+
+        // And after the window has been out of every world for a while
+        world2.removeObject(win);
+        world1.addObject(win, 100, 100);
+        assertEquals(5.3, a.getPreciseX(), 1e-9);
+        assertEquals(7.6, a.getPreciseY(), 1e-9);
+    }
+
+    public void testRequestedContentSizeIsRemembered()
+    {
+        SuperWindow win = new SuperWindow(40, 30, "Grow");
+        assertEquals(40, win.requestedContentWidth);
+        assertEquals(30, win.requestedContentHeight);
+        win.setContentSize(20, 100);
+        assertEquals(40, win.getContentWidth());
+        assertEquals(100, win.getContentHeight());
+        assertEquals(20, win.requestedContentWidth);
+        assertEquals(100, win.requestedContentHeight);
+    }
 }

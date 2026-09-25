@@ -101,6 +101,8 @@ public class SuperWindow extends Actor
     int width, height;
     /** Total content area, in cells; at least the visible size. Larger means scrollable. */
     int contentWidth, contentHeight;
+    /** The content size last asked for with setContentSize (may be smaller than the visible size). */
+    int requestedContentWidth, requestedContentHeight;
     /** Scroll offset in cells. */
     int scrollX, scrollY;
     private int titleBarHeight = DEFAULT_TITLE_BAR_HEIGHT;
@@ -116,6 +118,8 @@ public class SuperWindow extends Actor
     private Font titleFont;
     private GreenfootImage background;
     private GreenfootImage frameImage;
+    /** True when the frame image came from setImage (a skin) rather than redrawFrame. */
+    private boolean customFrame;
     private GreenfootImage scrollBarImage;
 
     // ---- behaviour ----
@@ -177,8 +181,13 @@ public class SuperWindow extends Actor
         this.height = height;
         this.contentWidth = width;
         this.contentHeight = height;
+        this.requestedContentWidth = width;
+        this.requestedContentHeight = height;
         this.title = title == null ? "" : title;
         this.titleBarVisible = true;
+        // Actor's constructor gave us its default image through setImage; that is
+        // not a skin, so the frame is drawn.
+        customFrame = false;
         redrawFrame();
     }
 
@@ -357,6 +366,8 @@ public class SuperWindow extends Actor
         open = false;
         dragging = false;
         thumbDragging = false;
+        pressedOnTitleBar = false;
+        pressedOnThumb = false;
         contentsChangedVisibility();
         closed();
     }
@@ -665,8 +676,16 @@ public class SuperWindow extends Actor
      */
     public void setContentSize(int contentWidth, int contentHeight)
     {
-        this.contentWidth = Math.max(width, contentWidth);
-        this.contentHeight = Math.max(height, contentHeight);
+        requestedContentWidth = contentWidth;
+        requestedContentHeight = contentHeight;
+        applyContentSize();
+    }
+
+    /** Work out the content size from the requested one and the visible size. */
+    private void applyContentSize()
+    {
+        this.contentWidth = Math.max(width, requestedContentWidth);
+        this.contentHeight = Math.max(height, requestedContentHeight);
         setScroll(scrollX, scrollY);
         redrawFrame();
     }
@@ -1328,9 +1347,35 @@ public class SuperWindow extends Actor
         return maxScroll <= 0 ? 0 : (int) Math.round((double) travel * scrollY / maxScroll);
     }
 
-    /** Remember the frame image whenever the image changes, so geometry can use its size. */
+    /**
+     * Use your own picture for the whole window frame instead of the one the window
+     * draws for itself (a "skin"). The picture is drawn centred on the window, and
+     * should be the size of {@link #getFrameWidth()} by {@link #getFrameHeight()} so
+     * that the content area, title bar and buttons line up with it.
+     *
+     * <p>Once you have set a picture, the window keeps it: changing the title,
+     * colours or border, or adding the window to a world, no longer redraws the
+     * frame, so the window's own border, title bar, title text and buttons are not
+     * drawn over your picture (the title bar still drags and the buttons still work
+     * where they would normally be). Pass null to go back to the frame the window
+     * draws for itself.
+     *
+     * @param image The picture for the frame, or null for the normal drawn frame.
+     */
     @Override
     public void setImage(GreenfootImage image)
+    {
+        if (image == null) {
+            customFrame = false;
+            redrawFrame();
+            return;
+        }
+        customFrame = true;
+        applyFrameImage(image);
+    }
+
+    /** Show the given frame image, remembering it so geometry can use its size. */
+    private void applyFrameImage(GreenfootImage image)
     {
         super.setImage(image);
         frameImage = image;
@@ -1338,8 +1383,8 @@ public class SuperWindow extends Actor
 
     /**
      * Rebuild the frame image: background colour, border, title bar with title and
-     * buttons. A custom image set with {@link #setImage(GreenfootImage)} is replaced
-     * by the next redraw.
+     * buttons. The button positions are always updated, but a skin set with
+     * {@link #setImage(GreenfootImage)} is kept rather than replaced.
      */
     void redrawFrame()
     {
@@ -1391,7 +1436,9 @@ public class SuperWindow extends Actor
                 img.drawString(title, b + 6, baseline);
             }
         }
-        setImage(img);
+        if (!customFrame || frameImage == null) {
+            applyFrameImage(img);
+        }
     }
 
     /** Shift the centre vertically by a number of pixels without the on-screen clamp fighting it. */
@@ -1462,7 +1509,15 @@ public class SuperWindow extends Actor
             setLocation(preciseX, preciseY);
         }
         for (Actor a : new ArrayList<Actor>(contents)) {
-            world.addObjectFromWindow(a, a.x, a.y);
+            int cellX = a.x, cellY = a.y;
+            double exactX = a.preciseX, exactY = a.preciseY;
+            world.addObjectFromWindow(a, cellX, cellY);
+            if (a.window == this && a.x == cellX && a.y == cellY) {
+                // Joining the world places the actor at a whole cell; put back the
+                // precise position it had (unless its own code moved it meanwhile).
+                a.preciseX = exactX;
+                a.preciseY = exactY;
+            }
         }
     }
 
@@ -1471,6 +1526,8 @@ public class SuperWindow extends Actor
     {
         dragging = false;
         thumbDragging = false;
+        pressedOnTitleBar = false;
+        pressedOnThumb = false;
         for (Actor a : new ArrayList<Actor>(contents)) {
             world.removeObjectKeepingWindow(a);
         }
@@ -1540,7 +1597,15 @@ public class SuperWindow extends Actor
         Actor target = info.getActor();
         boolean onWindow = target == this || (target != null && target.window == this);
 
-        if (onWindow && mm.isMousePressed(null)) {
+        boolean pressed = mm.isMousePressed(null);
+        if (pressed) {
+            // Every press starts afresh, wherever it lands: a flag left over from an
+            // earlier press must not let a later drag elsewhere move this window or
+            // its scroll bar.
+            pressedOnTitleBar = false;
+            pressedOnThumb = false;
+        }
+        if (onWindow && pressed) {
             bringToFront();
             pressPx = px;
             pressPy = py;
@@ -1610,6 +1675,12 @@ public class SuperWindow extends Actor
                     thumbDragging = false;
                 }
             }
+        }
+
+        if (mm.isMouseDragEnded(null) || mm.isMouseReleased(null)) {
+            // The button is up: whatever the press was on, it is over.
+            pressedOnTitleBar = false;
+            pressedOnThumb = false;
         }
     }
 

@@ -1,6 +1,6 @@
 # SuperWindow: windows inside the world
 
-`greenfoot.SuperWindow` is SuperGreenfoot's tenth public API class: a framed,
+`greenfoot.SuperWindow` is a SuperGreenfoot public API class: a framed,
 movable panel that lives inside a world and holds other actors. It replaces
 the `SuperWindow` helper from MrCohenLibrary150 (v0.4), which had to fake
 z-order by removing and re-adding actors. A scenario that still carries its own
@@ -55,7 +55,9 @@ Class template. Keyboard focus and nested windows are deferred.
   window, and never window frames unless the query asks for `SuperWindow.class`
   (or a subclass). `Actor.intersects(other)` stays pure geometry.
   `World.getObjectsAt(x, y, cls)` is a world-space query and sees actors inside
-  open windows too.
+  open windows too, but only where the player can see them: inside the window's
+  content area (not scrolled or clipped out of view) and not covered by another
+  window in front.
 - **Scrolling**: `setContentSize(w, h)` makes the content larger than the
   visible area; `setScroll`, `scrollBy`, `getScrollX/Y` move it. With
   `setScrollable(true)` the mouse wheel over the window and a vertical scroll
@@ -98,6 +100,7 @@ Class template. Keyboard focus and nested windows are deferred.
 | `getBackground()`, `setBackground(GreenfootImage)` | Content-sized image drawn behind the contents (like `World.getBackground()`). |
 | `setBackgroundColor`, `setBorderColor`, `setTitleBarColor`, `setTitleColor` (+ getters) | A transparent background colour gives a see-through panel. |
 | `setBorderThickness(int)`, `setTitleBarHeight(int)`, `setTitleBarVisible(boolean)`, `setTitle(String)`, `setTitleFont(Font)` | Decorations in pixels. |
+| `setImage(GreenfootImage)` | A skin: the picture replaces the drawn frame and is kept (adding to a world, changing the title or colours no longer redraw it). `setImage(null)` goes back to the drawn frame. Size it `getFrameWidth()` by `getFrameHeight()`. |
 
 | Behaviour | |
 |---|---|
@@ -106,7 +109,7 @@ Class template. Keyboard focus and nested windows are deferred.
 | `setBounded(boolean)` (default false) | Contents are clamped to the content area, like a bounded world. |
 | `setModal(boolean)` | Captures all mouse input; layer above normal windows. |
 | `setAlwaysOnTop(boolean)` | Top layer (tooltips, notifications). |
-| `setScrollable(boolean)`, `setContentSize(w, h)`, `getContentWidth/Height()`, `setScroll(x, y)`, `scrollBy(dx, dy)`, `getScrollX/Y()` | Scrolling. |
+| `setScrollable(boolean)`, `setContentSize(w, h)`, `getContentWidth/Height()`, `setScroll(x, y)`, `scrollBy(dx, dy)`, `getScrollX/Y()` | Scrolling. The content is never smaller than the visible area; the size asked for is remembered separately. |
 
 | Mouse and hooks | |
 |---|---|
@@ -150,12 +153,15 @@ downwards.
 
 - `MouseInfo.getActor()` keeps upstream's meaning: set only on acts with a
   mouse event. For hover effects use `world.getObjectsAt(m.getX(), m.getY(), Item.class)`
-  (sees into open windows) or `window.isMouseOver()`.
+  (sees into open windows where they are on screen) or `window.isMouseOver()`.
 - `world.getObjects(cls)` and `numberOfObjects()` include windows and their contents.
 - A window's own `act()` runs even while it is closed.
 - `addedToWorld` fires once for each actor when its window enters a world, and
   again if the window is moved to another world. It never fires because a
-  window moved.
+  window moved. Moving to another world keeps each actor's precise position
+  (from `setLocation(double, double)`).
+- The title-bar drag and the scroll-bar thumb follow only a press that began
+  on them; a later press anywhere else starts afresh.
 - Nested windows are rejected with `IllegalArgumentException`.
 
 ## Implementation map
@@ -163,9 +169,9 @@ downwards.
 | Piece | Where |
 |---|---|
 | Container link, local coordinates, bounds translation | `Actor.window`, `originPixelX/Y`, `toPixelX/Y`, `worldCellX/Y`, `containerMoved`, `isActive` |
-| Window list, contents transfer, query filtering, picking | `World.windows`, `addObjectFromWindow`, `removeObjectKeepingWindow`, `filterFor`, `getObjectsAtPixel` |
+| Window list, contents transfer, query filtering, picking | `World.windows`, `addObjectFromWindow`, `removeObjectKeepingWindow`, `filterFor`, `filterVisible`, `getObjectsAtPixel` |
 | Frame drawing, geometry, input handling | `SuperWindow.redrawFrame`, `content*Px`, `handleInput` (called from `Simulation.runOneLoop` via `World.processWindows`) |
 | Painting | `WorldRenderer.paintObjects` (window layer, clipping, `paintActor`), `WindowVisitor` |
 | Modal capture, IDE drag/drop | `WorldHandler.getObject`, `startDrag`, `finishDrag`, `addActorAtPixel` |
-| Tests | `greenfoot/src/test/java/greenfoot/SuperWindowTest.java` (27) |
+| Tests | `greenfoot/src/test/java/greenfoot/SuperWindowTest.java` (35) |
 | Demo | `super-scenarios/SuperWindowDemo/` (inventory, HUD, scrolling list, modal pause, picture frame, tooltip, world transfer with W) |
