@@ -21,6 +21,7 @@
  */
 package greenfoot;
 
+import bluej.utility.AtomicFiles;
 import greenfoot.util.GreenfootUtil;
 import threadchecker.OnThread;
 import threadchecker.Tag;
@@ -28,7 +29,7 @@ import threadchecker.Tag;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -56,6 +57,13 @@ import java.util.TreeSet;
  * files live in the scenario's {@code saves} folder; in an exported game they
  * live in the player's application-data folder. If storage is unavailable the
  * methods still work for the current run and simply forget everything after.
+ *
+ * <p>For portable high-score table names, use lowercase ASCII letters, digits,
+ * underscores and hyphens. Disk filenames replace characters outside
+ * {@code A-Z}, {@code a-z}, {@code 0-9}, {@code _}, {@code .} and {@code -}
+ * with underscores, so names such as {@code "level 1"} and {@code "level_1"}
+ * share a disk file. Names differing only in case can also share a file on
+ * case-insensitive file systems.
  *
  * @since SuperGreenfoot 0.1.0
  */
@@ -111,6 +119,7 @@ public final class Save
     private static boolean dirty = false;
     private static File directory;
     private static Thread flusher;
+    private static boolean shutdownHookRegistered;
 
     private Save()
     {
@@ -239,8 +248,9 @@ public final class Save
                 return;
             }
             File f = new File(directory, VALUES_FILE);
-            try (OutputStream out = Files.newOutputStream(f.toPath())) {
+            try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 values.store(out, "SuperGreenfoot saved values");
+                AtomicFiles.write(f.toPath(), out.toByteArray());
             }
             dirty = false;
         }
@@ -368,12 +378,15 @@ public final class Save
             try (InputStream in = Files.newInputStream(f.toPath())) {
                 values.load(in);
             }
-            catch (IOException e) {
+            catch (IOException | IllegalArgumentException e) {
                 System.err.println("Save: could not read " + VALUES_FILE + ": " + e.getMessage());
             }
         }
         try {
-            Runtime.getRuntime().addShutdownHook(new Thread(Save::flush, "SuperGreenfoot-Save-flush"));
+            if (!shutdownHookRegistered) {
+                Runtime.getRuntime().addShutdownHook(new Thread(Save::flush, "SuperGreenfoot-Save-flush"));
+                shutdownHookRegistered = true;
+            }
         }
         catch (IllegalStateException e) {
             // Already shutting down (a dedicated server saving on Ctrl-C): the
@@ -392,7 +405,19 @@ public final class Save
                 catch (InterruptedException e) {
                     // fall through and flush anyway
                 }
-                flush();
+                synchronized (Save.class) {
+                    // A test reset may have replaced this worker. Clear the
+                    // worker under the same lock as flush so a concurrent put
+                    // always schedules another flush after this one finishes.
+                    if (flusher == Thread.currentThread()) {
+                        try {
+                            flush();
+                        }
+                        finally {
+                            flusher = null;
+                        }
+                    }
+                }
             }, "SuperGreenfoot-Save");
             flusher.setDaemon(true);
             flusher.start();
@@ -409,6 +434,11 @@ public final class Save
         loaded = false;
         dirty = false;
         directory = null;
+        memoryOnlyScores.clear();
+        if (flusher != null) {
+            flusher.interrupt();
+            flusher = null;
+        }
     }
 
     private static File scoresFile(String table)
@@ -421,8 +451,8 @@ public final class Save
     {
         ensureLoaded();
         List<ScoreEntry> list = new ArrayList<ScoreEntry>();
-        if (directory == null) {
-            List<ScoreEntry> mem = memoryScores(table, false);
+        List<ScoreEntry> mem = memoryOnlyScores.get(table);
+        if (directory == null || mem != null) {
             return mem == null ? list : new ArrayList<ScoreEntry>(mem);
         }
         File f = scoresFile(table);
@@ -451,9 +481,9 @@ public final class Save
     private static void writeScores(String table, List<ScoreEntry> entries)
     {
         ensureLoaded();
+        // Retain the latest table for this run even when disk storage fails.
+        memoryOnlyScores.put(table, new ArrayList<ScoreEntry>(entries));
         if (directory == null) {
-            memoryScores(table, true).clear();
-            memoryScores(table, true).addAll(entries);
             return;
         }
         try {
@@ -462,9 +492,11 @@ public final class Save
             }
             List<String> lines = new ArrayList<String>();
             for (ScoreEntry e : entries) {
-                lines.add(e.score + "\t" + e.time + "\t" + e.player.replace('\t', ' ').replace('\n', ' '));
+                lines.add(e.score + "\t" + e.time + "\t" + e.player.replace('\t', ' ').replace('\n', ' ').replace('\r', ' '));
             }
-            Files.write(scoresFile(table).toPath(), lines, StandardCharsets.UTF_8);
+            String text = lines.isEmpty() ? "" : String.join("\n", lines) + "\n";
+            AtomicFiles.write(scoresFile(table).toPath(), text.getBytes(StandardCharsets.UTF_8));
+            memoryOnlyScores.remove(table);
         }
         catch (IOException e) {
             System.err.println("Save: could not write scores: " + e.getMessage());
@@ -472,16 +504,6 @@ public final class Save
     }
 
     private static final java.util.Map<String, List<ScoreEntry>> memoryOnlyScores = new java.util.HashMap<String, List<ScoreEntry>>();
-
-    private static List<ScoreEntry> memoryScores(String table, boolean create)
-    {
-        List<ScoreEntry> l = memoryOnlyScores.get(table);
-        if (l == null && create) {
-            l = new ArrayList<ScoreEntry>();
-            memoryOnlyScores.put(table, l);
-        }
-        return l;
-    }
 
     private static void sortScores(List<ScoreEntry> entries)
     {

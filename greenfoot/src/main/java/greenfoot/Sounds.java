@@ -283,7 +283,7 @@ public final class Sounds
     {
         for (GreenfootSound s : pausedByPauseAll) {
             if (s.isPaused()) {
-                s.play();
+                s.resumePlayback();
             }
         }
         pausedByPauseAll.clear();

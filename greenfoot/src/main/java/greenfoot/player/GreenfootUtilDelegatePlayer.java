@@ -21,6 +21,7 @@
  */
 package greenfoot.player;
 
+import bluej.utility.AtomicFiles;
 import greenfoot.GreenfootImage;
 import greenfoot.UserInfo;
 import greenfoot.UserInfoVisitor;
@@ -119,7 +120,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
                 return u;
             }
         }
-        return UserInfoVisitor.allocate(userName, -1, userName);
+        return UserInfoVisitor.allocate(userName, -1, null);
     }
 
     @Override
@@ -152,6 +153,9 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
     public List<UserInfo> getNearbyUserInfo(int maxAmount)
     {
         List<UserInfo> all = getTopUserInfo(0);
+        if (maxAmount <= 0 || maxAmount >= all.size()) {
+            return all;
+        }
         int me = -1;
         for (int i = 0; i < all.size(); i++) {
             if (all.get(i).getUserName().equals(userName)) {
@@ -161,7 +165,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         if (me < 0) {
             return new ArrayList<UserInfo>(all.subList(0, Math.min(all.size(), maxAmount)));
         }
-        int from = Math.max(0, me - maxAmount / 2);
+        int from = Math.max(0, Math.min(me - maxAmount / 2, all.size() - maxAmount));
         int to = Math.min(all.size(), from + maxAmount);
         return new ArrayList<UserInfo>(all.subList(from, to));
     }
@@ -192,7 +196,9 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
                 if (p.length < 2 + UserInfo.NUM_INTS + UserInfo.NUM_STRINGS) {
                     continue;
                 }
-                UserInfo u = UserInfoVisitor.allocate(unescape(p[0]), -1, userName);
+                // Disk reads must not mutate UserInfoVisitor's current-user
+                // singleton: storeCurrentUserInfo may be saving that object.
+                UserInfo u = UserInfoVisitor.allocate(unescape(p[0]), -1, null);
                 u.setScore(parse(p[1]));
                 for (int i = 0; i < UserInfo.NUM_INTS; i++) {
                     u.setInt(i, parse(p[2 + i]));
@@ -211,7 +217,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         List<UserInfo> ranked = new ArrayList<UserInfo>();
         for (int i = 0; i < list.size(); i++) {
             UserInfo u = list.get(i);
-            UserInfo r = UserInfoVisitor.allocate(u.getUserName(), i + 1, userName);
+            UserInfo r = UserInfoVisitor.allocate(u.getUserName(), i + 1, null);
             r.setScore(u.getScore());
             for (int k = 0; k < UserInfo.NUM_INTS; k++) {
                 r.setInt(k, u.getInt(k));
@@ -242,7 +248,8 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
                 }
                 lines.add(sb.toString());
             }
-            Files.write(new File(saveDir, USERINFO_FILE).toPath(), lines, StandardCharsets.UTF_8);
+            String text = lines.isEmpty() ? "" : String.join("\n", lines) + "\n";
+            AtomicFiles.write(new File(saveDir, USERINFO_FILE).toPath(), text.getBytes(StandardCharsets.UTF_8));
             return true;
         }
         catch (IOException e) {
@@ -266,7 +273,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         if (s == null) {
             return "";
         }
-        return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n");
+        return s.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     private static String unescape(String s)
@@ -278,6 +285,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
                 char n = s.charAt(++i);
                 if (n == 't') out.append('\t');
                 else if (n == 'n') out.append('\n');
+                else if (n == 'r') out.append('\r');
                 else out.append(n);
             }
             else {

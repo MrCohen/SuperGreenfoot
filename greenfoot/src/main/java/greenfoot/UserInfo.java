@@ -1,6 +1,7 @@
 /*
  This file is part of the Greenfoot program. 
  Copyright (C) 2011,2012,2015  Poul Henriksen and Michael Kolling 
+ Copyright (C) 2026 SuperGreenfoot contributors
  
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
@@ -31,9 +32,11 @@ import java.util.List;
  * Greenfoot web site. This can be used to implement shared high score tables
  * or other examples of shared data.</p>
  *
- * <p>Storage is only available when the current user is logged in on the Greenfoot
- * site, so for some users storage will not be available. Always use
- * UserInfo.isStorageAvailable() to check before accessing the user data.</p>
+ * <p>SuperGreenfoot also supports local storage in the IDE and in exported
+ * desktop games. Exported games store data on the player's computer, without
+ * a Greenfoot website login; scores are not shared online. Always use
+ * {@link #isStorageAvailable()} to check before accessing user data, and
+ * check the result of {@link #store()} for write failures.</p>
  *
  * <p>A typical code snippet for storing a high score is as follows:</p>
  *
@@ -221,18 +224,16 @@ public class UserInfo
     /**
      * Indicate whether storage is available.
      * <p>
-     * Storage is unavailable if the scenario is run as an applet outside the Greenfoot website,
-     * or as a stand-alone application,
-     * or if the user is not logged in to the Greenfoot website.  This last case is very common,
-     * so you should check this function before attempting to use the other static storage functions.
+     * SuperGreenfoot supports local storage in the IDE and exported desktop
+     * games. Other hosts may require a logged-in user. Check this function
+     * before attempting to use the other static storage functions. Availability
+     * does not guarantee a successful disk write; check {@link #store()} too.
      * If this function returns false, your scenario should proceed without using storage.
      *
      * @return Whether storage is available.
      */
     public static boolean isStorageAvailable()
     {
-        // Returns false for applets when not on the Gallery, and stand-alone applications
-        // Returns true for inside Greenfoot, and applets on the gallery
         return GreenfootUtil.isStorageSupported();
     }
     
@@ -242,7 +243,7 @@ public class UserInfo
      * This method returns null if:
      * <ul>
      * <li>there is a problem reading the local storage.csv file (for local scenarios), or</li>
-     * <li>the scenario is running as a stand-alone application, or applet on your own website, or</li>
+     * <li>the host does not support user storage (SuperGreenfoot desktop games do), or</li>
      * <li>there is a problem connecting to the server (for scenarios on the greenfoot.org site), or</li>
      * <li>the user is not logged in (for scenarios on the greenfoot.org site).</li>
      * </ul>
@@ -292,7 +293,7 @@ public class UserInfo
      * <p>Returns null if:</p>
      * <ul>
      * <li>there is a problem reading the local file (for local scenarios), or</li>
-     * <li>the scenario is running as a stand-alone application, or applet on your own website, or</li>
+     * <li>the host does not support user storage (SuperGreenfoot desktop games do), or</li>
      * <li>there is a problem connecting to the server (for scenarios on the greenfoot.org site).</li>
      * </ul>
      * <p>You should always be ready to handle a null return from this function.</p>
@@ -330,7 +331,7 @@ public class UserInfo
      * <p>Returns null if:</p>
      * <ul>
      * <li>there is a problem reading the local file (for local scenarios), or</li>
-     * <li>the scenario is running as a stand-alone application, or applet on your own website, or</li>
+     * <li>the host does not support user storage (SuperGreenfoot desktop games do), or</li>
      * <li>there is a problem connecting to the server (for scenarios on the greenfoot.org site), or</li>
      * <li>the user is not logged in (for scenarios on the greenfoot.org site).</li>
      * </ul>

@@ -56,6 +56,7 @@ public class GreenfootSound
     private final SoundLibrary.Entry entry;
     /** Legacy player used for MIDI files only. */
     private final Sound legacy;
+    private boolean legacyLoop;
 
     private Voice voice;
     private int volume = 100;
@@ -100,6 +101,7 @@ public class GreenfootSound
     public void play()
     {
         if (legacy != null) {
+            legacyLoop = false;
             legacy.play();
             return;
         }
@@ -125,6 +127,7 @@ public class GreenfootSound
     public void playLoop()
     {
         if (legacy != null) {
+            legacyLoop = true;
             legacy.loop();
             return;
         }
@@ -174,6 +177,22 @@ public class GreenfootSound
         }
         if (voice != null) {
             voice.pause();
+        }
+    }
+
+    /** Resume for Sounds.resumeAll without changing the caller's loop setting. */
+    void resumePlayback()
+    {
+        if (legacy != null) {
+            if (legacyLoop) {
+                legacy.loop();
+            }
+            else {
+                legacy.play();
+            }
+        }
+        else if (voice != null) {
+            voice.resume();
         }
     }
 

@@ -184,6 +184,9 @@ public class SoundsTest extends TestCase
         Sounds.resumeAll();
         assertTrue(a.isPlaying());
         assertTrue(m.isPlaying());
+        mix(20);
+        assertFalse(a.isPlaying());
+        assertTrue("Resumed music must keep looping", m.isPlaying());
     }
 
     public void testFileNameAutoLoadsAndUnknownKeyIsSilent()

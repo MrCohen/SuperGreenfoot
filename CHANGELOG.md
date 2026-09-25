@@ -10,6 +10,16 @@ release, as the notice of modification the GPL asks for.
 
 ### Fixes
 
+- **Sound loops survive pause/resume.** `Sounds.resumeAll()` preserves looping
+  music and effects instead of playing their remaining audio just once.
+- **More robust local saves.** Malformed properties no longer crash a scenario;
+  scores remain available during the current run if their directory cannot be
+  written. Save files use the existing temporary-file replacement helper, and
+  player names containing carriage returns no longer split score records.
+- **Exported-game UserInfo matches its API.** Updating a saved player preserves
+  the new values, strings containing carriage returns round-trip correctly,
+  and `getNearby` handles unlimited requests and the end of a leaderboard.
+  API documentation now describes local storage in exported games.
 - **Tab reaches the scenario in an exported game.** The standalone player
   used Tab and Shift+Tab to move focus, so `Greenfoot.isKeyDown("tab")` and
   `Greenfoot.getKey()` never saw them there. (The IDE was not affected.)

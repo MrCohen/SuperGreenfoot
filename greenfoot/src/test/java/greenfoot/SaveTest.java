@@ -116,4 +116,53 @@ public class SaveTest extends TestCase
         assertEquals(1, Save.getTopScores("t", 5).size());
         Save.flush();   // no directory: must not throw
     }
+
+    public void testMalformedPropertiesDoNotCrashScenario() throws Exception
+    {
+        Files.writeString(new File(dir, "save.properties").toPath(), "bad=\\uZZZZ\n");
+        assertEquals(9, Save.getInt("lives", 9));
+        Save.putInt("lives", 3);
+        Save.flush();
+        Save.resetForTesting();
+        assertEquals(3, Save.getInt("lives", 9));
+    }
+
+    public void testPlayerNamesCannotSplitScoreRecords()
+    {
+        Save.submitScore("classic", "Ada\rBob\nCy\tDee", 120);
+        Save.resetForTesting();
+        List<Save.ScoreEntry> scores = Save.getTopScores("classic", 10);
+        assertEquals(1, scores.size());
+        assertEquals("Ada Bob Cy Dee", scores.get(0).getPlayer());
+    }
+
+    public void testInMemoryScoresAreClearedOnReset()
+    {
+        GreenfootUtil.initialise(new TestUtilDelegate());
+        Save.resetForTesting();
+        Save.submitScore("reset", "Ada", 10);
+        Save.resetForTesting();
+        assertTrue(Save.getTopScores("reset", 10).isEmpty());
+    }
+
+    public void testScoresSurviveUnavailableStorage() throws Exception
+    {
+        // A file where a directory should be is portable, even when tests run as root.
+        File unavailable = new File(dir, "not-a-directory");
+        Files.writeString(unavailable.toPath(), "blocked");
+        GreenfootUtil.initialise(new TestUtilDelegate() {
+            @Override
+            public File getSaveDirectory()
+            {
+                return unavailable;
+            }
+        });
+        Save.resetForTesting();
+        Save.submitScore("classic", "Ada", 10);
+        Save.submitScore("classic", "Bob", 20);
+        assertEquals(2, Save.getTopScores("classic", 10).size());
+        assertEquals(10, Save.getBestScore("classic", "Ada"));
+        Save.clearScores("classic");
+        assertTrue(Save.getTopScores("classic", 10).isEmpty());
+    }
 }

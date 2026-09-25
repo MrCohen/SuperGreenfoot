@@ -1,13 +1,12 @@
-# Phase 3: standalone player, desktop export, saving
+# Standalone player, desktop export and saving
 
-## What "core extraction" became
+## Runtime packaging
 
-The plan called for physically moving the engine into a `supergreenfoot-core`
-module. Doing that now would make every upstream merge a rename-fest, so the
-boundary is enforced differently and just as strictly:
+The standalone runtime is assembled from the existing modules so the engine
+can run without the IDE:
 
 - The **runtime jar** (`supergreenfoot-runtime.jar`, built by the Gradle task
-  `superGreenfootRuntimeJar`, about 3.7 MB) contains the engine packages of the
+  `superGreenfootRuntimeJar`) contains the engine packages of the
   `greenfoot` module minus the IDE-only ones (`guifx`, `vmcomm`, `export.mygame`,
   `importer`, `record`, `localdebugger`, `platforms.ide`, `ProjectManager`,
   `GreenfootMain`, the sound recorder), the new `greenfoot.player` package, the
@@ -46,20 +45,22 @@ folder the IDE uses.
 
 | Method | In the player | In the IDE |
 |---|---|---|
-| `Greenfoot.setFullScreen(boolean)` / `isFullScreen()` | switches the window | no-op (use the Controls menu) |
-| `Greenfoot.setControlsVisible(boolean)` | shows/hides the bar | no-op |
-| `Greenfoot.setControlsLocked(boolean)` | locks it hidden (hold Esc 2 s to recover) | no-op |
+| `Greenfoot.setFullScreen(boolean)` / `isFullScreen()` | switches the window | opens/closes the full-screen view |
+| `Greenfoot.setControlsVisible(boolean)` | shows/hides the bar | shows/hides the full-screen controls |
+| `Greenfoot.setControlsLocked(boolean)` | locks it hidden (hold Esc 2 s to recover) | locks the full-screen controls |
 | `Greenfoot.isStandalone()` | true | false |
 
-Implemented through `greenfoot.platforms.DisplayDelegate`. Superseded by
-Phase 2d (`docs/api/phase2d-display-api.md`): the calls now work in the IDE
-too, and screen size, scale mode and window scale were added, followed in
-0.2.0 by the mouse cursor (`setCursorVisible`, `setCursor`).
+Implemented through `greenfoot.platforms.DisplayDelegate`. See the
+[display API](phase2d-display-api.md) for screen size, scaling, controls and
+cursor methods. These presentation controls require a graphical player;
+a headless dedicated server has no display.
 
 ## Save API (`greenfoot.Save`)
 
-Unlimited named values plus local high-score tables, auto-flushed within half
-a second and at shutdown. `putInt/getInt`, `putDouble/getDouble`,
+Unlimited named values plus local high-score tables. Values are normally
+flushed within half a second and at shutdown; score changes are written
+immediately. Disk failures are reported where possible, and values and scores
+remain usable in memory for the current run. `putInt/getInt`, `putDouble/getDouble`,
 `putBoolean/getBoolean`, `putString/getString`, `contains`, `remove`, `clear`,
 `getKeys`, `flush`; `submitScore(table, score)` (current player) or
 `submitScore(table, player, score)`, `getTopScores(table, n)`,
@@ -73,11 +74,6 @@ Share dialog gains an **Application** tab (restored from Greenfoot 3.8.1 and
 simplified): choose a `.jar` path, optionally lock the scenario or hide the
 controls. The jar is the scenario (classes, images, sounds, `standalone.properties`)
 plus the runtime jar merged in, `Main-Class: greenfoot.player.PlayerMain`.
-Requires Java 21+ on the target machine; a `jpackage` bundle with a private
-runtime is Phase 4 work alongside signing.
-
-## Not done yet in Phase 3
-
-- `jpackage` bundles (with signing, Phase 4).
-- The IDE's "Application" tab has been wired but not clicked through by hand.
-- World-size guidance in the New Scenario dialog (Phase 2c) still pending.
+Requires Java 21+ on the target machine. Native bundles can include a private
+runtime; see [native packaging](phase4-native-packaging.md) for platform tools,
+signing and notarization.
