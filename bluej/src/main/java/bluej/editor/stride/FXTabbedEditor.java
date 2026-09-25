@@ -1508,6 +1508,23 @@ public @OnThread(Tag.FX) class FXTabbedEditor
     }
 
     /**
+     * Close every tab other than pinned ones, for a host whose project has closed
+     * (its editors were saved and closed already; this removes what is left, such as
+     * documentation tabs).
+     */
+    @OnThread(Tag.FXPlatform)
+    public void closeEditorTabs()
+    {
+        for (Tab t : new ArrayList<>(tabPane.getTabs()))
+        {
+            if (!(t instanceof PinnedTab))
+            {
+                close((FXTab) t);
+            }
+        }
+    }
+
+    /**
      * Whether the host has tabs other than pinned ones (open editors, readme or
      * documentation tabs).
      */

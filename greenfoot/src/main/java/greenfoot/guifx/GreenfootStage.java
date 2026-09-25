@@ -268,10 +268,11 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
                 worldDisplay.requestFocus();
             }
         });
+        // this.controller, not the parameter: a window can be reused for another project.
         JavaFXUtil.addFocusListener(worldDisplay, focused -> {
-            if (controller != null)
+            if (this.controller != null)
             {
-                controller.notifyWorldFocus(focused);
+                this.controller.notifyWorldFocus(focused);
             }
         });
         executionTwirler.setWhileTwirling(twirling -> {
@@ -684,6 +685,8 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         hideContextMenu();
         newActorProperty.set(null);
         executionTwirler.stopTwirling();
+        // The recorder has no owner window, so it would outlive this one on an IDE switch.
+        soundRecorder.close();
         clearProject();
     }
 

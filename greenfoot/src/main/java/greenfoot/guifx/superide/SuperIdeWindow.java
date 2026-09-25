@@ -365,10 +365,11 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         ClassBrowserPane browser = getClassBrowser();
         browser.setOnShowClassMenu(this::showClassMenu);
         browser.setOnShowBuiltInMenu(this::showBuiltInMenu);
+        // this.controller, not the parameter: a window can be reused for another project.
         browser.setOnOpenBuiltIn(name -> {
-            if (controller != null)
+            if (this.controller != null)
             {
-                controller.openGreenfootDocTab("greenfoot." + name);
+                this.controller.openGreenfootDocTab("greenfoot." + name);
             }
         });
         browser.inheritanceInFoldersProperty().set(Config.getPropBoolean(INHERITANCE_IN_FOLDERS_PREF, false));
@@ -433,7 +434,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         }
         else
         {
-            clearProject();
+            clearProject(false);
         }
     }
 
@@ -537,7 +538,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
     @OnThread(Tag.FXPlatform)
     public void showNoProject()
     {
-        clearProject();
+        clearProject(true);
     }
 
     @Override
@@ -547,18 +548,23 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         hideWorldContextMenu();
         setPlacingActor(null);
         executionTwirler.stopTwirling();
-        clearProject();
+        // The recorder has no owner window, so it would outlive this one on an IDE switch.
+        soundRecorder.close();
+        clearProject(false);
     }
 
     /**
      * Stop showing any project: the window becomes the empty welcome window.
+     *
+     * @param projectClosed  true if the project has been closed, rather than moving
+     *                       to another window (an IDE switch)
      */
-    private void clearProject()
+    private void clearProject(boolean projectClosed)
     {
         if (docked != null)
         {
             // Open editors move to a window of their own; the world area comes back here:
-            docked.dispose();
+            docked.dispose(projectClosed);
             docked = null;
         }
         setCentreContent(null);

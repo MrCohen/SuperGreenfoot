@@ -183,13 +183,21 @@ public final class DockedEditors
      * editors move, as they are and in order, to a window of their own, so nothing is
      * lost; the World tab lets go of the world area.  If an editor was the selected tab,
      * it is remembered for {@link #focusMovedEditors()}.
+     *
+     * @param projectClosed  true if the project has been closed: its editors are closed
+     *                       already, and what is left (documentation tabs) is closed rather
+     *                       than moved, since a window of a closed project would just appear
      */
-    public void dispose()
+    public void dispose(boolean projectClosed)
     {
         Tab active = isWorldSelected() ? null : host.getSelectedTab();
         // First, so that editors no longer open here or offer to move here:
         project.setEmbeddedFXTabbedEditor(null);
-        if (host.hasEditorTabs())
+        if (projectClosed)
+        {
+            host.closeEditorTabs();
+        }
+        else if (host.hasEditorTabs())
         {
             // A hidden (empty) editor window if there is one, else a new one, so the
             // docked editors are not mixed into a torn-off window:

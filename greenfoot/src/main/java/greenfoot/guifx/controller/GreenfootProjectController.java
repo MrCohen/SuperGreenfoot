@@ -234,6 +234,9 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
 
     // The number of interactive calls (made from the world or the class diagram) that are executing:
     private int invocationsRunning = 0;
+    // Bumped when the debug VM ends: a call from the old VM that reports late
+    // must not uncount a call running in the new one.
+    private int vmGeneration = 0;
 
     // The full-screen play window, or null when not in full screen.  It has no owner
     // window, so it is not affected by which window shows the project:
@@ -890,6 +893,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             curPickRequest = 0;
             curDragRequest = -1;
             invocationsRunning = 0;
+            vmGeneration++;
             lastWorldImage = null;
             asking = false;
             greyedOut = false;
@@ -2000,13 +2004,17 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         return new ResultWatcher()
         {
             private boolean running = false;
+            private int generation;
 
             private void finished()
             {
                 if (running)
                 {
                     running = false;
-                    invocationsRunning--;
+                    if (generation == vmGeneration)
+                    {
+                        invocationsRunning--;
+                    }
                 }
             }
 
@@ -2022,6 +2030,7 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
                 if (!running)
                 {
                     running = true;
+                    generation = vmGeneration;
                     invocationsRunning++;
                 }
                 watcher.beginExecution(ir);
