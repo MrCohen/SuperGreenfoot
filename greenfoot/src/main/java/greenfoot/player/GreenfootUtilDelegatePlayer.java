@@ -115,12 +115,12 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
     @OnThread(Tag.Simulation)
     public UserInfo getCurrentUserInfo()
     {
-        for (UserInfo u : readAll()) {
+        for (UserInfo u : readAll(true)) {
             if (u.getUserName().equals(userName)) {
                 return u;
             }
         }
-        return UserInfoVisitor.allocate(userName, -1, null);
+        return UserInfoVisitor.allocate(userName, -1, userName);
     }
 
     @Override
@@ -130,7 +130,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         if (saveDir == null) {
             return false;
         }
-        List<UserInfo> all = readAll();
+        List<UserInfo> all = readAll(false);
         all.removeIf(u -> u.getUserName().equals(data.getUserName()));
         all.add(data);
         return writeAll(all);
@@ -140,7 +140,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
     @OnThread(Tag.Simulation)
     public List<UserInfo> getTopUserInfo(int limit)
     {
-        List<UserInfo> all = readAll();
+        List<UserInfo> all = readAll(false);
         all.sort((a, b) -> Integer.compare(b.getScore(), a.getScore()));
         if (limit > 0 && all.size() > limit) {
             all = new ArrayList<UserInfo>(all.subList(0, limit));
@@ -177,8 +177,15 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         return null;
     }
 
+    /**
+     * Read every stored record, ranked by score. As in the IDE, only
+     * getMyInfo passes {@code useSingleton}: the current player's record then
+     * goes into UserInfoVisitor's shared object. Every other caller gets
+     * independent objects, so storing a record cannot overwrite its pending
+     * changes with the old values from disk.
+     */
     @OnThread(Tag.Simulation)
-    private List<UserInfo> readAll()
+    private List<UserInfo> readAll(boolean useSingleton)
     {
         List<UserInfo> list = new ArrayList<UserInfo>();
         if (saveDir == null) {
@@ -196,8 +203,6 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
                 if (p.length < 2 + UserInfo.NUM_INTS + UserInfo.NUM_STRINGS) {
                     continue;
                 }
-                // Disk reads must not mutate UserInfoVisitor's current-user
-                // singleton: storeCurrentUserInfo may be saving that object.
                 UserInfo u = UserInfoVisitor.allocate(unescape(p[0]), -1, null);
                 u.setScore(parse(p[1]));
                 for (int i = 0; i < UserInfo.NUM_INTS; i++) {
@@ -217,7 +222,7 @@ public class GreenfootUtilDelegatePlayer implements GreenfootUtilDelegate
         List<UserInfo> ranked = new ArrayList<UserInfo>();
         for (int i = 0; i < list.size(); i++) {
             UserInfo u = list.get(i);
-            UserInfo r = UserInfoVisitor.allocate(u.getUserName(), i + 1, null);
+            UserInfo r = UserInfoVisitor.allocate(u.getUserName(), i + 1, useSingleton ? userName : null);
             r.setScore(u.getScore());
             for (int k = 0; k < UserInfo.NUM_INTS; k++) {
                 r.setInt(k, u.getInt(k));

@@ -26,19 +26,43 @@ import greenfoot.UserInfoVisitor;
 import junit.framework.TestCase;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 /** Local storage must preserve the documented UserInfo API in exported games. */
 public class PlayerStorageTest extends TestCase
 {
+    private File dir;
     private GreenfootUtilDelegatePlayer storage;
 
     @Override
     protected void setUp() throws Exception
     {
-        File dir = Files.createTempDirectory("sgf-player-storage").toFile();
+        dir = Files.createTempDirectory("sgf-player-storage").toFile();
         storage = new GreenfootUtilDelegatePlayer(getClass().getClassLoader(), dir, "Ada");
+    }
+
+    @Override
+    protected void tearDown() throws IOException
+    {
+        try (Stream<Path> paths = Files.walk(dir.toPath())) {
+            for (Path p : (Iterable<Path>) paths.sorted(Comparator.reverseOrder())::iterator) {
+                Files.deleteIfExists(p);
+            }
+        }
+    }
+
+    public void testMyInfoIsTheSharedObjectAsInTheIde()
+    {
+        UserInfo user = storage.getCurrentUserInfo();
+        user.setScore(5);
+        assertTrue(storage.storeCurrentUserInfo(user));
+        assertSame(user, storage.getCurrentUserInfo());
+        assertEquals(5, storage.getCurrentUserInfo().getScore());
     }
 
     public void testStringsRoundTripWithLineEndingsAndEscapes()
