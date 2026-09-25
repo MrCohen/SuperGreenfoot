@@ -1129,9 +1129,6 @@ public abstract class World
         zUsed = true;
     }
 
-    /**
-     * Whether the paint order needs sorting beyond the class-group iteration order.
-     */
     // ==================================
     //
     // SuperGreenfoot: windows
@@ -1228,6 +1225,9 @@ public abstract class World
         }
     }
 
+    /**
+     * Whether the paint order needs sorting beyond the class-group iteration order.
+     */
     boolean isPaintSortNeeded()
     {
         return zUsed || zSortByY || globalZOrder;

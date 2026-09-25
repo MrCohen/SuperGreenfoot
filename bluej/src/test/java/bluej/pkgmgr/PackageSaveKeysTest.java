@@ -76,7 +76,7 @@ public class PackageSaveKeysTest
     {
         Properties lastSaved = new Properties();
         lastSaved.setProperty("main.class", "TitleWorld");
-        lastSaved.setProperty("project.name", "TenthRealm");
+        lastSaved.setProperty("project.name", "MyGame");
         lastSaved.setProperty("simulation.speed", "50");
         lastSaved.setProperty("package.numTargets", "3");
         lastSaved.setProperty("target3.name", "Gone");
@@ -92,7 +92,7 @@ public class PackageSaveKeysTest
         props.setProperty("simulation.speed", "60");
 
         assertEquals("TitleWorld", props.getProperty("main.class"));
-        assertEquals("TenthRealm", props.getProperty("project.name"));
+        assertEquals("MyGame", props.getProperty("project.name"));
         assertEquals("60", props.getProperty("simulation.speed"));
         assertNull(props.getProperty("package.numTargets"));
         assertNull(props.getProperty("target3.name"));

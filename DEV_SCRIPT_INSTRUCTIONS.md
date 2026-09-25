@@ -7,7 +7,7 @@ to Homebrew's JDK 21 for you, so no setup is needed beyond
 ```sh
 cd ~/Developer/SuperGreenfoot/supergreenfoot
 ./dev run                                         # IDE straight from source, about 30 s, tests skipped
-./dev test                                        # engine test suite
+./dev test                                        # engine and IDE test suites (about 1 min)
 ./dev player super-scenarios/DisplayDemo --run    # a scenario in the standalone player
 ./dev app                                         # unsigned SuperGreenfoot.app, about 1 min, then opens it
 ./dev dmg                                         # signed and notarized installer onto the Desktop, about 8 min
@@ -21,7 +21,7 @@ cd ~/Developer/SuperGreenfoot/supergreenfoot
 |---|---|---|
 | IDE code (windows, menus, Share dialog, full-screen view) | `./dev run` | Fastest loop: compiles what changed and starts the IDE from the source tree. |
 | Engine or player code (Actor, World, sound, `greenfoot.player`) | `./dev player <scenario folder>` | Compiles the scenario against the fresh runtime jar and runs it in the standalone player. Add `--run` to start running, `--fullscreen` to start full screen. |
-| Anything, before committing | `./dev test` | Runs the headless engine tests. `./dev run` skips them to stay fast. |
+| Anything, before committing | `./dev test` | Runs the headless engine and IDE tests. `./dev run` skips them to stay fast. |
 | Something that only matters when packaged (export, bundled runtime, file locations) | `./dev app` | Builds the real app bundle, unsigned, for this Mac only. This is the check that would have caught the 2026-09-16 export bug. |
 | You want to hand the build to someone, or update your own install | `./dev dmg` or `./dev install` | Signs with your Developer ID, notarizes, staples, and copies the DMG to the Desktop. `install` also replaces the app in /Applications. |
 

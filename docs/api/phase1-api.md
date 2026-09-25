@@ -38,7 +38,7 @@ is on screen.
 |---|---|
 | `Actor.setZ(double)` / `getZ()` | Higher z paints later (in front). Ties keep insertion order. Never triggers `addedToWorld`/`removedFromWorld`; never changes act order. |
 | `World.setZSortByY(boolean)` | Paint key becomes (precise y, z, insertion). |
-| `World.setGlobalZOrder(boolean)` | Ignore class paint order; one global (y, z) order. Default off: z sorts **within** each `setPaintOrder` group (decision D6). |
+| `World.setGlobalZOrder(boolean)` | Ignore class paint order; one global (y, z) order. Default off: z sorts **within** each `setPaintOrder` group. |
 | `World.setZSortAnchor(ZSortAnchor)` / `getZSortAnchor()` | Added 0.1.4. Which part of an actor's image counts as its ground line: `CENTRE` (default, as before) or `BOTTOM`. See below. |
 | `Actor.setSortOffset(double)` / `getSortOffset()` | Added 0.1.4. Pixels to move this actor's ground line down, on top of the world's anchor. |
 
@@ -54,8 +54,8 @@ asks a tall picture to stand on its own middle. The way to make a tree look
 right was to pad its picture with empty rows below until the foot of the trunk
 reached the centre. For a picture that draws nothing below its feet that is
 **twice the height for nothing**, in memory and in every cached variant of it.
-It is why Tenth Realm shares twelve cached sprites per kind of tree (TR17)
-instead of giving every tree its own look.
+A forest drawn that way has to share a handful of padded pictures between
+all its trees instead of giving every tree its own look.
 
 `ZSortAnchor.BOTTOM` measures from the bottom edge of the image instead, so the
 picture can be exactly as tall as what it draws:
@@ -101,7 +101,7 @@ Demo: `super-scenarios/PrecisionDemo`, the grove at the bottom. Press A to switc
 anchors and watch the walker pass among the trees: with `CENTRE` it strolls in
 front of a tree it is plainly standing behind.
 
-## World: smooth rendering (decision D7, opt-in)
+## World: smooth rendering (opt-in)
 
 `World.setSmoothRendering(boolean)`: draw actors at precise positions and
 precise image rotations with bilinear interpolation and blended edges.

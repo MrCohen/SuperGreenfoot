@@ -30,8 +30,8 @@ client.send("HELLO;Ada");   NetEvent e = client.poll();   client.close();
 
 ## The contract scenarios rely on
 
-These are the properties the exemplar game was written against; they hold
-on the desktop and the browser build must keep them.
+Scenarios can count on these properties; they hold on the desktop, and the
+browser build must keep them.
 
 - **Threads stay inside the engine and never call scenario code.** Each
   connection has a reader thread and a writer thread; scenario code only

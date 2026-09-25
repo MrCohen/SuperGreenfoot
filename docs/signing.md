@@ -1,7 +1,6 @@
 # Code signing: macOS and Windows
 
-Decision D9: installers and exported games must be signed. This document is
-the setup guide. Prices and vendor policies change; verify before buying.
+Installers and exported games are signed. This document is the setup guide. Prices and vendor policies change; verify before buying.
 
 ## macOS (Apple Developer account exists)
 
@@ -33,7 +32,7 @@ ID and is *not* accepted by `notarytool --team-id`.
    "SuperGreenfoot notarytool". Then store it once in the keychain:
    ```sh
    xcrun notarytool store-credentials "SuperGreenfoot" \
-     --apple-id jord81@gmail.com --team-id QTS5DK2S8Q
+     --apple-id <your-apple-id> --team-id QTS5DK2S8Q
    ```
    (paste the app-specific password when prompted). CI will instead use
    `--apple-id/--team-id/--password` from GitHub secrets.
@@ -79,14 +78,14 @@ Unsigned exported games will show the SmartScreen "unrecognized app" panel;
 signed OV/Trusted Signing builds show it less often and lose it as
 downloads accumulate.
 
-## Timeline in the plan
+## Status
 
-- Phase 0 (now): create the Developer ID certificate, store notarytool
-  credentials, start the Windows application.
-- Phase 3: first `jpackage` bundles, signed on macOS locally.
-- Phase 4: CI signing for both platforms; exported-game signing from the IDE.
+- macOS: the IDE installer and exported games are signed with a Developer ID
+  certificate and notarized. Signing runs locally; CI does not sign yet.
+- Windows: installers and exported games ship unsigned until a certificate
+  exists (see above).
 
-## How the export uses it (implemented in Phase 4)
+## How the export uses it
 
 Share > Application > "Also build a native app": choose DMG, pick the
 Developer ID identity from the list (auto-detected from the keychain) and enter

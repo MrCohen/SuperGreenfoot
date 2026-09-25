@@ -7,7 +7,7 @@ z-order by removing and re-adding actors. A scenario that still carries its own
 `SuperWindow.java` in the default package keeps using that copy, because a
 default-package class shadows the one from `import greenfoot.*`.
 
-Design decisions (owner, 2026-09-22): a true container with window-local
+Design: a true container with window-local
 coordinates; windows painted in their own layer above every ordinary actor;
 scrolling content with a new mouse-wheel event; a core class, not an Import
 Class template. Keyboard focus and nested windows are deferred.

@@ -258,6 +258,9 @@ task userJavadoc(type: Javadoc) {
                 'greenfoot/NetServer.java',
                 'greenfoot/NetClient.java',
                 'greenfoot/NetEvent.java',
+                'greenfoot/Save.java',
+                'greenfoot/SoundCategory.java',
+                'greenfoot/Sounds.java',
                 'greenfoot/UserInfo.java',
                 'greenfoot/World.java',
                 'greenfoot/ZSortAnchor.java']

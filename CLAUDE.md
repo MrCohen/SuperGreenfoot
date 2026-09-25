@@ -30,9 +30,11 @@ for the upstream base and every upstream file we change.
   build replaces it with the browser's WebSocket).
 - Public API changes: keep `getX()/getY()/getRotation()` returning `int`;
   add new methods rather than changing signatures; regenerate the user
-  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the sixteen API classes
+  Javadoc (`./gradlew :greenfoot:userJavadoc`) when the nineteen API classes
   change: the nine upstream classes, `ScaleMode`, `ZSortAnchor`, `SuperWindow`,
-  and the network module's `Network`, `NetServer`, `NetClient` and `NetEvent`.
+  `Save`, `Sounds`, `SoundCategory`, and the network module's `Network`,
+  `NetServer`, `NetClient` and `NetEvent`. The list lives in `userJavadoc`
+  (`greenfoot/build.gradle`).
   Their APIs are in `docs/api/` (`superwindow.md`, `network.md`,
   `mouse-input.md`, `phase1-api.md` for depth and the sort anchor,
   `phase2d-display-api.md` for `ScaleMode` and the cursor).

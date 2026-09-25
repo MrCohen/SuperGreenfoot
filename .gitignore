@@ -48,3 +48,6 @@ super-scenarios/*.msi
 super-scenarios/*/saves/
 # Per-scenario Super Greenfoot settings (window geometry, folds): machine-specific
 super-scenarios/*/supergreenfoot.properties
+
+# Editor undo history inside branding documents (not needed to open them)
+**/*.dsimp/undo/

@@ -1,6 +1,6 @@
 # Phase 3: standalone player, desktop export, saving
 
-## What "core extraction" became (decision D12)
+## What "core extraction" became
 
 The plan called for physically moving the engine into a `supergreenfoot-core`
 module. Doing that now would make every upstream merge a rename-fest, so the
