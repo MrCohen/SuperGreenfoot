@@ -24,6 +24,7 @@ package bluej.utility;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -52,7 +53,13 @@ public final class AtomicFiles
      * is removed whatever happens; on POSIX systems the new file gets the
      * permissions the old one had.
      *
-     * @throws IOException if the file could not be written; the target is then unchanged
+     * <p>Never worse than a plain write: where the safe route is impossible
+     * (a folder the user may not create files in, holding a file they may
+     * write; a target that another program keeps locked, as Dropbox or a
+     * virus scanner can on Windows, for longer than a few short retries) the
+     * bytes are written straight into the target, as upstream always did.</p>
+     *
+     * @throws IOException if the file could not be written at all
      */
     public static void write(Path target, byte[] bytes) throws IOException
     {
@@ -66,22 +73,80 @@ public final class AtomicFiles
             {
                 out.write(bytes);
             }
-            copyPermissions(absolute, temp);
-            try
+            catch (IOException e)
             {
-                Files.move(temp, absolute, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                if (Files.isWritable(absolute))
+                {
+                    writeInPlace(absolute, bytes);
+                    return;
+                }
+                throw e;
             }
-            catch (AtomicMoveNotSupportedException e)
+            copyPermissions(absolute, temp);
+            for (int attempt = 1; ; attempt++)
             {
-                // Some file systems (network shares, some sync folders) cannot
-                // rename atomically over an existing file; a plain replace
-                // still never leaves the target truncated.
-                Files.move(temp, absolute, StandardCopyOption.REPLACE_EXISTING);
+                try
+                {
+                    moveOver(temp, absolute);
+                    return;
+                }
+                catch (FileSystemException e)
+                {
+                    // On Windows a file another program has open cannot be replaced;
+                    // such locks are usually brief.
+                    if (attempt < MOVE_ATTEMPTS)
+                    {
+                        pause(attempt * 50L);
+                    }
+                    else if (Files.isWritable(absolute))
+                    {
+                        writeInPlace(absolute, bytes);
+                        return;
+                    }
+                    else
+                    {
+                        throw e;
+                    }
+                }
             }
         }
         finally
         {
             Files.deleteIfExists(temp);
+        }
+    }
+
+    private static final int MOVE_ATTEMPTS = 4;
+
+    private static void moveOver(Path temp, Path target) throws IOException
+    {
+        try
+        {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        }
+        catch (AtomicMoveNotSupportedException e)
+        {
+            // Some file systems (network shares, some sync folders) cannot
+            // rename atomically over an existing file; a plain replace
+            // still never leaves the target truncated.
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void writeInPlace(Path target, byte[] bytes) throws IOException
+    {
+        Files.write(target, bytes);
+    }
+
+    private static void pause(long millis)
+    {
+        try
+        {
+            Thread.sleep(millis);
+        }
+        catch (InterruptedException e)
+        {
+            Thread.currentThread().interrupt();
         }
     }
 

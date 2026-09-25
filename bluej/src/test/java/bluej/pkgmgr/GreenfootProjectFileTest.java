@@ -188,31 +188,26 @@ public class GreenfootProjectFileTest
     }
 
     @Test
-    public void aFailedSaveLeavesTheOldFileWhole() throws Exception
+    public void aFolderThatTakesNoNewFilesIsStillSaved() throws Exception
     {
         File dir = Files.createTempDirectory("gpf").toFile();
         File onDisk = new File(dir, "project.greenfoot");
         GreenfootProjectFile file = new GreenfootProjectFile(dir);
         assertTrue(file.create());
         file.save(props("main.class", "MyWorld"));
-        String before = text(onDisk);
 
-        // The file is writable but no temporary file can be made beside it
+        // The file is writable but no temporary file can be made beside it (a shared
+        // folder set up that way): the save writes in place, as upstream always did.
         assertTrue(dir.setWritable(false));
         try
         {
             file.save(props("main.class", "OtherWorld"));
-            fail("the save cannot succeed");
-        }
-        catch (IOException e)
-        {
-            // expected
         }
         finally
         {
             dir.setWritable(true);
         }
-        assertEquals(before, text(onDisk));
+        assertTrue(text(onDisk).contains("main.class=OtherWorld"));
         assertEquals(Arrays.asList("project.greenfoot"), Arrays.asList(dir.list()));
 
         file.save(props("main.class", "OtherWorld"));
