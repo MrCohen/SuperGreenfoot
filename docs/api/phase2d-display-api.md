@@ -19,7 +19,8 @@ in the IDE and in an exported game. Demo: `super-scenarios/DisplayDemo`.
 | `setWindowScale(double)`, `getWindowScale()` | Exported game only: show the world enlarged in the window (0.25 to 8). No effect in the IDE. |
 | `isStandalone()` | True in the exported game. |
 | `setCursorVisible(boolean)`, `isCursorVisible()` | Hide the mouse cursor over the world while the scenario runs (a game that aims with the mouse and draws its own crosshair). It comes back while paused, when the mouse leaves the world, and in full screen while the controls are up (Escape). Forgotten on Reset. |
-| `setCursor(String)`, `setCursor(String, int, int)` | Replace the cursor over the world with an image from the `images` folder, drawn by the system with no lag; the second form picks the hot spot (default: the image centre). `setCursor(null)` restores the normal cursor, as does Reset. Throws `IllegalArgumentException` if the file is missing. |
+| `setCursor(String)`, `setCursor(String, int, int)` | Replace the cursor over the world with an image from the `images` folder, drawn by the system with no lag; the second form picks the hot spot (default: the image centre; a negative value also means the centre, one outside the image throws). `setCursor((String) null)` restores the normal cursor, as does Reset. Throws `IllegalArgumentException` if the file is missing, exactly as `new GreenfootImage(name)` would, because that is how it is loaded. |
+| `setCursor(GreenfootImage)`, `setCursor(GreenfootImage, int, int)` (0.2.0) | The same with a picture drawn or loaded in code (a game whose art is all code, like the exemplar's crosshair). The pixels are copied at the call, so drawing on the picture afterwards changes nothing until the next call; a call with the same pixels and hot spot costs nothing. At most 256 pixels each way (throws). |
 
 Players can always leave full screen with Shortcut+Shift+F.
 
@@ -55,13 +56,18 @@ shared-memory channel (`greenfoot.vmcomm`):
   entering full screen and they survive leaving and re-entering.
 - **Cursor** (added in 0.2.0). `setCursorVisible` is a fifth flag on the same
   request word (`DisplayState.CURSOR_HIDDEN`; the mask bits moved up to bits
-  8-15 to make room) and is echoed back in the state. `setCursor` is a separate
-  request after the keyboard-return counter: a sequence number, the hot spot,
-  and the image name as codepoints (the ask prompt travels the same way). The
-  debug VM checks the file exists first (`GreenfootUtil.getURL`), so the
-  scenario gets an `IllegalArgumentException` like `GreenfootImage` would; the
-  IDE then loads it from the project's `images` folder into a JavaFX
-  `ImageCursor`. The controller applies the result in `applyCursor()`: JavaFX
+  8-15 to make room) and is echoed back in the state; `isCursorVisible()`
+  answers with the value last asked for (`GreenfootUtil`), not with the echo,
+  which lags a frame. `setCursor` is a separate request after the
+  keyboard-return counter: a sequence number, the hot spot, the picture's
+  width and height, and its ARGB pixels (0 by 0 means the normal cursor). Both
+  forms send pixels: `setCursor(String)` is `setCursor(new GreenfootImage(name))`,
+  so the file is found by the one rule every image follows and the IDE never
+  looks files up. `GreenfootUtil.requestCursor` drops a request identical to
+  the last one (pixels and hot spot), so asking every act costs nothing;
+  `WorldHandler.discardWorld` forgets it, so a new world's constructor is
+  heard. The IDE builds a JavaFX `WritableImage` from the pixels and an
+  `ImageCursor` from that. The controller applies the result in `applyCursor()`: JavaFX
   cursors are per node, so the main window sets it on the `WorldDisplay` (the
   cursor is normal over the class diagram and menus) while the full-screen
   view sets it on its root, so the black margins hide it too. It is only
@@ -78,10 +84,11 @@ and are unit-tested (`DisplayApiTest`), together with the routing from the
 ## Player notes
 
 Cursors in the player use AWT: `setCursorVisible(false)` is a 1x1 transparent
-custom cursor on the world panel (the control bar keeps its own), and
-`setCursor` goes through `Toolkit.createCustomCursor`, which scales the image
-to the toolkit's best cursor size, so the hot spot is scaled with it. Reset
-clears both, as in the IDE.
+custom cursor on the world panel (made once; the control bar keeps its own),
+and `setCursor` builds a `BufferedImage` from the pixels and goes through
+`Toolkit.createCustomCursor`, which scales the image to the toolkit's best
+cursor size, so the hot spot is scaled with it. Reset clears both, as in the
+IDE.
 
 `Greenfoot.setWindowScale(2)` makes a 640x360 world show in a 1280x720 window;
 the scale mode decides between nearest-neighbour and bilinear drawing. Mouse
@@ -95,5 +102,6 @@ moves between screens.
 size, and for 640x360, 960x540 and 1280x720 says whether that world fills the
 screen at a whole-number scale. Keys 1, 2, 3 build that `GameWorld`; F, P, C,
 L, W toggle full screen, scale mode, controls, lock and window scale; M goes
-back. H hides the cursor and X swaps in `images/crosshair.png`. The `Readout`
-bar shows the live values of every getter.
+back. H hides the cursor, X swaps in `images/crosshair.png` and D a ring
+drawn in code (`setCursor(GreenfootImage, 12, 12)`). The `Readout` bar shows
+the live values of every getter.

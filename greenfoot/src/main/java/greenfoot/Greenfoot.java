@@ -581,14 +581,14 @@ public class Greenfoot
      * is running: it comes back when the scenario is paused, when the mouse
      * leaves the world, and in the full-screen view when the controls are
      * shown with Escape. The setting is forgotten when the world is reset.
-     * To replace the cursor with a picture instead, see {@link #setCursor(String)}.
+     * To replace the cursor with a picture instead, see {@link #setCursor(GreenfootImage)}.
      *
      * @param visible false to hide the cursor over the world, true to show it.
      * @since SuperGreenfoot 0.2.0
      */
     public static void setCursorVisible(boolean visible)
     {
-        GreenfootUtil.getDisplayDelegate().setCursorVisible(visible);
+        GreenfootUtil.requestCursorVisible(visible);
     }
 
     /**
@@ -597,8 +597,11 @@ public class Greenfoot
      */
     public static boolean isCursorVisible()
     {
-        return GreenfootUtil.getDisplayDelegate().isCursorVisible();
+        return GreenfootUtil.isCursorVisibleRequested();
     }
+
+    /** The largest cursor picture accepted, in pixels each way. */
+    private static final int MAX_CURSOR_SIZE = 256;
 
     /**
      * Replace the mouse cursor over the world with an image from the
@@ -606,7 +609,7 @@ public class Greenfoot
      * image at the mouse position with no lag, and its centre is the point
      * that clicks happen at. Windows shows custom cursors at 32x32 pixels, so
      * keep the image about that size. The cursor is restored when the world is
-     * reset, or by calling {@code setCursor(null)}.
+     * reset, or by calling {@code setCursor((String) null)}.
      *
      * @param imageName the file name of the image in the images folder, or null
      *                  for the normal cursor.
@@ -619,36 +622,83 @@ public class Greenfoot
     }
 
     /**
-     * Replace the mouse cursor over the world with an image, choosing which of
-     * its pixels is the point that clicks happen at (the "hot spot"): (0, 0)
-     * for an arrow whose tip is the top-left corner, for example.
+     * Replace the mouse cursor over the world with an image from the images
+     * folder, choosing which of its pixels is the point that clicks happen at
+     * (the "hot spot"): (0, 0) for an arrow whose tip is the top-left corner,
+     * for example.
      *
      * @param imageName the file name of the image in the images folder, or null
      *                  for the normal cursor.
-     * @param hotSpotX  the x coordinate of the hot spot within the image.
-     * @param hotSpotY  the y coordinate of the hot spot within the image.
-     * @throws IllegalArgumentException if the image cannot be found.
-     * @see #setCursor(String)
+     * @param hotSpotX  the x coordinate of the hot spot within the image, or -1 for the centre.
+     * @param hotSpotY  the y coordinate of the hot spot within the image, or -1 for the centre.
+     * @throws IllegalArgumentException if the image cannot be found, or the hot
+     *         spot is outside it.
+     * @see #setCursor(GreenfootImage, int, int)
      * @since SuperGreenfoot 0.2.0
      */
     public static void setCursor(String imageName, int hotSpotX, int hotSpotY)
     {
-        if (imageName != null)
+        setCursor(imageName == null ? null : new GreenfootImage(imageName), hotSpotX, hotSpotY);
+    }
+
+    /**
+     * Replace the mouse cursor over the world with a picture you drew or
+     * loaded, with its centre as the point that clicks happen at. Unlike an
+     * actor that follows the mouse, the system draws it with no lag. The
+     * picture is copied when you call this, so drawing on it afterwards
+     * changes nothing until you call again; calling again with the same
+     * picture costs nothing. The cursor is restored when the world is reset,
+     * or by calling {@code setCursor((GreenfootImage) null)}.
+     *
+     * @param image  the picture, at most 256 pixels each way (Windows shows
+     *               custom cursors at 32x32, so keep it about that size), or
+     *               null for the normal cursor.
+     * @throws IllegalArgumentException if the picture is larger than 256 pixels each way.
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static void setCursor(GreenfootImage image)
+    {
+        setCursor(image, -1, -1);
+    }
+
+    /**
+     * Replace the mouse cursor over the world with a picture, choosing which
+     * of its pixels is the point that clicks happen at (the "hot spot"):
+     * (0, 0) for an arrow whose tip is the top-left corner, for example.
+     *
+     * @param image     the picture, at most 256 pixels each way, or null for the normal cursor.
+     * @param hotSpotX  the x coordinate of the hot spot within the picture, or -1 for the centre.
+     * @param hotSpotY  the y coordinate of the hot spot within the picture, or -1 for the centre.
+     * @throws IllegalArgumentException if the picture is larger than 256 pixels
+     *         each way, or the hot spot is outside it.
+     * @see #setCursor(GreenfootImage)
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static void setCursor(GreenfootImage image, int hotSpotX, int hotSpotY)
+    {
+        if (image == null)
         {
-            try
-            {
-                if (GreenfootUtil.getURL(imageName, "images") == null)
-                {
-                    throw new IllegalArgumentException("Could not load image from: " + imageName);
-                }
-            }
-            catch (java.io.FileNotFoundException e)
-            {
-                throw new IllegalArgumentException("Could not load image from: " + imageName);
-            }
-            hotSpotX = Math.max(-1, hotSpotX);
-            hotSpotY = Math.max(-1, hotSpotY);
+            GreenfootUtil.requestCursor(null, 0, 0, -1, -1);
+            return;
         }
-        GreenfootUtil.getDisplayDelegate().setCursor(imageName, hotSpotX, hotSpotY);
+        int w = image.getWidth();
+        int h = image.getHeight();
+        if (w > MAX_CURSOR_SIZE || h > MAX_CURSOR_SIZE)
+        {
+            throw new IllegalArgumentException("A cursor picture is at most " + MAX_CURSOR_SIZE
+                    + " pixels each way; this one is " + w + "x" + h);
+        }
+        if (hotSpotX < 0 || hotSpotY < 0)
+        {
+            hotSpotX = -1;
+            hotSpotY = -1;
+        }
+        else if (hotSpotX >= w || hotSpotY >= h)
+        {
+            throw new IllegalArgumentException("The hot spot (" + hotSpotX + ", " + hotSpotY
+                    + ") is outside the " + w + "x" + h + " cursor picture");
+        }
+        int[] argb = image.getAwtImage().getRGB(0, 0, w, h, null, 0, w);
+        GreenfootUtil.requestCursor(argb, w, h, hotSpotX, hotSpotY);
     }
 }

@@ -103,6 +103,8 @@ public class SuperWindow extends Actor
     int contentWidth, contentHeight;
     /** The content size last asked for with setContentSize (may be smaller than the visible size). */
     int requestedContentWidth, requestedContentHeight;
+    /** True once setContentSize has been called; until then the content simply follows the visible size. */
+    private boolean contentSizeRequested;
     /** Scroll offset in cells. */
     int scrollX, scrollY;
     private int titleBarHeight = DEFAULT_TITLE_BAR_HEIGHT;
@@ -533,6 +535,67 @@ public class SuperWindow extends Actor
     }
 
     /**
+     * Change the size of the visible content area. The frame's top-left corner
+     * stays where it is (the window grows or shrinks to the right and down),
+     * and it is kept on screen as usual. The content area asked for with
+     * {@link #setContentSize(int, int)} is remembered: the content is the larger
+     * of the two, so a scrolling window that grows shows more and a shrunken one
+     * scrolls again; the scroll position is clamped to fit. Actors inside stay
+     * at their positions (clamped into the new area when the window is
+     * bounded), and a background you have drawn on is kept and enlarged when
+     * the content grows. A skin from {@code setImage} is not resized: set a new
+     * one sized {@link #getFrameWidth()} by {@link #getFrameHeight()}.
+     *
+     * @param width  The new width of the visible content area, in cells.
+     * @param height The new height of the visible content area, in cells.
+     * @throws IllegalArgumentException if either is less than 1.
+     * @since SuperGreenfoot 0.2.0
+     */
+    public void setSize(int width, int height)
+    {
+        if (width < 1 || height < 1) {
+            throw new IllegalArgumentException("A window's width and height must be at least 1.");
+        }
+        if (width == this.width && height == this.height) {
+            return;
+        }
+        int oldFrameWidth = frameWidthPx();
+        int oldFrameHeight = frameHeightPx();
+        this.width = width;
+        this.height = height;
+        if (!contentSizeRequested) {
+            // No scrolling content was ever asked for: the content is just the visible area.
+            requestedContentWidth = width;
+            requestedContentHeight = height;
+        }
+        this.contentWidth = Math.max(width, requestedContentWidth);
+        this.contentHeight = Math.max(height, requestedContentHeight);
+        int cs = cellSize();
+        if (background != null
+                && (background.getWidth() < contentWidth * cs || background.getHeight() < contentHeight * cs)) {
+            GreenfootImage bigger = new GreenfootImage(Math.max(background.getWidth(), contentWidth * cs),
+                    Math.max(background.getHeight(), contentHeight * cs));
+            bigger.drawImage(background, 0, 0);
+            background = bigger;
+        }
+        scrollX = Math.max(0, Math.min(scrollX, contentWidth - width));
+        scrollY = Math.max(0, Math.min(scrollY, contentHeight - height));
+        scrollBarImage = null;
+        redrawFrame();
+        // Anchor the top-left corner: the centre moves by half the change in size.
+        shiftCentre((frameWidthPx() - oldFrameWidth) / 2.0, (frameHeightPx() - oldFrameHeight) / 2.0);
+        if (world != null && keepOnScreen) {
+            setLocation(preciseX, preciseY);
+        }
+        if (bounded) {
+            for (Actor a : new ArrayList<Actor>(contents)) {
+                a.setLocation(a.getX(), a.getY());    // re-clamped into the new area
+            }
+        }
+        contentsMoved();
+    }
+
+    /**
      * Move the window so that its top-left corner (of the frame) is at the given
      * world position. {@link #setLocation(int, int)} positions the window's centre
      * instead, like any actor.
@@ -678,6 +741,7 @@ public class SuperWindow extends Actor
     {
         requestedContentWidth = contentWidth;
         requestedContentHeight = contentHeight;
+        contentSizeRequested = true;
         applyContentSize();
     }
 
@@ -1444,11 +1508,17 @@ public class SuperWindow extends Actor
     /** Shift the centre vertically by a number of pixels without the on-screen clamp fighting it. */
     private void shiftCentreY(double pixels)
     {
-        if (world == null || pixels == 0) {
+        shiftCentre(0, pixels);
+    }
+
+    /** Shift the centre by a number of pixels each way without the on-screen clamp fighting it. */
+    private void shiftCentre(double dxPixels, double dyPixels)
+    {
+        if (world == null || (dxPixels == 0 && dyPixels == 0)) {
             return;
         }
-        double cy = preciseY + pixels / cellSize();
-        super.setLocation(preciseX, cy);
+        int cs = cellSize();
+        super.setLocation(preciseX + dxPixels / cs, preciseY + dyPixels / cs);
         contentsMoved();
     }
 

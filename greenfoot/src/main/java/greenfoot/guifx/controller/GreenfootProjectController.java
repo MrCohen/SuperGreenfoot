@@ -1423,32 +1423,22 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     }
 
     /**
-     * Scenario code asked for a cursor image (Greenfoot.setCursor). The debug VM has
-     * checked that the file exists; load it from the project's images folder (or the
-     * project folder) and show it over the world.
+     * Scenario code asked for a cursor picture (Greenfoot.setCursor). The debug VM
+     * sends the pixels (it loaded any file itself, as it loads every image), so
+     * the IDE only builds the cursor and shows it over the world.
      */
     @Override
     @OnThread(Tag.FXPlatform)
-    public void receivedCursorImage(String imageName, int hotSpotX, int hotSpotY)
+    public void receivedCursorImage(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
     {
         cursorImage = null;
-        if (imageName != null && !imageName.contains("..") && !imageName.contains("/") && !imageName.contains("\\"))
+        if (argb != null && width > 0 && height > 0 && argb.length >= width * height)
         {
-            File file = new File(new File(project.getProjectDir(), "images"), imageName);
-            if (!file.isFile())
-            {
-                file = new File(project.getProjectDir(), imageName);
-            }
-            if (file.isFile())
-            {
-                Image img = new Image(file.toURI().toString());
-                if (!img.isError() && img.getWidth() > 0 && img.getHeight() > 0)
-                {
-                    double hx = hotSpotX < 0 ? img.getWidth() / 2 : Math.min(hotSpotX, img.getWidth() - 1);
-                    double hy = hotSpotY < 0 ? img.getHeight() / 2 : Math.min(hotSpotY, img.getHeight() - 1);
-                    cursorImage = new ImageCursor(img, hx, hy);
-                }
-            }
+            WritableImage img = new WritableImage(width, height);
+            img.getPixelWriter().setPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), argb, 0, width);
+            double hx = hotSpotX < 0 ? width / 2 : Math.min(hotSpotX, width - 1);
+            double hy = hotSpotY < 0 ? height / 2 : Math.min(hotSpotY, height - 1);
+            cursorImage = new ImageCursor(img, hx, hy);
         }
         applyCursor();
     }

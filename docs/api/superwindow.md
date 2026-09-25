@@ -61,7 +61,9 @@ Class template. Keyboard focus and nested windows are deferred.
 - **Scrolling**: `setContentSize(w, h)` makes the content larger than the
   visible area; `setScroll`, `scrollBy`, `getScrollX/Y` move it. With
   `setScrollable(true)` the mouse wheel over the window and a vertical scroll
-  bar (drag the thumb, click the track to page) scroll it.
+  bar (drag the thumb, click the track to page) scroll it. `setSize(w, h)`
+  changes the visible area later (a tooltip that fits its text, a crafting
+  window that grows with its list), anchored at the top-left corner.
 - Windows are designed for cell size 1 worlds. In larger-cell worlds the
   window is still positioned in cells and its decorations in pixels; contents
   are placed at whole cells of the window.
@@ -90,6 +92,7 @@ Class template. Keyboard focus and nested windows are deferred.
 |---|---|
 | `getWidth()`, `getHeight()` | Visible content area, cells. |
 | `getFrameWidth()`, `getFrameHeight()` | Whole frame including border and title bar, pixels. |
+| `setSize(w, h)` (0.2.0) | Resize the visible content area. The frame's top-left corner stays put (it grows right and down) and is kept on screen; a content size from `setContentSize` is remembered, so the content is the larger of the two and the scroll position is clamped to fit; without one the content simply follows. Bounded contents are clamped into the new area; a drawn background is kept and enlarged. A skin is not resized. Throws below 1x1. |
 | `setTopLeft(int x, int y)`, `getLeft()`, `getTop()` | Frame corner in world cells. |
 | `setLocation(int,int)` / `(double,double)` | Centre, like any actor; clamped on screen when `isKeepOnScreen()`. |
 | `toWorldX/Y(local)`, `toLocalX/Y(world)` | Convert between window and world cells (e.g. `toLocalX(mouse.getX())`). |

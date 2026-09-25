@@ -123,6 +123,16 @@ plain, so this stays opt-in.
 | `Font.getStringHeight(String)` | Ink height, including descenders and multi-line spacing. |
 | `Font.getAscent()` / `getDescent()` / `getLineHeight()` | Typographic metrics; line height is the spacing `drawString` uses for `\n`. |
 | `GreenfootImage.drawCenteredString(String, int cx, int cy)` | Horizontal centring by ink width per line; vertical centring of the cap-height-to-baseline block (descenders hang below). |
+| `GreenfootImage.getTextWidth(String, int size)`, `getTextHeight(String, int size)` (static, 0.2.0) | The size of the image `new GreenfootImage(text, size, fg, bg)` would make, without making it: the same `GraphicsUtilities.getMultiLineStringDimensions` call the constructor uses, so they agree exactly (tested for one and several lines at three sizes). For sizing a box or a window before the text is drawn into it. |
+
+## GreenfootImage: tint (0.2.0)
+
+`tint(Color, double amount)` moves every pixel's red, green and blue towards
+the colour by the amount (0 nothing, 1 all the way, so a silhouette) and keeps
+each pixel's own alpha, so the picture's shape survives: a hurt flash or a
+placement ghost is one call on a copy instead of a `getColorAt`/`setColorAt`
+loop. Fully transparent pixels are left alone. Throws for a null colour or an
+amount outside 0 to 1. `ImageTextAndTintTest`.
 
 These replace the pixel-scanning `getStringWidth`/`getFontHeight` helpers in
 `SuperTextBox`, `SuperDisplayLabel` and `Utility` (4-34 ms per call on the

@@ -143,8 +143,8 @@ public class DisplayDelegateIDE implements DisplayDelegate
     }
 
     @Override
-    public void setCursor(String imageName, int hotSpotX, int hotSpotY)
+    public void setCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
     {
-        comms.requestCursor(imageName, hotSpotX, hotSpotY);
+        comms.requestCursor(argb, width, height, hotSpotX, hotSpotY);
     }
 }

@@ -146,7 +146,8 @@ public class VMCommsMain implements Closeable
     private int cursorSeq = 0;
     private int lastCursorSeen = 0;
     private int cursorHotX = -1, cursorHotY = -1;
-    private String cursorImageName = null;
+    private int cursorWidth = 0, cursorHeight = 0;
+    private int[] cursorPixels = null;
     private int askId = -1;
     private boolean workerWaiting = false;
 
@@ -339,14 +340,16 @@ public class VMCommsMain implements Closeable
         void scenarioWindowClosed();
 
         /**
-         * Scenario code asked for a cursor image over the world (Greenfoot.setCursor).
+         * Scenario code asked for a cursor picture over the world (Greenfoot.setCursor).
          *
-         * @param imageName the file name in the scenario's images folder, or null for the normal cursor
-         * @param hotSpotX  hot spot x within the image, or -1 for the centre
-         * @param hotSpotY  hot spot y within the image, or -1 for the centre
+         * @param argb      the picture's pixels row by row, or null for the normal cursor
+         * @param width     the picture's width
+         * @param height    the picture's height
+         * @param hotSpotX  hot spot x within the picture, or -1 for the centre
+         * @param hotSpotY  hot spot y within the picture, or -1 for the centre
          */
         @OnThread(Tag.FXPlatform)
-        void receivedCursorImage(String imageName, int hotSpotX, int hotSpotY);
+        void receivedCursorImage(int[] argb, int width, int height, int hotSpotX, int hotSpotY);
     }
 
     /**
@@ -426,7 +429,7 @@ public class VMCommsMain implements Closeable
         if (cursorSeq > lastCursorSeen)
         {
             lastCursorSeen = cursorSeq;
-            listener.receivedCursorImage(cursorImageName, cursorHotX, cursorHotY);
+            listener.receivedCursorImage(cursorPixels, cursorWidth, cursorHeight, cursorHotX, cursorHotY);
         }
             
         checkingIO = false;
@@ -546,20 +549,23 @@ public class VMCommsMain implements Closeable
                     displayRequestSeq = sharedMemory.get();
                     displayRequestFlags = sharedMemory.get();
                     focusReturnSeq = sharedMemory.get();
-                    // SuperGreenfoot: cursor image request (seq, hot spot, name)
+                    // SuperGreenfoot: cursor picture request (seq, hot spot, size, pixels)
                     cursorSeq = sharedMemory.get();
                     cursorHotX = sharedMemory.get();
                     cursorHotY = sharedMemory.get();
-                    int cursorNameLength = sharedMemory.get();
-                    if (cursorNameLength > 0)
+                    cursorWidth = sharedMemory.get();
+                    cursorHeight = sharedMemory.get();
+                    int cursorLength = cursorWidth * cursorHeight;
+                    if (cursorLength > 0 && cursorLength <= 256 * 256)
                     {
-                        int[] nameCodepoints = new int[cursorNameLength];
-                        sharedMemory.get(nameCodepoints);
-                        cursorImageName = new String(nameCodepoints, 0, nameCodepoints.length);
+                        cursorPixels = new int[cursorLength];
+                        sharedMemory.get(cursorPixels);
                     }
                     else
                     {
-                        cursorImageName = null;
+                        cursorPixels = null;
+                        cursorWidth = 0;
+                        cursorHeight = 0;
                     }
                 }
             }
@@ -786,7 +792,7 @@ public class VMCommsMain implements Closeable
         lastFocusReturnSeen = 0;
         cursorSeq = 0;
         lastCursorSeen = 0;
-        cursorImageName = null;
+        cursorPixels = null;
         
         // Zero the buffer:
         sharedMemoryByte.position(0);

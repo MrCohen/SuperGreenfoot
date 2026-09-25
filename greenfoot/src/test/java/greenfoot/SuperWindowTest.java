@@ -136,6 +136,93 @@ public class SuperWindowTest extends TestCase
         return win;
     }
 
+    // ---- resizing ----
+
+    public void testSetSizeKeepsTheTopLeftCorner()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        int left = win.getLeft();
+        int top = win.getTop();
+        TestObject child = new TestObject();
+        win.addObject(child, 5, 5);
+        int childX = child.getX();
+        int childY = child.getY();
+
+        win.setSize(60, 50);
+        assertEquals(60, win.getWidth());
+        assertEquals(50, win.getHeight());
+        assertEquals("the frame grew to the right and down", left, win.getLeft());
+        assertEquals(top, win.getTop());
+        assertEquals(100, win.toWorldX(0));
+        assertEquals(100, win.toWorldY(0));
+        assertEquals("the child did not move in the world", childX, child.getX());
+        assertEquals(childY, child.getY());
+        assertEquals(60 + 2 * win.getBorderThickness(), win.getFrameWidth());
+        assertEquals(60, win.getContentWidth());
+
+        win.setSize(20, 10);
+        assertEquals(left, win.getLeft());
+        assertEquals(top, win.getTop());
+        assertEquals(20, win.getWidth());
+        assertEquals(20, win.getContentWidth());
+        try {
+            win.setSize(0, 10);
+            fail("too small");
+        }
+        catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    public void testSetSizeRemembersTheContentSizeAndClampsScroll()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        win.setContentSize(40, 100);
+        win.setScroll(0, 70);
+        assertEquals(70, win.getScrollY());
+        // Taller: less to scroll, and the scroll position is clamped to fit.
+        win.setSize(40, 60);
+        assertEquals(100, win.getContentHeight());
+        assertEquals(40, win.getScrollY());
+        // Tall enough to show it all: nothing to scroll.
+        win.setSize(40, 120);
+        assertEquals(120, win.getContentHeight());
+        assertEquals(0, win.getScrollY());
+        // Smaller again: the content size asked for comes back.
+        win.setSize(40, 30);
+        assertEquals(100, win.getContentHeight());
+        assertEquals(0, win.getScrollY());
+        win.setScroll(0, 70);
+        assertEquals(70, win.getScrollY());
+    }
+
+    public void testSetSizeClampsBoundedContentsAndKeepsTheBackground()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        win.setBounded(true);
+        TestObject child = new TestObject();
+        win.addObject(child, 35, 25);
+        win.getBackground().setColorAt(2, 2, Color.RED);
+        win.setSize(20, 10);
+        assertTrue("clamped into the smaller area: " + win.toLocalX(child.getX()), win.toLocalX(child.getX()) < 20);
+        assertTrue(win.toLocalY(child.getY()) < 10);
+        win.setSize(80, 60);
+        assertEquals("the drawing survived", Color.RED, win.getBackground().getColorAt(2, 2));
+        assertTrue("the background grew with the content", win.getBackground().getWidth() >= 80);
+    }
+
+    public void testSetSizeStaysOnScreen()
+    {
+        World world = newWorld();
+        SuperWindow win = placedWindow(world, 40, 30);
+        win.setSize(150, 30);
+        assertTrue("kept on screen: right edge " + (win.getLeft() + win.getFrameWidth()),
+                win.getLeft() >= 0 && win.getLeft() + win.getFrameWidth() <= 200);
+    }
+
     // ---- containment and coordinates ----
 
     public void testChildAddedBeforeWorldJoinsWorldWithWindow()

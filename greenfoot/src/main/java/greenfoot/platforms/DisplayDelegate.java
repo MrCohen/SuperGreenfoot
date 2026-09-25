@@ -114,12 +114,16 @@ public interface DisplayDelegate
     }
 
     /**
-     * Replace the mouse cursor over the world with an image from the scenario's
-     * images folder (already checked to exist), or restore the normal cursor.
+     * Replace the mouse cursor over the world with a picture, or restore the
+     * normal cursor. The picture arrives as pixels, so the IDE and the player
+     * never look a file up themselves: {@code Greenfoot.setCursor(String)} has
+     * already loaded it, the way any GreenfootImage is loaded.
      *
-     * @param imageName  the file name, or null for the normal cursor
+     * @param argb       the pixels, row by row (ARGB ints), or null for the normal cursor
+     * @param width      the picture's width in pixels
+     * @param height     the picture's height in pixels
      * @param hotSpotX   the x of the pixel that is the cursor's point, or -1 for the centre
      * @param hotSpotY   the y of the pixel that is the cursor's point, or -1 for the centre
      */
-    default void setCursor(String imageName, int hotSpotX, int hotSpotY) {}
+    default void setCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY) {}
 }

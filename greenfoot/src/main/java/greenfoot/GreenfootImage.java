@@ -199,6 +199,37 @@ public class GreenfootImage
     }
     
     /**
+     * The width of the image that {@link #GreenfootImage(String, int, greenfoot.Color, greenfoot.Color)}
+     * would make for this text at this size, without making it. Use it to
+     * size a box or a window before drawing the text into it.
+     *
+     * @param string the text, which may contain newlines
+     * @param size the requested height in pixels of each line of text
+     * @return the width in pixels of the image the constructor would make
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static int getTextWidth(String string, int size)
+    {
+        String[] lines = GraphicsUtilities.splitLines(string == null ? "" : string);
+        return GraphicsUtilities.getMultiLineStringDimensions(lines, Font.BOLD, size).getWidth();
+    }
+
+    /**
+     * The height of the image that {@link #GreenfootImage(String, int, greenfoot.Color, greenfoot.Color)}
+     * would make for this text at this size, without making it.
+     *
+     * @param string the text, which may contain newlines
+     * @param size the requested height in pixels of each line of text
+     * @return the height in pixels of the image the constructor would make
+     * @since SuperGreenfoot 0.2.0
+     */
+    public static int getTextHeight(String string, int size)
+    {
+        String[] lines = GraphicsUtilities.splitLines(string == null ? "" : string);
+        return GraphicsUtilities.getMultiLineStringDimensions(lines, Font.BOLD, size).getHeight();
+    }
+
+    /**
      * Creates an image with the given string drawn as text using the given font size, with the given foreground
      * color on the given background color.  If the string has newline characters, it
      * is split into multiple lines which are drawn horizontally-centred.
@@ -630,6 +661,55 @@ public class GreenfootImage
     public void setColorAt(int x, int y, greenfoot.Color color)
     {
         setRGBAt(x, y, color.getColorObject().getRGB());
+    }
+
+    /**
+     * Push every pixel's colour towards a colour, keeping the picture's shape:
+     * each pixel keeps its own transparency (alpha) and only its red, green and
+     * blue move. An amount of 0 changes nothing; 1 turns every visible pixel
+     * that colour, a silhouette; 0.5 is half way. A red flash when something is
+     * hurt, or a green ghost of a building to place, is one call on a copy:
+     * {@code GreenfootImage flash = new GreenfootImage(image); flash.tint(Color.RED, 0.6);}
+     *
+     * @param color  the colour to move towards (its own transparency is ignored)
+     * @param amount how far to move, from 0 (not at all) to 1 (all the way)
+     * @throws IllegalArgumentException if the amount is not between 0 and 1, or the colour is null
+     * @since SuperGreenfoot 0.2.0
+     */
+    public void tint(greenfoot.Color color, double amount)
+    {
+        if (color == null) {
+            throw new IllegalArgumentException("The tint colour is null.");
+        }
+        if (!(amount >= 0.0 && amount <= 1.0)) {
+            throw new IllegalArgumentException("The tint amount must be between 0 and 1. It was: " + amount);
+        }
+        if (amount == 0.0) {
+            return;
+        }
+        ensureWritableImage();
+        modCount++;
+        int w = image.getWidth();
+        int h = image.getHeight();
+        int[] px = image.getRGB(0, 0, w, h, null, 0, w);
+        int tr = color.getRed();
+        int tg = color.getGreen();
+        int tb = color.getBlue();
+        for (int i = 0; i < px.length; i++) {
+            int p = px[i];
+            int a = p >>> 24;
+            if (a == 0) {
+                continue;
+            }
+            int r = (p >> 16) & 0xFF;
+            int g = (p >> 8) & 0xFF;
+            int b = p & 0xFF;
+            r = (int) Math.round(r + (tr - r) * amount);
+            g = (int) Math.round(g + (tg - g) * amount);
+            b = (int) Math.round(b + (tb - b) * amount);
+            px[i] = (a << 24) | (r << 16) | (g << 8) | b;
+        }
+        image.setRGB(0, 0, w, h, px, 0, w);
     }
 
     /**

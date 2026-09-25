@@ -59,13 +59,24 @@ public class DisplayApiTest extends TestCase
         public boolean isStandalone() { return true; }
         public void setCursorVisible(boolean v) { cursorVisible = v; log.append("cur=" + v + ";"); }
         public boolean isCursorVisible() { return cursorVisible; }
-        public void setCursor(String name, int hx, int hy) { log.append("img=" + name + "@" + hx + "," + hy + ";"); }
+        public void setCursor(int[] argb, int w, int h, int hx, int hy)
+        {
+            log.append("img=" + (argb == null ? "none" : w + "x" + h) + "@" + hx + "," + hy + ";");
+        }
+    }
+
+    @Override
+    protected void setUp()
+    {
+        GreenfootUtil.initialise(new TestUtilDelegate());
+        GreenfootUtil.forgetCursor();
     }
 
     @Override
     protected void tearDown()
     {
         GreenfootUtil.setDisplayDelegate(null);
+        GreenfootUtil.forgetCursor();
     }
 
     public void testNoneDelegateIsSafe()
@@ -85,7 +96,10 @@ public class DisplayApiTest extends TestCase
         assertEquals(1.0, Greenfoot.getWindowScale(), 0.0);
         assertFalse(Greenfoot.isStandalone());
         Greenfoot.setCursorVisible(false);
-        Greenfoot.setCursor(null);
+        Greenfoot.setCursor((String) null);
+        Greenfoot.setCursor(new GreenfootImage(4, 4));
+        assertFalse("the request is what isCursorVisible answers with, even with no delegate", Greenfoot.isCursorVisible());
+        GreenfootUtil.forgetCursor();
         assertTrue(Greenfoot.isCursorVisible());
     }
 
@@ -100,10 +114,17 @@ public class DisplayApiTest extends TestCase
         Greenfoot.setControlsLocked(true);
         Greenfoot.setWindowScale(2.5);
         Greenfoot.setCursorVisible(false);
-        Greenfoot.setCursor(null);            // no file lookup for the normal cursor
-        Greenfoot.setCursor(null, 3, 4);
-        assertEquals("fs=true;sm=PIXEL_PERFECT;cv=false;cl=true;ws=2.5;cur=false;img=null@-1,-1;img=null@3,4;",
-                d.log.toString());
+        Greenfoot.setCursor((String) null);            // no file lookup for the normal cursor
+        Greenfoot.setCursor((String) null, 3, 4);      // the same request: not sent twice
+        GreenfootImage ring = new GreenfootImage(8, 6);
+        Greenfoot.setCursor(ring);
+        Greenfoot.setCursor(ring);                     // unchanged: not sent again
+        Greenfoot.setCursor(ring, 2, 3);               // a new hot spot is a new request
+        ring.setColor(Color.RED);
+        ring.fill();
+        Greenfoot.setCursor(ring, 2, 3);               // new pixels: sent
+        assertEquals("fs=true;sm=PIXEL_PERFECT;cv=false;cl=true;ws=2.5;cur=false;img=none@-1,-1;"
+                + "img=8x6@-1,-1;img=8x6@2,3;img=8x6@2,3;", d.log.toString());
         assertFalse(Greenfoot.isCursorVisible());
         assertTrue(Greenfoot.isFullScreen());
         assertTrue(Greenfoot.isFullScreenSupported());
@@ -115,6 +136,43 @@ public class DisplayApiTest extends TestCase
         assertTrue(Greenfoot.isControlsLocked());
         assertEquals(2.5, Greenfoot.getWindowScale(), 0.0);
         assertTrue(Greenfoot.isStandalone());
+    }
+
+    public void testCursorPictureIsChecked()
+    {
+        Recording d = new Recording();
+        GreenfootUtil.setDisplayDelegate(d);
+        try {
+            Greenfoot.setCursor(new GreenfootImage(8, 6), 8, 0);
+            fail("a hot spot outside the picture");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("hot spot"));
+        }
+        try {
+            Greenfoot.setCursor(new GreenfootImage(300, 10));
+            fail("too large");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("256"));
+        }
+        try {
+            Greenfoot.setCursor("no-such-cursor-picture.png");
+            fail("a missing file");
+        }
+        catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("no-such-cursor-picture.png"));
+        }
+        assertEquals("nothing reached the delegate", "", d.log.toString());
+        // A negative hot spot means the centre, and the pixels sent are the picture's.
+        GreenfootImage dot = new GreenfootImage(2, 2);
+        dot.setColorAt(1, 1, Color.BLUE);
+        Greenfoot.setCursor(dot, -5, 0);
+        assertEquals("img=2x2@-1,-1;", d.log.toString());
+        // After a reset the same picture is asked for again.
+        GreenfootUtil.forgetCursor();
+        Greenfoot.setCursor(dot);
+        assertEquals("img=2x2@-1,-1;img=2x2@-1,-1;", d.log.toString());
     }
 
     public void testRequestFlagsCarryValuesAndMask()

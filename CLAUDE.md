@@ -47,7 +47,7 @@ for the upstream base and every upstream file we change.
 ```sh
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew :greenfoot:compileJava      # engine + IDE
-./gradlew :greenfoot:test             # headless engine tests (271 pass on 2026-09-25)
+./gradlew :greenfoot:test             # headless engine tests (278 pass on 2026-09-25)
 ./gradlew :bluej:test                 # BlueJ-side tests, incl. the headless editor (492 pass)
 ./gradlew runGreenfoot                # launch the IDE
 ```

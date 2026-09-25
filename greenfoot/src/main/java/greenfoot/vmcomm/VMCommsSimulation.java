@@ -103,7 +103,9 @@ public class VMCommsSimulation
     @OnThread(value = Tag.Any, requireSynchronized = true)
     private int cursorHotX = -1, cursorHotY = -1;
     @OnThread(value = Tag.Any, requireSynchronized = true)
-    private String cursorImageName = null;
+    private int cursorWidth = 0, cursorHeight = 0;
+    @OnThread(value = Tag.Any, requireSynchronized = true)
+    private int[] cursorPixels = new int[0];
     /** SuperGreenfoot: the display state the IDE last sent us (null until the first arrives) */
     private volatile int[] displayState = null;
 
@@ -166,9 +168,9 @@ public class VMCommsSimulation
      * Pos 15+(W*H)+P: SuperGreenfoot: count of requests for the IDE to take the keyboard back
      *                 after a window opened by scenario code closed (see ScenarioWindows).
      * Pos 16+(W*H)+P: SuperGreenfoot: sequence number of the latest Greenfoot.setCursor call,
-     *                 0 if none. Followed by the hot spot x and y (-1 for the image centre),
-     *                 the count (Q) of codepoints in the image name (0 restores the normal
-     *                 cursor), and the Q codepoints.
+     *                 0 if none. Followed by the hot spot x and y (-1 for the picture's
+     *                 centre), the picture's width and height (0 by 0 restores the normal
+     *                 cursor), and its width*height ARGB pixels, row by row.
      */
     private final IntBuffer sharedMemory;
     private int seq = 1;
@@ -433,13 +435,13 @@ public class VMCommsSimulation
                 sharedMemory.put(displayRequestSeq);
                 sharedMemory.put(displayRequestFlags);
                 sharedMemory.put(focusReturnSeq);
-                // SuperGreenfoot: pending cursor image request (seq, hot spot, name)
+                // SuperGreenfoot: pending cursor picture request (seq, hot spot, size, pixels)
                 sharedMemory.put(cursorSeq);
                 sharedMemory.put(cursorHotX);
                 sharedMemory.put(cursorHotY);
-                int[] cursorName = cursorImageName == null ? new int[0] : cursorImageName.codePoints().toArray();
-                sharedMemory.put(cursorName.length);
-                sharedMemory.put(cursorName);
+                sharedMemory.put(cursorWidth);
+                sharedMemory.put(cursorHeight);
+                sharedMemory.put(cursorPixels);
             }
 
             putLock.release();
@@ -641,17 +643,21 @@ public class VMCommsSimulation
     }
 
     /**
-     * SuperGreenfoot: scenario code asked for a cursor image (Greenfoot.setCursor).
-     * The IDE loads the image from the scenario's images folder itself.
+     * SuperGreenfoot: scenario code asked for a cursor picture (Greenfoot.setCursor).
+     * The pixels travel to the IDE, which builds the cursor from them.
      *
-     * @param imageName the image file name, or null for the normal cursor
+     * @param argb      the pixels row by row, or null for the normal cursor
+     * @param width     the picture's width
+     * @param height    the picture's height
      * @param hotSpotX  hot spot x, -1 for the centre
      * @param hotSpotY  hot spot y, -1 for the centre
      */
     @OnThread(Tag.Any)
-    public synchronized void requestCursor(String imageName, int hotSpotX, int hotSpotY)
+    public synchronized void requestCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
     {
-        cursorImageName = imageName;
+        cursorPixels = argb == null ? new int[0] : argb;
+        cursorWidth = argb == null ? 0 : width;
+        cursorHeight = argb == null ? 0 : height;
         cursorHotX = hotSpotX;
         cursorHotY = hotSpotY;
         cursorSeq++;

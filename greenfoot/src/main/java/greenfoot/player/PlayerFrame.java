@@ -276,9 +276,9 @@ public class PlayerFrame implements DisplayDelegate
 
     @Override
     @OnThread(Tag.Any)
-    public void setCursor(String imageName, int hotSpotX, int hotSpotY)
+    public void setCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
     {
-        java.awt.Cursor cursor = imageName == null ? null : loadCursor(imageName, hotSpotX, hotSpotY);
+        java.awt.Cursor cursor = argb == null ? null : buildCursor(argb, width, height, hotSpotX, hotSpotY);
         SwingUtilities.invokeLater(() -> {
             customCursor = cursor;
             applyCursor();
@@ -286,49 +286,53 @@ public class PlayerFrame implements DisplayDelegate
     }
 
     /**
-     * Build a system cursor from an image in the scenario's images folder, or null if
-     * this system cannot show custom cursors or the image cannot be read. Windows
-     * scales custom cursors to its own size (32x32), so the hot spot is scaled with it.
+     * Build a system cursor from a picture's pixels, or null if this system cannot
+     * show custom cursors. Windows scales custom cursors to its own size (32x32), so
+     * the hot spot is scaled with it.
      */
     @OnThread(Tag.Any)
-    private java.awt.Cursor loadCursor(String imageName, int hotSpotX, int hotSpotY)
+    private static java.awt.Cursor buildCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
     {
         try {
-            java.net.URL url = GreenfootUtil.getURL(imageName, "images");
-            BufferedImage img = javax.imageio.ImageIO.read(url);
-            if (img == null) {
+            if (width <= 0 || height <= 0 || argb.length < width * height) {
                 return null;
             }
+            BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            img.setRGB(0, 0, width, height, argb, 0, width);
             java.awt.Toolkit toolkit = java.awt.Toolkit.getDefaultToolkit();
-            Dimension best = toolkit.getBestCursorSize(img.getWidth(), img.getHeight());
+            Dimension best = toolkit.getBestCursorSize(width, height);
             if (best.width <= 0 || best.height <= 0) {
                 return null;
             }
-            double hx = hotSpotX < 0 ? img.getWidth() / 2.0 : Math.min(hotSpotX, img.getWidth() - 1);
-            double hy = hotSpotY < 0 ? img.getHeight() / 2.0 : Math.min(hotSpotY, img.getHeight() - 1);
+            double hx = hotSpotX < 0 ? width / 2.0 : Math.min(hotSpotX, width - 1);
+            double hy = hotSpotY < 0 ? height / 2.0 : Math.min(hotSpotY, height - 1);
             // The toolkit scales the image to its best size; scale the hot spot the same way
-            int px = (int) Math.min(best.width - 1, Math.floor(hx * best.width / img.getWidth()));
-            int py = (int) Math.min(best.height - 1, Math.floor(hy * best.height / img.getHeight()));
-            return toolkit.createCustomCursor(img, new Point(Math.max(0, px), Math.max(0, py)), imageName);
+            int px = (int) Math.min(best.width - 1, Math.floor(hx * best.width / width));
+            int py = (int) Math.min(best.height - 1, Math.floor(hy * best.height / height));
+            return toolkit.createCustomCursor(img, new Point(Math.max(0, px), Math.max(0, py)), "scenario");
         }
         catch (Exception e) {
             return null;
         }
     }
 
-    /** A cursor with nothing in it, for Greenfoot.setCursorVisible(false). */
-    private static java.awt.Cursor blankCursor()
+    private static java.awt.Cursor blank;
+
+    /** A cursor with nothing in it, for Greenfoot.setCursorVisible(false); made once. */
+    private static synchronized java.awt.Cursor blankCursor()
     {
-        try {
-            BufferedImage blank = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
-            return java.awt.Toolkit.getDefaultToolkit().createCustomCursor(blank, new Point(0, 0), "hidden");
+        if (blank == null) {
+            try {
+                BufferedImage empty = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+                blank = java.awt.Toolkit.getDefaultToolkit().createCustomCursor(empty, new Point(0, 0), "hidden");
+            }
+            catch (Exception e) {
+                blank = java.awt.Cursor.getDefaultCursor();
+            }
         }
-        catch (Exception e) {
-            return java.awt.Cursor.getDefaultCursor();
-        }
+        return blank;
     }
 
-    /** Show the cursor the scenario asked for over the world (the control bar keeps its own). */
     private void applyCursor()
     {
         if (cursorHidden && running) {

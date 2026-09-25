@@ -86,6 +86,57 @@ public class GreenfootUtil
         return displayDelegate;
     }
 
+    // SuperGreenfoot: what the scenario last asked of the cursor, so that asking
+    // for the same thing every act costs nothing, and so that isCursorVisible()
+    // answers with the request rather than with what the IDE has echoed so far.
+    private static int[] lastCursorPixels;
+    private static int lastCursorWidth, lastCursorHeight, lastCursorHotX, lastCursorHotY;
+    private static boolean cursorRequested;
+    private static Boolean cursorVisibleRequested;
+
+    /** Ask for a cursor picture unless it is the one already asked for. */
+    @OnThread(Tag.Any)
+    public static synchronized void requestCursor(int[] argb, int width, int height, int hotSpotX, int hotSpotY)
+    {
+        if (cursorRequested && hotSpotX == lastCursorHotX && hotSpotY == lastCursorHotY
+                && width == lastCursorWidth && height == lastCursorHeight
+                && java.util.Arrays.equals(argb, lastCursorPixels))
+        {
+            return;
+        }
+        cursorRequested = true;
+        lastCursorPixels = argb;
+        lastCursorWidth = width;
+        lastCursorHeight = height;
+        lastCursorHotX = hotSpotX;
+        lastCursorHotY = hotSpotY;
+        displayDelegate.setCursor(argb, width, height, hotSpotX, hotSpotY);
+    }
+
+    @OnThread(Tag.Any)
+    public static synchronized void requestCursorVisible(boolean visible)
+    {
+        cursorVisibleRequested = visible;
+        displayDelegate.setCursorVisible(visible);
+    }
+
+    /** The visibility last asked for, or the delegate's answer when nothing has been asked. */
+    @OnThread(Tag.Any)
+    public static synchronized boolean isCursorVisibleRequested()
+    {
+        Boolean asked = cursorVisibleRequested;
+        return asked != null ? asked : displayDelegate.isCursorVisible();
+    }
+
+    /** A new world starts with the normal cursor: forget what the old one asked for. */
+    @OnThread(Tag.Any)
+    public static synchronized void forgetCursor()
+    {
+        cursorRequested = false;
+        lastCursorPixels = null;
+        cursorVisibleRequested = null;
+    }
+
     /** SuperGreenfoot: where Save keeps its files, or null if unavailable. */
     @OnThread(Tag.Any)
     public static File getSaveDirectory()
