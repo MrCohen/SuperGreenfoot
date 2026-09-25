@@ -30,6 +30,8 @@ import java.util.Properties;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.property.StringProperty;
 
+import greenfoot.guifx.classes.BuiltInClasses;
+
 /**
  * Class that verifies a class name typed into a TextField. It checks that the
  * class name is a legal name of a Java class and that the class does not
@@ -92,13 +94,16 @@ public class ClassNameVerifier
         String className = textProperty.get();
         boolean valid = !className.isEmpty() && JavaNames.isIdentifier(className) && !classNameExist(className) && !isGreenfootClassName(className);
         message = valid || className.isEmpty() ? "" :
-                (classNameExist(className) || isGreenfootClassName(className) ? classExists : illegalClassName);
+                (classNameExist(className) ? classExists
+                : isGreenfootClassName(className) ? BuiltInClasses.reservedNameMessage(className)
+                : illegalClassName);
         return valid;
     }
 
     private boolean isGreenfootClassName(String className)
     {
-        return className.equals("Actor") || className.equals("World");
+        // SuperGreenfoot: every API class, not just Actor and World (see BuiltInClasses).
+        return BuiltInClasses.isReserved(className);
     }
     
     /**

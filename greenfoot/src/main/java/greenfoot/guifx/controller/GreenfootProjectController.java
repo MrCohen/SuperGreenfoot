@@ -75,6 +75,7 @@ import greenfoot.export.mygame.ScenarioInfo;
 import greenfoot.gui.input.mouse.MousePollingManager;
 import greenfoot.guifx.ControlPanel.ControlPanelListener;
 import greenfoot.guifx.FullScreenView;
+import greenfoot.guifx.classes.BuiltInClasses;
 import greenfoot.record.GreenfootRecorder;
 import greenfoot.util.GreenfootUtil;
 import greenfoot.vmcomm.DisplayState;
@@ -2563,6 +2564,13 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
             File dir = project.getProjectDir();
             final String extension = language.getExtension();
             File newFile = new File(dir, className + "." + extension);
+            if (classNameProblem(className) != null || newFile.exists())
+            {
+                // SuperGreenfoot: never write a skeleton over an existing class (the dialogs
+                // refuse such names; this is the last line of defence).
+                Debug.reportError("Not creating class " + className + ": " + classNameProblem(className));
+                return null;
+            }
             ProjectUtils.createSkeleton(className, superClassName, newFile,
                     templateFileName, project.getProjectCharset().toString());
             ClassTarget newClass = pkg.addClass(className);
@@ -2580,6 +2588,28 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
     }
 
     /**
+     * SuperGreenfoot: why a new class cannot have this name in this project, or null if
+     * it can: a class of that name exists already (in either language, whatever the
+     * case of the letters on a case-insensitive disk), or it is the name of a built-in
+     * class, which the scenario's class would hide (see BuiltInClasses).
+     */
+    public String classNameProblem(String className)
+    {
+        File dir = project.getProjectDir();
+        if (project.getUnnamedPackage().getTarget(className) != null
+                || new File(dir, className + "." + SourceType.Java.getExtension()).exists()
+                || new File(dir, className + "." + SourceType.Stride.getExtension()).exists())
+        {
+            return Config.getString("newclass.dialog.err.classExists");
+        }
+        if (BuiltInClasses.isReserved(className))
+        {
+            return BuiltInClasses.reservedNameMessage(className);
+        }
+        return null;
+    }
+
+    /**
      * Copy a class's source file under a new class name and add the new class to the package
      * (it still needs compiling: see compileAddedClass).
      *
@@ -2594,6 +2624,12 @@ public class GreenfootProjectController implements VMCommsMain.CommsListener,
         final File dir = pkg.getProject().getProjectDir();
         final File originalFile = new File(dir, originalClassName + "." + extension);
         final File newFile = new File(dir, newClassName + "." + extension);
+        if (classNameProblem(newClassName) != null || newFile.exists())
+        {
+            // SuperGreenfoot: never copy over an existing class (see createClassFile).
+            Debug.reportError("Not duplicating as " + newClassName + ": " + classNameProblem(newClassName));
+            return null;
+        }
         try
         {
             ProjectUtils.duplicate(originalClassName, newClassName, originalFile, newFile, sourceType);

@@ -655,3 +655,17 @@
 /* The ring around the actor shown in the Inspector (drawn in world pixels). */
 .sg-selection-halo { -fx-stroke: rgba(255, 255, 255, 0.9); -fx-stroke-width: 5; }
 .sg-selection-ring { -fx-stroke: -sg-accent; -fx-stroke-width: 2.5; }
+
+/* A class named like a built-in one (BuiltInClasses): the same badge in both themes. */
+.sg-row .gf-override-badge {
+    -fx-background-color: #E0A100;
+    -fx-background-radius: 8;
+    -fx-text-fill: #1A1A1A;
+    -fx-font-weight: bold;
+    -fx-font-size: 10px;
+    -fx-min-width: 15px;
+    -fx-min-height: 15px;
+    -fx-max-height: 15px;
+    -fx-alignment: center;
+    -fx-padding: 0;
+}

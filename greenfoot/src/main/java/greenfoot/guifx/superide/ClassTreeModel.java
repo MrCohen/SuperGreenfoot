@@ -45,6 +45,8 @@ public final class ClassTreeModel
 {
     public static final String WORLD = "World";
     public static final String ACTOR = "Actor";
+    /** A built-in Actor subclass, listed in the Actor group like Classic's diagram does. */
+    public static final String SUPER_WINDOW = "SuperWindow";
 
     private ClassTreeModel()
     {
@@ -73,13 +75,30 @@ public final class ClassTreeModel
     @OnThread(Tag.Any)
     public static final class InheritanceRow
     {
+        /** The scenario's class, or null for a built-in class (see {@link #builtIn}). */
         public final ClassEntry entry;
+        /** The simple name of a built-in class shown as a row (SuperWindow), else null. */
+        public final String builtIn;
         public final int depth;
 
         InheritanceRow(ClassEntry entry, int depth)
         {
             this.entry = entry;
+            this.builtIn = null;
             this.depth = depth;
+        }
+
+        InheritanceRow(String builtIn, int depth)
+        {
+            this.entry = null;
+            this.builtIn = builtIn;
+            this.depth = depth;
+        }
+
+        /** The class's name, whether it is the scenario's or built in. */
+        public String getName()
+        {
+            return entry != null ? entry.getName() : builtIn;
         }
     }
 
@@ -141,6 +160,10 @@ public final class ClassTreeModel
         List<ClassEntry> worldRoots = new ArrayList<>();
         List<ClassEntry> actorRoots = new ArrayList<>();
         List<ClassEntry> otherRoots = new ArrayList<>();
+        // A scenario's own SuperWindow hides the built-in one (Java prefers the package's
+        // class), so then there is no built-in row and that class sits wherever it extends.
+        boolean builtInWindow = !byName.containsKey(SUPER_WINDOW);
+        List<ClassEntry> windowRoots = new ArrayList<>();
         for (ClassEntry entry : classes)
         {
             String sup = entry.getSuperName();
@@ -156,6 +179,10 @@ public final class ClassTreeModel
             {
                 actorRoots.add(entry);
             }
+            else if (builtInWindow && SUPER_WINDOW.equals(sup))
+            {
+                windowRoots.add(entry);
+            }
             else
             {
                 otherRoots.add(entry);
@@ -169,7 +196,26 @@ public final class ClassTreeModel
         Set<String> placed = new HashSet<>();
         List<InheritanceGroup> groups = new ArrayList<>();
         groups.add(new InheritanceGroup("World classes", WORLD, walk(worldRoots, 1, children, placed, byNameOrder)));
-        groups.add(new InheritanceGroup("Actor classes", ACTOR, walk(actorRoots, 1, children, placed, byNameOrder)));
+        List<InheritanceRow> actorRows = walk(actorRoots, 1, children, placed, byNameOrder);
+        if (builtInWindow)
+        {
+            // The built-in SuperWindow, and its subclasses under it, in name order among
+            // Actor's direct subclasses:
+            List<InheritanceRow> window = new ArrayList<>();
+            window.add(new InheritanceRow(SUPER_WINDOW, 1));
+            window.addAll(walk(windowRoots, 2, children, placed, byNameOrder));
+            int at = actorRows.size();
+            for (int i = 0; i < actorRows.size(); i++)
+            {
+                if (actorRows.get(i).depth == 1 && actorRows.get(i).getName().compareTo(SUPER_WINDOW) > 0)
+                {
+                    at = i;
+                    break;
+                }
+            }
+            actorRows.addAll(at, window);
+        }
+        groups.add(new InheritanceGroup("Actor classes", ACTOR, actorRows));
         List<InheritanceRow> other = walk(otherRoots, 0, children, placed, byNameOrder);
         // Classes in a superclass cycle are never reached from a root; list them flat.
         List<ClassEntry> leftover = new ArrayList<>();

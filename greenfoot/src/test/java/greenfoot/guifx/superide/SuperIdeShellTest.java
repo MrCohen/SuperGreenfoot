@@ -94,7 +94,8 @@ public class SuperIdeShellTest extends TestCase
 
         ClassTreeModel.InheritanceGroup actor = groups.get(1);
         assertEquals("Actor", actor.base);
-        assertEquals(List.of("Enemy:1", "Bat:2", "Slime:2", "Player:1"), describe(actor));
+        // The built-in SuperWindow sits in name order among Actor's subclasses.
+        assertEquals(List.of("Enemy:1", "Bat:2", "Slime:2", "Player:1", "(SuperWindow):1"), describe(actor));
 
         ClassTreeModel.InheritanceGroup other = groups.get(2);
         assertNull(other.base);
@@ -109,6 +110,27 @@ public class SuperIdeShellTest extends TestCase
         list.add(new ClassEntry("B", "A", null));
         List<ClassTreeModel.InheritanceGroup> groups = ClassTreeModel.inheritanceGroups(list);
         assertEquals(List.of("A:0", "B:0"), describe(groups.get(2)));
+    }
+
+    public void testSuperWindowInTheActorGroup()
+    {
+        // Subclasses of the built-in SuperWindow sit under its row, one deeper.
+        List<ClassEntry> list = new ArrayList<>(classes());
+        list.add(new ClassEntry("Inventory", "greenfoot.SuperWindow", null));
+        list.add(new ClassEntry("Chest", "Inventory", null));
+        list.add(new ClassEntry("Zombie", "Actor", null));
+        ClassTreeModel.InheritanceGroup actor = ClassTreeModel.inheritanceGroups(list).get(1);
+        assertEquals(List.of("Enemy:1", "Bat:2", "Slime:2", "Player:1", "(SuperWindow):1", "Inventory:2",
+                "Chest:3", "Zombie:1"), describe(actor));
+
+        // A scenario's own SuperWindow (MrCohenLibrary's) replaces the built-in row, and its
+        // subclasses follow it wherever it sits.
+        list = new ArrayList<>(classes());
+        list.add(new ClassEntry("SuperWindow", "Actor", null));
+        list.add(new ClassEntry("Inventory", "SuperWindow", null));
+        actor = ClassTreeModel.inheritanceGroups(list).get(1);
+        assertEquals(List.of("Enemy:1", "Bat:2", "Slime:2", "Player:1", "SuperWindow:1", "Inventory:2"),
+                describe(actor));
     }
 
     public void testFolderGroupsAndUnfiled()
@@ -212,7 +234,7 @@ public class SuperIdeShellTest extends TestCase
         List<String> result = new ArrayList<>();
         for (ClassTreeModel.InheritanceRow row : rows)
         {
-            result.add(row.entry.getName() + ":" + row.depth);
+            result.add((row.builtIn != null ? "(" + row.builtIn + ")" : row.entry.getName()) + ":" + row.depth);
         }
         return result;
     }

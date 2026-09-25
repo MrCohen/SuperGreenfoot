@@ -1793,6 +1793,13 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
             {
                 return ClassKind.ACTOR;
             }
+            // SuperGreenfoot: a window is an Actor, unless the scenario has its own SuperWindow
+            // (then the loop follows that class to whatever it extends):
+            if ("greenfoot.SuperWindow".equals(sup)
+                    || ("SuperWindow".equals(sup) && !classTargets.containsKey("SuperWindow")))
+            {
+                return ClassKind.ACTOR;
+            }
             current = classTargets.containsKey(sup) ? sup : null;
         }
         return ClassKind.OTHER;
@@ -2156,6 +2163,8 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
                 String extendsName = parentName.startsWith("greenfoot.") ? parentName.substring("greenfoot.".length()) : parentName;
                 String template = kind == ClassKind.WORLD
                         ? GreenfootStage.getWorldTemplateFileName("greenfoot.World".equals(parentName), classInfo.sourceType)
+                        : "greenfoot.SuperWindow".equals(parentName)
+                        ? GreenfootStage.getSuperWindowTemplateFileName(classInfo.sourceType)
                         : GreenfootStage.getActorTemplateFileName(classInfo.sourceType);
                 ClassTarget created = controller.createClassFile(project.getUnnamedPackage(), extendsName,
                         classInfo.className, classInfo.sourceType, template);
@@ -2201,6 +2210,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
             return;
         }
         NewClassDialog dialog = new NewClassDialog(this, project.getUnnamedPackage().getDefaultSourceType());
+        dialog.setNameProblem(controller::classNameProblem);
         dialog.showAndWait().ifPresent(result -> {
             ClassTarget created = controller.createClassFile(project.getUnnamedPackage(), superClassName,
                     result.className, result.sourceType, "std" + result.sourceType + ".tmpl");
@@ -2250,6 +2260,7 @@ public class SuperIdeWindow extends SuperStage implements IdeWindow, EditorHostS
         NewClassDialog dialog = new NewClassDialog(this, original.getSourceType());
         dialog.setSuggestedClassName("CopyOf" + originalName);
         dialog.disableLanguageBox(true);
+        dialog.setNameProblem(controller::classNameProblem);
         dialog.showAndWait().ifPresent(info -> {
             ClassTarget copy = controller.duplicateClassFile(original, info.className);
             if (copy != null)

@@ -163,6 +163,11 @@ public class LocalGClassNode extends GClassNode implements TargetListener, Abstr
                 classTarget.open();
             }
         });
+        // SuperGreenfoot: a class named like a built-in one overrides it; say so on the class.
+        if (BuiltInClasses.isReserved(getDisplayName()))
+        {
+            display.setOverrideBadge(BuiltInClasses.makeOverrideBadge(getDisplayName()));
+        }
         // We only want to listen once our display exists:
         classTarget.addListener(this);
         // Make sure we correctly show the initial state:

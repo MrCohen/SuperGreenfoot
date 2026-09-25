@@ -128,6 +128,19 @@ public class ClassDisplay extends StackPane
     }
 
     /**
+     * SuperGreenfoot: show a badge left of the name (see {@link BuiltInClasses}), or
+     * null for none.
+     */
+    public void setOverrideBadge(Node badge)
+    {
+        content.setLeft(badge);
+        if (badge != null)
+        {
+            BorderPane.setAlignment(badge, javafx.geometry.Pos.CENTER_LEFT);
+        }
+    }
+
+    /**
      * SuperGreenfoot: show, right of the name, the summary of a folded class's hidden
      * subclasses (null for none).  See {@link FoldControls}.
      */

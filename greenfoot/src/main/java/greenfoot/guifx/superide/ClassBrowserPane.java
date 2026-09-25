@@ -22,6 +22,7 @@
 package greenfoot.guifx.superide;
 
 import bluej.utility.javafx.JavaFXUtil;
+import greenfoot.guifx.classes.BuiltInClasses;
 import greenfoot.guifx.superide.folders.ClassFolders;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
@@ -337,35 +338,12 @@ public class ClassBrowserPane extends VBox
                 list.getChildren().add(label);
                 if (group.base != null)
                 {
-                    Label base = new Label(group.base);
-                    Label builtIn = new Label("built in");
-                    builtIn.getStyleClass().add("sg-sup");
-                    HBox row = new HBox(Widgets.builtinTile(20), base, builtIn);
-                    row.getStyleClass().addAll("sg-row", "sg-builtin");
-                    String baseName = group.base;
-                    row.setFocusTraversable(true);
-                    row.setAccessibleRole(AccessibleRole.BUTTON);
-                    row.setAccessibleText(baseName + ", built in");
-                    Tooltip.install(row, new Tooltip("Double-click for the " + baseName + " documentation."));
-                    row.setOnContextMenuRequested(e -> onShowBuiltInMenu.showMenu(baseName, row, e.getScreenX(), e.getScreenY()));
-                    row.setOnMouseClicked(e -> {
-                        if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2)
-                        {
-                            onOpenBuiltIn.accept(baseName);
-                        }
-                    });
-                    row.setOnKeyPressed(e -> {
-                        if (e.getCode() == KeyCode.ENTER)
-                        {
-                            onOpenBuiltIn.accept(baseName);
-                            e.consume();
-                        }
-                    });
-                    list.getChildren().add(row);
+                    list.getChildren().add(builtInRow(group.base, 0));
                 }
                 for (ClassTreeModel.InheritanceRow row : group.rows)
                 {
-                    list.getChildren().add(classRow(row.entry, row.depth, false));
+                    list.getChildren().add(row.builtIn != null ? builtInRow(row.builtIn, row.depth)
+                            : classRow(row.entry, row.depth, false));
                 }
             }
         }
@@ -525,11 +503,53 @@ public class ClassBrowserPane extends VBox
         }
     }
 
+    /**
+     * A built-in class (World, Actor, or SuperWindow inside the Actor group): double-click
+     * or Enter for its documentation, right-click for its menu.
+     */
+    private Node builtInRow(String baseName, int depth)
+    {
+        Label base = new Label(baseName);
+        Label builtIn = new Label("built in");
+        builtIn.getStyleClass().add("sg-sup");
+        HBox row = new HBox(Widgets.builtinTile(20), base, builtIn);
+        row.getStyleClass().addAll("sg-row", "sg-builtin");
+        if (depth > 0)
+        {
+            // Inline, because the stylesheet's padding would override setPadding():
+            row.setStyle("-fx-padding: 0 8 0 " + (8 + depth * 18) + ";");
+        }
+        row.setFocusTraversable(true);
+        row.setAccessibleRole(AccessibleRole.BUTTON);
+        row.setAccessibleText(baseName + ", built in");
+        Tooltip.install(row, new Tooltip("Double-click for the " + baseName + " documentation."));
+        row.setOnContextMenuRequested(e -> onShowBuiltInMenu.showMenu(baseName, row, e.getScreenX(), e.getScreenY()));
+        row.setOnMouseClicked(e -> {
+            if (e.getButton() == MouseButton.PRIMARY && e.getClickCount() == 2)
+            {
+                onOpenBuiltIn.accept(baseName);
+            }
+        });
+        row.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER)
+            {
+                onOpenBuiltIn.accept(baseName);
+                e.consume();
+            }
+        });
+        return row;
+    }
+
     private Node classRow(ClassEntry entry, int depth, boolean showSuper)
     {
         String name = entry.getName();
         Label label = new Label(name);
         HBox row = new HBox(Widgets.tile(entry, 20), label);
+        if (BuiltInClasses.isReserved(name))
+        {
+            // The scenario's class overrides a built-in one of the same name; say so:
+            row.getChildren().add(BuiltInClasses.makeOverrideBadge(name));
+        }
         if (showSuper && entry.getSuperName() != null)
         {
             Label sup = new Label(entry.getSuperName());

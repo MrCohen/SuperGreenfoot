@@ -1550,6 +1550,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         NewClassDialog dialog = new NewClassDialog(this, sourceType);
         dialog.setSuggestedClassName("CopyOf" + originalClassName);
         dialog.disableLanguageBox(true);
+        dialog.setNameProblem(controller::classNameProblem);
 
         dialog.showAndWait().ifPresent(newClassInfo ->
         {
@@ -1644,6 +1645,7 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
     public void newNonImageClass(Package pkg, String superClassName)
     {
         NewClassDialog dlg = new NewClassDialog(this, project.getUnnamedPackage().getDefaultSourceType());
+        dlg.setNameProblem(controller::classNameProblem);
         dlg.showAndWait().ifPresent(result -> {
             createNewClass(pkg, superClassName, result.className, result.sourceType,
                     getNormalTemplateFileName(result.sourceType));
@@ -1676,6 +1678,14 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
     public static String getActorTemplateFileName(SourceType language)
     {
         return "actor" + language + ".tmpl";
+    }
+
+    /**
+     * SuperGreenfoot: the template for a direct subclass of greenfoot.SuperWindow.
+     */
+    public static String getSuperWindowTemplateFileName(SourceType language)
+    {
+        return "superwindow" + language + ".tmpl";
     }
 
     public static String getWorldTemplateFileName(boolean makeDirectSubclassOfWorld, SourceType language)
@@ -1750,7 +1760,9 @@ public class GreenfootStage extends Stage implements ControlPanelListener, IdeWi
         }
         else if (classType == GClassType.ACTOR)
         {
-            return getActorTemplateFileName(sourceType);
+            // SuperGreenfoot: a window has no no-argument constructor to inherit.
+            return "greenfoot.SuperWindow".equals(parentName) ? getSuperWindowTemplateFileName(sourceType)
+                    : getActorTemplateFileName(sourceType);
         }
         throw new IllegalArgumentException("This method should be called only on World or Actor classes.");
     }

@@ -24,6 +24,7 @@ package greenfoot.guifx;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Function;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.ButtonType;
@@ -88,6 +89,9 @@ public class NewClassDialog extends Dialog<NewClassDialog.NewClassInfo>
         }
     }
 
+
+    // SuperGreenfoot: what is wrong with a (valid identifier) name in this project, or null:
+    private Function<String, String> nameProblem = name -> null;
 
     /**
      * Construct a NewClassDialog.
@@ -176,6 +180,11 @@ public class NewClassDialog extends Dialog<NewClassDialog.NewClassInfo>
             if (fieldHasHadContent || force)
                 showError(Config.getString("pkgmgr.newClass.error.windowsRestricted"), true);
         }
+        else if (nameProblem.apply(newClassName) != null)
+        {
+            // Always shown: the name is complete, and OK would overwrite or shadow a class.
+            showError(nameProblem.apply(newClassName), true);
+        }
         else
         {
             hideError();
@@ -183,6 +192,17 @@ public class NewClassDialog extends Dialog<NewClassDialog.NewClassInfo>
         }
 
         setOKEnabled(enable);
+    }
+
+    /**
+     * SuperGreenfoot: check names against the project as well: the function returns
+     * why a name cannot be used (a class that exists, a built-in class's name), or
+     * null if it can.  Upstream checked neither, so OK wrote over an existing class.
+     */
+    public void setNameProblem(Function<String, String> nameProblem)
+    {
+        this.nameProblem = nameProblem;
+        updateOKButton(false);
     }
 
     private void hideError()
