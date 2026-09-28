@@ -56,6 +56,25 @@ The owner's shortcut for all of this is the `./dev` script in the repo root
 (`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`); keep it
 working when build steps change.
 
+On Windows, use `gradlew.bat` from a Windows shell (PowerShell or `cmd`), with
+a JDK 21 that has `jmods` and `jpackage` (Temurin "full"):
+
+```bat
+set JAVA_HOME=C:\Users\<you>\AppData\Local\Programs\Java\jdk-21.0.12.1+1
+gradlew.bat :greenfoot:test
+gradlew.bat runGreenfoot
+gradlew.bat :greenfoot:packageSuperGreenfootWindows   :: unsigned MSI
+```
+
+Build through Windows even when your shell is WSL — a Linux JDK would pull in
+Linux JavaFX natives. `installer\windows\build-msi.ps1` is the Windows
+equivalent of `installer/mac/build-dmg.sh`, and `dev.ps1` is the Windows
+equivalent of `./dev`. Building an MSI needs WiX 3.14 (JDK 21's jpackage
+cannot use WiX 4 or 5); without it the script still produces an app folder.
+The IDE's preferences live in `%USERPROFILE%\supergreenfoot` on Windows (from
+`Config.getBlueJPrefDirName`), not in `%APPDATA%`; pass `-bluej.userHome=<dir>`
+to test against a scratch copy.
+
 Gradle 8.5 wrapper, JDK 21, JavaFX 21.0.12 via the openjfx plugin. The
 thread-checker annotation processor (`@OnThread`) runs during compile and
 fails the build on thread-tag violations.

@@ -324,6 +324,21 @@ task packageSuperGreenfootMac(type: Exec) {
 packageSuperGreenfootMac.dependsOn assemble, userJavadoc
 packageGreenfootMacAarch.dependsOn assemble, userJavadoc
 
+// SuperGreenfoot Windows installer: gradlew.bat :greenfoot:packageSuperGreenfootWindows [-PappFolder]
+// Unsigned (see docs/signing.md). An MSI needs WiX 3 on the machine; without
+// it the script builds an app folder instead.
+task packageSuperGreenfootWindows(type: Exec) {
+    group = 'distribution'
+    description = 'Build the SuperGreenfoot Windows installer (MSI, or an app folder without WiX) with jpackage.'
+    workingDir rootDir
+    environment JAVA_HOME: System.getProperty('java.home')
+    def args = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                '-File', 'installer\\windows\\build-msi.ps1', '-NoBuild']
+    if (project.hasProperty('appFolder')) { args += ['-AppFolder'] }
+    commandLine args
+}
+packageSuperGreenfootWindows.dependsOn assemble, userJavadoc
+
 task packageGreenfootWindows(type: Exec) {
     workingDir "../bluej/package"
     commandLine toolProps["ant_exe"], "-buildfile", "greenfoot-build.xml", "windows-msi-bundled-dist", "windows-standalone",

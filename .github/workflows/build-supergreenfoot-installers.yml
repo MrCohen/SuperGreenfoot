@@ -1,0 +1,43 @@
+# SuperGreenfoot's own installers, built with jpackage.
+#
+# Upstream's "Build Installers" workflow (ant + MinGW + WiX, upstream
+# branding) is left alone and unused.
+#
+# The Windows MSI is unsigned: Windows SmartScreen warns on first run until a
+# code-signing certificate exists. The macOS DMG is built and signed on the
+# owner's Mac, because it needs the Developer ID in the local keychain.
+name: Build SuperGreenfoot installers
+on:
+  workflow_dispatch:
+jobs:
+  Windows-MSI:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Load .env file
+        uses: xom9ikk/dotenv@v2.3.0
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.java_version }}
+          # jpackage needs jmods, which the "jdk" package does not include.
+          java-package: jdk+fx
+          architecture: x64
+      - name: Install WiX 3
+        # JDK 21's jpackage drives WiX 3 only; WiX 4/5 support arrived in JDK 24.
+        run: choco install wixtoolset --version=3.14.1 -r --no-progress
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Build the installer
+        run: .\gradlew.bat :greenfoot:packageSuperGreenfootWindows --stacktrace --no-daemon
+      - name: Show the build stamp
+        run: Get-Content build\installer-windows\input\supergreenfoot-build.txt
+      - name: Archive the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: supergreenfoot-installer-windows
+          path: build/installer-windows/SuperGreenfoot-*.msi
