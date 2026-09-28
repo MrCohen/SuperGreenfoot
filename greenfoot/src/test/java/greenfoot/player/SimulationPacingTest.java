@@ -71,8 +71,28 @@ public class SimulationPacingTest extends TestCase
         Class.forName("greenfoot.Actor", true, getClass().getClassLoader());
     }
 
+    /**
+     * How fine the OS timer is for this process: the median of fifty
+     * {@code Thread.sleep(1)} calls, in milliseconds. About 1 ms on macOS, Linux and
+     * a Windows desktop; about 16 ms when Windows hands the process its coarse
+     * 15.6 ms tick.
+     */
+    static double sleepGranularityMs() throws InterruptedException
+    {
+        long[] d = new long[50];
+        for (int i = 0; i < d.length; i++) {
+            long t = System.nanoTime();
+            Thread.sleep(1);
+            d[i] = System.nanoTime() - t;
+        }
+        Arrays.sort(d);
+        return d[d.length / 2] / 1e6;
+    }
+
     public void testSpeed50IsSixtyActsPerSecond() throws Exception
     {
+        // Measured before the session starts, so it cannot disturb the pacing.
+        double granularity = sleepGranularityMs();
         SoundMixer.installForTesting(false);
         File saveDir = Files.createTempDirectory("sgf-pacing").toFile();
         Properties props = new Properties();
@@ -116,11 +136,30 @@ public class SimulationPacingTest extends TestCase
         System.out.println("SimulationPacingTest: " + report);
 
         session.shutdown();
+        System.out.printf("SimulationPacingTest: Thread.sleep(1) median %.2f ms%n", granularity);
+
+        // The rate is exact by construction: acts are scheduled against absolute
+        // deadlines, so a late wake-up is made up by the next act.
+        assertTrue(report, rate > 55.0 && rate < 65.0);
+
         // The median interval is the pacing itself (16.667 ms); a busy machine can
         // stall a few acts, which moves the overall rate but hardly the median. The
         // old pacing gave about 18.8 ms, and speed 51 gives about 14.7 ms.
+        //
+        // That only holds when the OS timer is fine. Under Windows' coarse 15.6 ms
+        // tick every gap is quantised to the tick (median about 16.0 ms, p99 about
+        // 31 ms), which says nothing about the pacer. Seen 2026-09-28 in about one
+        // run in three for Gradle's test worker on a Windows 11 laptop, which
+        // power-throttles windowless background processes and then ignores their
+        // timer-resolution requests; the same test under plain java gave a
+        // 16.667 ms median every time, as did the IDE and the exported player.
+        // Widening the window instead would let upstream's original 16.24 ms bug
+        // through, so the check is skipped only when the timer is coarse.
+        if (granularity >= 10.0) {
+            System.out.println("SimulationPacingTest: coarse OS timer, median check skipped: " + report);
+            return;
+        }
         double median = gaps.length > 0 ? gaps[gaps.length / 2] / 1e6 : 0;
         assertTrue(report, median > 16.2 && median < 17.2);
-        assertTrue(report, rate > 55.0 && rate < 65.0);
     }
 }

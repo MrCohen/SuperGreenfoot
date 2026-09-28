@@ -64,6 +64,20 @@ public class HDTimer
      * Sleep until {@code System.nanoTime()} reaches the given deadline. Returns
      * at once if the deadline has already passed.
      *
+     * <p>Keep this on {@code Thread.sleep}. Measured on Windows 11 with JDK 21
+     * (2026-09-28, a Surface Pro 7): with this method the act interval at speed 50
+     * has a median of exactly 16.667 ms in the IDE, in the exported player and in
+     * a plain JVM, with a p99 under 20 ms and 1-5% of a core. Two things that look
+     * like improvements make it worse there:
+     * <ul>
+     * <li>{@code LockSupport.parkNanos} wakes on the 15.6 ms system tick, giving a
+     *     16.0 ms median and a 30 ms p99;</li>
+     * <li>{@code -XX:+ForceTimeHighResolution} turns {@code Thread.sleep(1)} from
+     *     1.3 ms into 16 ms, with the same result.</li>
+     * </ul>
+     * Sleeping in 1 ms steps and spinning the last 2 ms brings the p99 to 16.8 ms
+     * but costs 10-15% of a core, too much for a student laptop.
+     *
      * @param deadline  The time to wake up, in {@code System.nanoTime()} terms.
      * @throws InterruptedException
      *             if another thread has interrupted the current thread

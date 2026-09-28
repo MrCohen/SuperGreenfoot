@@ -75,6 +75,12 @@ The IDE's preferences live in `%USERPROFILE%\supergreenfoot` on Windows (from
 `Config.getBlueJPrefDirName`), not in `%APPDATA%`; pass `-bluej.userHome=<dir>`
 to test against a scratch copy.
 
+Windows timers: act pacing (`HDTimer`) must stay on `Thread.sleep`. Measured on
+Windows 11 with JDK 21, `LockSupport.parkNanos` and `-XX:+ForceTimeHighResolution`
+both drop the pacer onto the 15.6 ms system tick (see the comment in `HDTimer`).
+Gradle's test worker sometimes gets that coarse tick too, which is why
+`SimulationPacingTest` measures the timer before judging the median.
+
 Gradle 8.5 wrapper, JDK 21, JavaFX 21.0.12 via the openjfx plugin. The
 thread-checker annotation processor (`@OnThread`) runs during compile and
 fails the build on thread-tag violations.
