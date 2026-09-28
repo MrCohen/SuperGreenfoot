@@ -115,9 +115,19 @@ task copyToLib(type: Copy) {
 copyToLib.dependsOn ':bluej:blueJCoreJar'
 copyToLib.dependsOn jar
 
+// SuperGreenfoot: the @OnThread annotations we compile into the engine are kept in
+// the class files (RetentionPolicy.CLASS), so javac warns "unknown enum constant
+// threadchecker.Tag.Any" for every scenario class that extends Actor or World unless
+// threadchecker.Tag is on the classpath. The new IDE lists warnings in its Problems
+// panel, where that filled the list. Ship the three tiny annotation classes.
+def threadcheckerAnnotations = {
+    zipTree(project(':anns-threadchecker').tasks.jar.archiveFile.get().asFile)
+}
+
 task greenfootJar(type: Jar) {
     archiveFileName = "greenfoot.jar"
     from "build/classes/java/main"
+    from(threadcheckerAnnotations) { exclude "META-INF/**" }
     from('resources/images') {
         include "readme.png",
                 // Empty image - just to force same layout of compile and readme button
@@ -139,6 +149,7 @@ task greenfootJar(type: Jar) {
     destinationDirectory = new File(sourceSets.main.output.resourcesDir, 'lib')
 }
 greenfootJar.dependsOn compileJava
+greenfootJar.dependsOn ':anns-threadchecker:jar'
 
 // SuperGreenfoot: the standalone runtime bundled into exported application jars.
 // Engine + Swing player + BlueJ support classes + MP3 decoder; no JavaFX. IDE-only
@@ -165,12 +176,14 @@ task superGreenfootRuntimeJar(type: Jar) {
     from(configurations.runtimeClasspath.filter { it.name.startsWith('jlayer') }.collect { zipTree(it) }) {
         exclude "META-INF/**"
     }
+    from(threadcheckerAnnotations) { exclude "META-INF/**" }
     manifest {
         attributes 'Main-Class': 'greenfoot.player.PlayerMain',
                    'SuperGreenfoot-Runtime': greenfootVersion
     }
 }
 superGreenfootRuntimeJar.dependsOn compileJava
+superGreenfootRuntimeJar.dependsOn ':anns-threadchecker:jar'
 superGreenfootRuntimeJar.dependsOn ':bluej:jar'
 jar.dependsOn superGreenfootRuntimeJar
 assemble.dependsOn superGreenfootRuntimeJar

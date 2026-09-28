@@ -164,6 +164,21 @@
 .sg-theme .flow-caret { -fx-stroke: -sg-accent; }
 .sg-theme .moe-step-mark-icon { -fx-stroke: -sg-code-bg; }
 
+/*
+ * The error message that pops up over an underlined error, and the error/fix
+ * tooltip. Both boxes are dark in either theme, but their text is made of
+ * Labels, which otherwise take the theme's ordinary text colour - black in the
+ * light theme, leaving the message unreadable on its own background. Upstream's
+ * popup.css only colours Text nodes (-fx-fill), not Labels.
+ */
+.sg-theme .java-error-popup .label,
+.sg-theme .java-error-popup .text,
+.sg-theme .error-fix-display .label,
+.sg-theme .suggested-followup-pane .label {
+    -fx-text-fill: #FFFFFF;
+    -fx-fill: #FFFFFF;
+}
+
 /* The tab strip above the editors */
 .sg-theme .tabbed-editor > .tab-header-area > .tab-header-background {
     -fx-background-color: -sg-panel2;
