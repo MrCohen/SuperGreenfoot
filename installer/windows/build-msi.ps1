@@ -101,11 +101,13 @@ if (-not $NoBuild) {
 if (-not (Test-Path (Join-Path $Lib 'boot.jar'))) {
     Die "run gradlew.bat :greenfoot:assemble first ($Lib\boot.jar missing)"
 }
-$jarTime = (Get-Item (Join-Path $Lib 'greenfoot.jar')).LastWriteTimeUtc
+# Compare against the newest shipped jar: a change in bluej/ alone rebuilds
+# bluej.jar but leaves greenfoot.jar as it was, which is not stale.
+$newestJar = Get-ChildItem (Join-Path $Lib '*.jar') | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
 $newer = Get-ChildItem -Recurse -File -ErrorAction SilentlyContinue `
             (Join-Path $Root 'greenfoot\src\main'), (Join-Path $Root 'bluej\src\main') |
-         Where-Object { $_.LastWriteTimeUtc -gt $jarTime } | Select-Object -First 1
-if ($newer) { Die "Source newer than $Lib\greenfoot.jar (e.g. $($newer.FullName)); rebuild first" }
+         Where-Object { $_.LastWriteTimeUtc -gt $newestJar.LastWriteTimeUtc } | Select-Object -First 1
+if ($newer) { Die "Source newer than $($newestJar.Name) (e.g. $($newer.FullName)); rebuild first" }
 
 $gitRev = (& git.exe -C $Root rev-parse --short HEAD 2>$null)
 if (-not $gitRev) { $gitRev = 'unknown' }
