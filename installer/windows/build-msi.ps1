@@ -145,7 +145,9 @@ foreach ($f in 'LICENSE.txt', 'THIRDPARTYLICENSE.txt', 'GREENFOOT_LICENSES.txt')
 $readme = Join-Path $Root 'greenfoot\doc\Greenfoot-README.txt'
 if (Test-Path $readme) { Copy-Item -Force $readme (Join-Path $input_ 'README.TXT') }
 $stamp = "SuperGreenfoot $Version built $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mmZ')) from $gitRev"
-Set-Content -Path (Join-Path $input_ 'supergreenfoot-build.txt') -Value $stamp -Encoding UTF8
+# WriteAllText, not Set-Content -Encoding UTF8: Windows PowerShell's UTF8 writes a
+# byte-order mark, which shows up as stray characters when the stamp is read back.
+[System.IO.File]::WriteAllText((Join-Path $input_ 'supergreenfoot-build.txt'), $stamp + "`r`n")
 
 # ---- 2. runtime ----
 $Runtime = Join-Path $Out 'work\runtime'
