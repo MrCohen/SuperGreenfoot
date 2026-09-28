@@ -1,0 +1,25 @@
+# Line endings.
+#
+# Git for Windows sets core.autocrlf=true system-wide, so on a Windows
+# checkout every text file arrives with CRLF. Two things follow:
+#
+#  * "text=auto" stores LF in the repository whatever the working tree holds,
+#    so a file edited on Windows comes back as a normal small diff instead of
+#    a whole-file rewrite. (Do not run "git add --renormalize ." to enforce
+#    this on the rest of the tree: a few upstream files are stored with CRLF
+#    and converting them would produce a huge diff against upstream for no
+#    gain. Leave them until something actually edits them.)
+#
+#  * The shell scripts must check out with LF or they will not run under Git
+#    Bash, WSL, macOS or Linux, so they are pinned; the Windows scripts are
+#    pinned the other way.
+
+* text=auto
+
+gradlew text eol=lf
+dev      text eol=lf
+*.sh     text eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

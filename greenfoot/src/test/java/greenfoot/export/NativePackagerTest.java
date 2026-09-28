@@ -44,8 +44,9 @@ public class NativePackagerTest extends TestCase
     public void testAppImageCommand()
     {
         NativePackager.Options o = options();
-        List<String> cmd = NativePackager.buildJpackageCommand(new File("/jdk/bin/jpackage"), o, new File("/tmp/in"));
-        assertEquals("/jdk/bin/jpackage", cmd.get(0));
+        File jpackage = new File("/jdk/bin/jpackage");
+        List<String> cmd = NativePackager.buildJpackageCommand(jpackage, o, new File("/tmp/in"));
+        assertEquals(jpackage.getAbsolutePath(), cmd.get(0));
         assertTrue(cmd.contains("--type"));
         assertEquals("app-image", cmd.get(cmd.indexOf("--type") + 1));
         assertEquals("My Game.jar", cmd.get(cmd.indexOf("--main-jar") + 1));
