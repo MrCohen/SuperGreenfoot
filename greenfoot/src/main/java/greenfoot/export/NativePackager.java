@@ -190,6 +190,49 @@ public final class NativePackager
     }
 
     /**
+     * Windows: whether WiX 3 (candle.exe and light.exe) can be found, which is what
+     * jpackage needs to build an MSI. Most students will not have it, so the export
+     * dialog offers the MSI format only when this is true; without it jpackage fails
+     * and we fall back to an app folder.
+     *
+     * Looked for on PATH, in %WIX%\bin, and in the usual install folders.
+     */
+    public static boolean hasWixToolset()
+    {
+        if (!isWindows()) {
+            return false;
+        }
+        List<File> dirs = new ArrayList<>();
+        String path = System.getenv("PATH");
+        if (path != null) {
+            for (String entry : path.split(File.pathSeparator)) {
+                if (!entry.isEmpty()) {
+                    dirs.add(new File(entry));
+                }
+            }
+        }
+        String wix = System.getenv("WIX");
+        if (wix != null && !wix.isEmpty()) {
+            dirs.add(new File(wix, "bin"));
+        }
+        String localAppData = System.getenv("LOCALAPPDATA");
+        if (localAppData != null && !localAppData.isEmpty()) {
+            dirs.add(new File(localAppData, "Programs\\WiX314"));
+        }
+        String programFiles86 = System.getenv("ProgramFiles(x86)");
+        if (programFiles86 != null && !programFiles86.isEmpty()) {
+            dirs.add(new File(programFiles86, "WiX Toolset v3.14\\bin"));
+            dirs.add(new File(programFiles86, "WiX Toolset v3.11\\bin"));
+        }
+        for (File dir : dirs) {
+            if (new File(dir, "candle.exe").isFile() && new File(dir, "light.exe").isFile()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * macOS: names of the installed "Developer ID Application" signing identities
      * (the part after the colon, e.g. "Jane Doe (ABCDE12345)"), from the keychain.
      * Empty on other platforms or when none are installed.
@@ -230,6 +273,17 @@ public final class NativePackager
      */
     public static List<String> buildJpackageCommand(File jpackage, Options o, File inputDir)
     {
+        return buildJpackageCommand(jpackage, o, inputDir, o.destDir);
+    }
+
+    /**
+     * As above, but building into <code>dest</code>. An app image on Windows and
+     * Linux is built in a staging folder and moved into place afterwards, because
+     * jpackage names the folder after the application and that name can be the
+     * scenario's own folder.
+     */
+    public static List<String> buildJpackageCommand(File jpackage, Options o, File inputDir, File dest)
+    {
         List<String> cmd = new ArrayList<String>();
         cmd.add(jpackage.getAbsolutePath());
         cmd.add("--type");
@@ -255,7 +309,7 @@ public final class NativePackager
             cmd.add(o.description);
         }
         cmd.add("--dest");
-        cmd.add(o.destDir.getAbsolutePath());
+        cmd.add(dest.getAbsolutePath());
         if (o.runtimeImage != null && o.runtimeImage.isDirectory()) {
             // Reuse a ready-made (signed) runtime: no jlink, no jmods needed.
             cmd.add("--runtime-image");
@@ -334,7 +388,8 @@ public final class NativePackager
                 return new Result(false, null, blocked);
             }
             listener.progress("Building native app with jpackage...");
-            List<String> cmd = buildJpackageCommand(jpackage, o, inputDir);
+            File staging = stagingDirFor(o);
+            List<String> cmd = buildJpackageCommand(jpackage, o, inputDir, staging == null ? o.destDir : staging);
             int rc = exec(cmd, listener);
             if (rc != 0 && o.kind == Kind.MSI) {
                 listener.progress("Installer build failed (WiX missing?); building an app folder instead...");
@@ -344,12 +399,23 @@ public final class NativePackager
                     deleteQuietly(inputDir);
                     return new Result(false, null, blocked);
                 }
-                cmd = buildJpackageCommand(jpackage, o, inputDir);
+                staging = stagingDirFor(o);
+                cmd = buildJpackageCommand(jpackage, o, inputDir, staging == null ? o.destDir : staging);
                 rc = exec(cmd, listener);
             }
             deleteQuietly(inputDir);
             if (rc != 0) {
+                if (staging != null) {
+                    deleteQuietly(staging);
+                }
                 return new Result(false, null, "jpackage failed (exit " + rc + "); see the log above.");
+            }
+            if (staging != null) {
+                String moveProblem = moveAppImageIntoPlace(o, staging, listener);
+                deleteQuietly(staging);
+                if (moveProblem != null) {
+                    return new Result(false, null, moveProblem);
+                }
             }
             File artifact = locateArtifact(o);
             if (artifact == null) {
@@ -426,7 +492,10 @@ public final class NativePackager
      */
     static File appImageFor(Options o)
     {
-        return new File(o.destDir, isMac() ? o.appName + ".app" : o.appName);
+        // On Windows and Linux the app image is a plain folder. Naming it after the
+        // scenario would be the scenario's own folder when exporting to its parent
+        // (the default), so it gets a distinct " app" folder instead.
+        return new File(o.destDir, isMac() ? o.appName + ".app" : o.appName + " app");
     }
 
     /**
@@ -441,6 +510,15 @@ public final class NativePackager
         if (!previous.exists()) {
             return null;
         }
+        // Only ever delete something we built ourselves. On Windows and Linux the
+        // app image is a plain folder named after the scenario, which is exactly
+        // the name of the scenario's own folder when exporting to its parent
+        // directory (the default), so deleting blindly would destroy the source.
+        if (!looksLikeAppImage(previous)) {
+            return previous + " already exists and is not a previously exported app"
+                    + " (an exported app holds 'app' and 'runtime' folders)."
+                    + " Choose another folder to export to, or rename it, and export again.";
+        }
         listener.progress("Replacing the previous " + previous.getName() + "...");
         deleteQuietly(previous);
         if (previous.exists()) {
@@ -449,8 +527,90 @@ public final class NativePackager
         return null;
     }
 
+    /**
+     * Where jpackage should build an app image, when it cannot build straight into
+     * the destination: null means "build in place". Windows and Linux app images
+     * are staged, because jpackage always names the folder after the application
+     * and we want it in a "<name> app" folder instead.
+     */
+    private static File stagingDirFor(Options o) throws IOException
+    {
+        if (o.kind != Kind.APP_IMAGE || isMac()) {
+            return null;
+        }
+        return Files.createTempDirectory("sgf-appimage").toFile();
+    }
+
+    /**
+     * Move the app image jpackage built in the staging folder to its final
+     * "<name> app" folder. Returns a message on failure, or null.
+     */
+    private static String moveAppImageIntoPlace(Options o, File staging, Listener listener)
+    {
+        File built = new File(staging, o.appName);
+        if (!built.isDirectory()) {
+            return "jpackage finished but " + built + " was not found.";
+        }
+        File target = appImageFor(o);
+        listener.progress("Moving the app to " + target.getName() + "...");
+        try {
+            Files.move(built.toPath(), target.toPath());
+            return null;
+        }
+        catch (IOException e) {
+            // A different volume, or something holding a file open: fall back to copying.
+            try {
+                copyTree(built, target);
+                return null;
+            }
+            catch (IOException e2) {
+                return "Could not put the app in " + target + ": " + e2.getMessage();
+            }
+        }
+    }
+
+    private static void copyTree(File from, File to) throws IOException
+    {
+        if (from.isDirectory()) {
+            if (!to.isDirectory() && !to.mkdirs()) {
+                throw new IOException("cannot create " + to);
+            }
+            File[] kids = from.listFiles();
+            if (kids != null) {
+                for (File k : kids) {
+                    copyTree(k, new File(to, k.getName()));
+                }
+            }
+        }
+        else {
+            Files.copy(from.toPath(), to.toPath());
+            if (from.canExecute()) {
+                to.setExecutable(true);
+            }
+        }
+    }
+
+    /**
+     * Whether this is a folder jpackage produced: a macOS .app bundle, or the
+     * app/runtime pair that an app image holds on Windows and Linux.
+     */
+    static boolean looksLikeAppImage(File dir)
+    {
+        if (!dir.isDirectory()) {
+            return false;
+        }
+        if (isMac() && dir.getName().endsWith(".app")) {
+            return new File(dir, "Contents").isDirectory();
+        }
+        return new File(dir, "app").isDirectory() && new File(dir, "runtime").isDirectory();
+    }
+
     private static File locateArtifact(Options o)
     {
+        if (o.kind == Kind.APP_IMAGE) {
+            File app = appImageFor(o);
+            return app.isDirectory() ? app : null;
+        }
         File[] candidates = o.destDir.listFiles();
         if (candidates == null) {
             return null;

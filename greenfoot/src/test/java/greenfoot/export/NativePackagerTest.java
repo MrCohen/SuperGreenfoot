@@ -109,23 +109,67 @@ public class NativePackagerTest extends TestCase
         assertEquals(jar, Exporter.findRuntimeJar(null, a, b));
     }
 
+    private static final NativePackager.Listener QUIET = new NativePackager.Listener() {
+        public void progress(String m) { }
+        public void output(String l) { }
+    };
+
+    /** Build the folder layout jpackage produces, so it may be replaced. */
+    private static void makeAppImage(File dir) throws Exception
+    {
+        if (NativePackager.isMac()) {
+            assertTrue(new File(dir, "Contents").mkdirs());
+        }
+        else {
+            assertTrue(new File(dir, "app").mkdirs());
+            assertTrue(new File(dir, "runtime").mkdirs());
+        }
+        assertTrue(new File(dir, "old.txt").createNewFile());
+    }
+
     public void testClearPreviousAppImageRemovesEarlierExport() throws Exception
     {
         NativePackager.Options o = options();
         o.destDir = java.nio.file.Files.createTempDirectory("sgf-dest").toFile();
-        NativePackager.Listener quiet = new NativePackager.Listener() {
-            public void progress(String m) { }
-            public void output(String l) { }
-        };
-        assertNull(NativePackager.clearPreviousAppImage(o, quiet));   // nothing there yet
+        assertNull(NativePackager.clearPreviousAppImage(o, QUIET));   // nothing there yet
         File previous = NativePackager.appImageFor(o);
         assertEquals(o.destDir, previous.getParentFile());
         assertTrue(previous.getName().startsWith("My Game"));
-        File inside = new File(new File(previous, "Contents"), "old.txt");
-        assertTrue(inside.getParentFile().mkdirs());
-        assertTrue(inside.createNewFile());
-        assertNull(NativePackager.clearPreviousAppImage(o, quiet));
+        makeAppImage(previous);
+        assertNull(NativePackager.clearPreviousAppImage(o, QUIET));
         assertFalse(previous.exists());
+    }
+
+    /**
+     * The export must never delete a folder it did not build. On Windows and Linux
+     * the app image is a plain folder, and the destination defaults to the folder
+     * holding the scenario, so a careless delete would take the source with it.
+     */
+    public void testClearPreviousAppImageRefusesAFolderItDidNotBuild() throws Exception
+    {
+        NativePackager.Options o = options();
+        o.destDir = java.nio.file.Files.createTempDirectory("sgf-dest").toFile();
+        File notOurs = NativePackager.appImageFor(o);
+        assertTrue(notOurs.mkdirs());
+        File source = new File(notOurs, "MyWorld.java");
+        assertTrue(source.createNewFile());
+
+        String problem = NativePackager.clearPreviousAppImage(o, QUIET);
+        assertNotNull(problem);
+        assertTrue(notOurs.isDirectory());
+        assertTrue(source.isFile());
+    }
+
+    /** Off macOS the app image is a "<name> app" folder, never the scenario's own. */
+    public void testAppImageFolderCannotBeTheScenarioFolder()
+    {
+        NativePackager.Options o = options();
+        o.destDir = new File("/tmp/scenarios");
+        File scenarioFolder = new File(o.destDir, o.appName);
+        assertFalse(scenarioFolder.equals(NativePackager.appImageFor(o)));
+        if (!NativePackager.isMac()) {
+            assertEquals("My Game app", NativePackager.appImageFor(o).getName());
+        }
     }
 
     public void testFindJpackageReturnsFileOrNull()

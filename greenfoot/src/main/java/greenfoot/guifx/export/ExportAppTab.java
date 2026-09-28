@@ -99,7 +99,12 @@ public class ExportAppTab extends ExportLocalTab
             nativeKind.getItems().addAll("APP_IMAGE", "DMG");
         }
         else if (NativePackager.isWindows()) {
-            nativeKind.getItems().addAll("APP_IMAGE", "MSI");
+            // An MSI needs WiX 3 installed, which most people will not have; offering
+            // it anyway would only fail and fall back to the app folder.
+            nativeKind.getItems().add("APP_IMAGE");
+            if (NativePackager.hasWixToolset()) {
+                nativeKind.getItems().add("MSI");
+            }
         }
         else {
             nativeKind.getItems().addAll("APP_IMAGE");
