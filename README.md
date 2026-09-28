@@ -6,6 +6,7 @@
   <a href="https://github.com/MrCohen/SuperGreenfoot/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/MrCohen/SuperGreenfoot?label=download&color=7ac143"></a>
   <a href="https://github.com/MrCohen/SuperGreenfoot/actions/workflows/build-and-run-tests.yml"><img alt="Build and tests" src="https://github.com/MrCohen/SuperGreenfoot/actions/workflows/build-and-run-tests.yml/badge.svg?branch=super/main"></a>
   <a href="LICENSE.txt"><img alt="License: GPL v2 with Classpath Exception" src="https://img.shields.io/badge/license-GPLv2%20%2B%20Classpath%20Exception-blue"></a>
+  <a href="#status-early-testing"><img alt="Status: early testing, not yet stable" src="https://img.shields.io/badge/status-early%20testing%2C%20not%20yet%20stable-orange"></a>
 </p>
 
 # Super Greenfoot
@@ -23,6 +24,26 @@ want them.
 Made by Jordan Cohen, a high school computer science teacher, for classroom
 use and for anyone else who finds it helpful. It is a remix of Greenfoot 3.9.0
 and is not an official Greenfoot release.
+
+## Status: early testing
+
+**Super Greenfoot is not yet a stable, finished product.** It is in active
+development and classroom testing, which is why its releases are numbered
+0.x. Expect rough edges, changes between versions, and bugs, some of them
+serious. Before you try it:
+
+- **Version 0.2.0 on Windows or Linux: do not use Share > Application with
+  "Also build a native app".** It can delete the scenario's own folder. This
+  is fixed in the source on `super/main` and ships in 0.2.1; macOS is not
+  affected.
+- Keep backups of your scenarios, and keep the original Greenfoot installed
+  beside Super Greenfoot. It reads and writes ordinary Greenfoot scenarios,
+  so you can always go back.
+- Windows builds are unsigned for now. SmartScreen will warn ("More info",
+  then "Run anyway"), and some managed school computers may refuse them.
+
+If you try it anyway, thank you: please
+[report what breaks](https://github.com/MrCohen/SuperGreenfoot/issues).
 
 ## Get it
 
