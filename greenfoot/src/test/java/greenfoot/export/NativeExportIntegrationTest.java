@@ -53,9 +53,14 @@ public class NativeExportIntegrationTest extends TestCase
         public void output(String l) { }
     };
 
+    /** Whether to run; when asked to on a JDK without jpackage, fail rather than pass by skipping. */
     private static boolean enabled()
     {
-        return Boolean.getBoolean("supergreenfoot.test.jpackage") && NativePackager.findJpackage() != null;
+        if (!Boolean.getBoolean("supergreenfoot.test.jpackage")) {
+            return false;
+        }
+        assertNotNull("jpackage tests were asked for, but this JDK has no jpackage", NativePackager.findJpackage());
+        return true;
     }
 
     public void testExportBesideTheScenarioKeepsItAndReplacesTheEarlierApp() throws Exception
