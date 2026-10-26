@@ -302,7 +302,15 @@ public class NetworkAbuseTest extends TestCase
         byte[] payload = new byte[125];
         long mostPending = 0;
         for (int i = 0; i < 4000; i++) {
-            raw.frame(0x9, true, payload);      // ping, never reading the pongs
+            try {
+                raw.frame(0x9, true, payload);  // ping, never reading the pongs
+            }
+            catch (SocketException e) {
+                // The server already dropped us: the unread pongs filled the socket buffers and
+                // the write deadline fired before the flood ended. Windows' small buffers get there
+                // within the loop and then refuse the next write; elsewhere the drop comes after it.
+                break;
+            }
             if ((i & 63) == 0) {
                 mostPending = Math.max(mostPending, s.getPendingBytes(id));
             }
