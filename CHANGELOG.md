@@ -6,10 +6,46 @@ notes are in [docs/api](docs/api), and [docs/provenance.md](docs/provenance.md)
 records every upstream file this fork changes, with what changed and in which
 release, as the notice of modification the GPL asks for.
 
-## Unreleased
+## 0.2.1 (2026-10-26)
+
+A bug-fix release, and the first one with Windows downloads.
+
+### The important one
+
+- **Exporting a native app on Windows or Linux could delete the scenario.**
+  In 0.2.0, Share > Application with "Also build a native app" built the app
+  in a folder with the same name as the scenario, beside it, and cleared that
+  folder first, so on Windows and Linux it deleted the scenario's own files.
+  macOS was never affected (its apps are called `<name>.app`). The app is now
+  built in a separate folder called `<name> app`, and the export only ever
+  clears a folder that it built itself. If you exported a native app on
+  Windows or Linux with 0.2.0, check that your scenario folder is intact.
+
+### Windows
+
+- **Two downloads, both unsigned for now.** The **installer** (`.msi`)
+  installs for the current user without administrator rights, adds a Start
+  menu entry, opens `.greenfoot` and `.gfar` files, and upgrades in place.
+  The **standalone zip** needs no installing at all: unzip it, or copy it to
+  a USB key, and run it from there, which suits locked-down school
+  computers. Windows SmartScreen warns about both until the project has a
+  code-signing certificate: choose "More info", then "Run anyway".
+- Exporting a game as an MSI is offered only where the WiX 3 toolset is
+  installed; otherwise the export builds an app folder.
+- The engine and IDE test suites now run on Windows on every change.
 
 ### Fixes
 
+- **No more warning spam in the Problems tab.** Every class compiled with a
+  warning about an unknown `threadchecker` annotation; the annotation classes
+  now ship with the engine.
+- **The editor's error popup is readable in the light theme.**
+- **Super Greenfoot no longer contacts greenfoot.org when it starts.** It
+  used to fetch Greenfoot's news message and send Greenfoot's usage
+  statistics (an ID kept on the computer, the operating system, the Java
+  version and the language), reporting itself as Greenfoot 3.9.0. Both
+  belong to Greenfoot itself. (Share's Publish tab still talks to the
+  Greenfoot Gallery; it is removed in 0.3.0.)
 - **Sound loops survive pause/resume.** `Sounds.resumeAll()` preserves looping
   music and effects instead of playing their remaining audio just once.
 - **More robust local saves.** Malformed properties no longer crash a scenario;
@@ -23,6 +59,17 @@ release, as the notice of modification the GPL asks for.
 - **Tab reaches the scenario in an exported game.** The standalone player
   used Tab and Shift+Tab to move focus, so `Greenfoot.isKeyDown("tab")` and
   `Greenfoot.getKey()` never saw them there. (The IDE was not affected.)
+
+### Known issues
+
+- Import Class shows its templates as one list; the categories mentioned for
+  0.2.0 arrive in the dialog in 0.3.0.
+- A scenario that declares its own `distanceTo(Actor)` as `private`, or with a
+  return type other than `double`, does not compile, because it clashes with
+  `Actor.distanceTo(Actor)`. Rename yours for now; 0.3.0 renames the built-in
+  one.
+- Stopping a scenario also pauses its sounds, unlike Greenfoot 3.9.0, so a
+  sound played just before `Greenfoot.stop()` is not heard. Fixed in 0.3.0.
 
 ## 0.2.0 (2026-09-25)
 

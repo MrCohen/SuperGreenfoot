@@ -32,10 +32,9 @@ development and classroom testing, which is why its releases are numbered
 0.x. Expect rough edges, changes between versions, and bugs, some of them
 serious. Before you try it:
 
-- **Version 0.2.0 on Windows or Linux: do not use Share > Application with
-  "Also build a native app".** It can delete the scenario's own folder. This
-  is fixed in the source on `super/main` and ships in 0.2.1; macOS is not
-  affected.
+- **If you used 0.2.0 on Windows or Linux:** its Share > Application with
+  "Also build a native app" could delete the scenario's own folder. 0.2.1
+  fixes this; please update. macOS was never affected.
 - Keep backups of your scenarios, and keep the original Greenfoot installed
   beside Super Greenfoot. It reads and writes ordinary Greenfoot scenarios,
   so you can always go back.
@@ -60,18 +59,34 @@ warnings. Java is included, so there is nothing else to install. It needs a Mac
 with Apple Silicon (M1 or later) and macOS 11 or later. It sits next to the
 original Greenfoot and does not replace it.
 
-### Windows, Linux and Intel Macs
+### Windows
 
-Development currently happens on a Mac, so the Mac installer came first.
-Windows and Linux installers are on the way. Until then, Super Greenfoot runs
-from source with [one extra step](#run-from-source).
+**[Download Super Greenfoot for Windows](https://github.com/MrCohen/SuperGreenfoot/releases/latest)**:
+there are two downloads, and both include Java.
+
+- **The installer** (`SuperGreenfoot-<version>.msi`) is for your own
+  computer. It installs for you alone, so it needs no administrator
+  password, adds Super Greenfoot to the Start menu, and opens `.greenfoot`
+  and `.gfar` files. A newer version installs over it.
+- **The standalone zip** (`SuperGreenfoot-windows-standalone-<version>.zip`)
+  needs no installing. Unzip it anywhere, or onto a USB key, and run
+  `SuperGreenfoot.exe` from there. This suits school computers where you
+  cannot install programs. Your settings are kept beside it, in a
+  `userhome` folder. If the `.exe` is blocked, `Start SuperGreenfoot.cmd`
+  in the `SuperGreenfoot` folder starts it too.
+
+Both are unsigned for now, so Windows SmartScreen warns the first time:
+choose **More info**, then **Run anyway**. Some managed school computers
+refuse unsigned programs altogether; only the school's IT can allow them.
+
+### Linux and Intel Macs
 
 | Platform | Status |
 |---|---|
 | macOS, Apple Silicon | Installer available |
+| Windows | Installer and standalone zip available |
 | macOS, Intel | [Run from source](#run-from-source); installer planned |
-| Windows | [Run from source](#run-from-source); installer forthcoming |
-| Linux | [Run from source](#run-from-source); installer forthcoming |
+| Linux | [Run from source](#run-from-source); package planned |
 
 ## What is new
 
@@ -146,7 +161,7 @@ This works on Windows, Linux and any Mac. You need two things installed:
 Then, on macOS or Linux:
 
 ```sh
-git clone --depth 1 --branch v0.2.0 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.1 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 ./gradlew runGreenfoot -x test
 ```
@@ -154,7 +169,7 @@ cd SuperGreenfoot
 On Windows, in Command Prompt or PowerShell:
 
 ```bat
-git clone --depth 1 --branch v0.2.0 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.1 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 gradlew.bat runGreenfoot -x test
 ```
@@ -168,12 +183,15 @@ first.
 
 What to expect:
 
-- The source build and the tests run on Linux on every change. Windows and
+- The source build and the tests run on Linux and Windows on every change.
   Intel Macs use the same build as the original Greenfoot, which supports
-  them, but this release has not been tested there yet.
+  them, but they have not been tested yet.
 - Exporting a game as a runnable `.jar` works everywhere. The jar runs on any
   computer with Java 21.
-- Exporting a native app has only been verified from the installed Mac app so far.
+- Exporting a native app is verified on macOS (a signed `.app`). On Windows
+  and Linux it builds an app folder (on Windows an `.msi` too, where the WiX 3
+  toolset is installed); since the 0.2.1 fix this is covered by automated
+  tests but has not yet been tried by hand.
 
 ## Questions and feedback
 
@@ -191,7 +209,10 @@ it does not use the new features. Scenarios that call the new methods need
 Super Greenfoot.
 
 **Is this connected to the Greenfoot Gallery?** No. Super Greenfoot is a
-separate project. Its own way to share games on the web is planned.
+separate project. In 0.2.1 the Share dialog still has upstream's Publish tab,
+which uploads to the Greenfoot Gallery, where games that use Super Greenfoot's
+new features cannot run; it is removed in 0.3.0. Super Greenfoot's own way
+to share games on the web is planned.
 
 ## For developers
 

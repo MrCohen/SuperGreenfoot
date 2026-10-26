@@ -5,10 +5,11 @@
 1. Builds the executable jar (Phase 3).
 2. Optionally (**Also build a native app for this computer**) runs the JDK's
    `jpackage` on it, producing an app that needs no Java installed:
-   - macOS: `.app` folder (about 80 MB, 2 seconds) or a `.dmg`.
-   - Windows: app folder, or an `.msi` installer when WiX 3 is installed
-     (falls back to the folder automatically if the `.msi` build fails).
-   - Linux: app folder.
+   - macOS: `<name>.app` (about 80 MB, 2 seconds) or a `.dmg`.
+   - Windows: an app folder called `<name> app`, or an `.msi` installer. The
+     tab offers the `.msi` only where the WiX 3 toolset is installed, and
+     still falls back to the folder if the `.msi` build fails.
+   - Linux: an app folder called `<name> app`.
 3. On macOS, if a **Developer ID Application** certificate is in the keychain,
    (the packager first signs a scratch file so the keychain prompt appears once;
    answer it with Always Allow)
@@ -20,8 +21,17 @@
    BlueJ debug log.
 
 An earlier export of the same name at the same place is replaced: the jar is
-overwritten and a previous `<name>.app` (or app folder) is deleted before
-jpackage runs, since jpackage refuses to write over an existing folder.
+overwritten, and a previous `<name>.app` or `<name> app` is deleted before
+jpackage runs, since jpackage refuses to write over an existing folder. It is
+deleted only if it looks like something jpackage built (`Contents` on macOS,
+`app` and `runtime` elsewhere); any other folder in the way is left alone and
+the export stops with a message naming it. The app is built in a staging
+folder first and then moved into place.
+
+The " app" suffix exists because of a bug in 0.2.0: on Windows and Linux the
+app folder was named exactly like the scenario, the export destination
+defaults to the folder that holds the scenario, so the "previous export"
+deleted before jpackage ran was the scenario itself. Fixed in 0.2.1.
 
 Choices (native on/off, identity, profile) are remembered in the IDE
 preferences. Native apps only run on the kind of computer that built them:
@@ -76,6 +86,36 @@ minutes signed (each library gets a timestamped signature) plus notarization.
 Verified: the packaged IDE launches and opens scenarios, and its own runtime
 builds a native game via `--runtime-image`.
 
+## The fork's own Windows packages
+
+Windows gets two unsigned packages; SmartScreen warns about both ("More
+info", then "Run anyway") until a code-signing certificate exists.
+
+- **The MSI installer**, `installer/windows/build-msi.ps1` (on Windows; the
+  Gradle task is `packageSuperGreenfootWindows`, the `dev.ps1` command
+  `msi`). It mirrors the macOS script: the same staged files and build stamp
+  (`supergreenfoot-build.txt`), a jlinked runtime with every module and no
+  jmods, then `jpackage --type msi`. The MSI installs per user (no
+  administrator rights), carries a fixed upgrade UUID so a newer version
+  replaces an older one, registers `.greenfoot` and `.gfar`, and adds a Start
+  menu entry. It needs WiX 3.14 (JDK 21's jpackage cannot drive WiX 4 or 5),
+  found on `PATH`, through `%WIX%`, or in the usual install folders; without
+  it the script builds an app folder instead. The "Build SuperGreenfoot
+  installers" workflow builds it on a GitHub runner on demand.
+- **The standalone zip**, `installer/windows/build-standalone.sh` (cross-built
+  on a Mac: `./dev winzip`, or `./dev usb <folder>` to copy it onto a USB
+  key). It downloads a Windows JDK 21 and the Windows JavaFX jars, jlinks a
+  runtime, and builds upstream's USB launchers renamed, with a
+  `Start SuperGreenfoot.cmd` fallback for machines that block unknown `.exe`
+  files and a `Diagnose SuperGreenfoot.cmd`. Nothing is installed; settings
+  live in a `userhome` folder beside it. It builds into
+  `build/installer-windows-standalone`, so it does not clear the MSI's
+  `build/installer-windows`.
+
+Windows refuses to install an MSI over the same version, so a test machine
+must uninstall the earlier build first (Settings > Apps, or `msiexec /x` with
+the *installed* product code: jpackage makes a new one for every build).
+
 ## macOS quirk: a double-clicked jar that "does nothing"
 
 Finder opens `.jar` files through Apple's resident `JavaLauncher` process. If
@@ -98,9 +138,9 @@ message instead of writing a jar without the engine.
 
 `jpackage` lives in a full JDK. Upstream's installer bundles a jlinked runtime
 without it (the installed Greenfoot 3.9 has only `java` in its bundled JDK),
-so the SuperGreenfoot installer must bundle a **full JDK** (or jlink with
-`jdk.jpackage` and `jdk.jlink` included) for the native export to work from
-the installed IDE. Until then it works when the IDE runs from Gradle.
+so the SuperGreenfoot installers bundle a runtime jlinked with **every**
+module, `jdk.jpackage` and `jdk.jlink` included, and the native export works
+from the installed IDE on macOS and Windows.
 
 ## World-size guidance (Phase 2c)
 
