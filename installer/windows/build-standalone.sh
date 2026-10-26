@@ -40,7 +40,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 LIB="$ROOT/greenfoot/build/resources/main/lib"
 WINPKG="$ROOT/bluej/package"
-OUT="$ROOT/build/installer-windows"
+OUT="$ROOT/build/installer-windows-standalone"
 CACHE="${SGF_WIN_CACHE:-$HOME/Library/Caches/SuperGreenfoot/windows}"
 BUILD=1
 FULL_JDK=0

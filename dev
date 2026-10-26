@@ -60,13 +60,13 @@ case "$cmd" in
     fi
     ;;
   winzip)
-    installer/windows/build-standalone.sh --out build/installer-windows
-    cp build/installer-windows/SuperGreenfoot-windows-standalone-*.zip ~/Desktop/
+    installer/windows/build-standalone.sh --out build/installer-windows-standalone
+    cp build/installer-windows-standalone/SuperGreenfoot-windows-standalone-*.zip ~/Desktop/
     echo "Zip copied to the Desktop."
     ;;
   usb)
     [[ $# -ge 1 && -d "$1" ]] || { echo "usage: ./dev usb <folder, e.g. /Volumes/USB\\ DISK>"; exit 2; }
-    installer/windows/build-standalone.sh --out build/installer-windows --install "$1"
+    installer/windows/build-standalone.sh --out build/installer-windows-standalone --install "$1"
     ;;
   *)
     sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
