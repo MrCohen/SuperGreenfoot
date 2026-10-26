@@ -1,7 +1,8 @@
 /*
  This file is part of the BlueJ program. 
  Copyright (C) 1999-2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2021,2022,2023  Michael Kolling and John Rosenberg
- 
+ Modifications Copyright (C) 2026  SuperGreenfoot contributors; see docs/provenance.md
+
  This program is free software; you can redistribute it and/or 
  modify it under the terms of the GNU General Public License 
  as published by the Free Software Foundation; either version 2 
@@ -84,9 +85,6 @@ public class Main
     private static final String BLUEJ_MESSAGE_ROOT = "https://www.bluej.org/message/";
     private static final String BLUEJ_TESTING_MESSAGE_ROOT = "https://www.bluej.org/message_test/";
 
-    private static final String GREENFOOT_MESSAGE_ROOT = "https://www.greenfoot.org/message/";
-    private static final String GREENFOOT_TESTING_MESSAGE_ROOT = "https://www.greenfoot.org/message_test/";
-
 
     /**
      * Only used on Mac.  For some reason, executing the AppleJavaExtensions open
@@ -119,14 +117,19 @@ public class Main
         Config.initialise(bluejLibDir, commandLineProps, boot.isGreenfoot());
 
         CompletableFuture<Stage> futureMainWindow = new CompletableFuture<>();
-        // Must do this after Config initialisation:
-        new Thread(() ->
-            fetchAndShowCentralMsg(
-                PrefMgr.getFlag(PrefMgr.NEWS_TESTING) ?
-                    (Config.isGreenfoot() ? GREENFOOT_TESTING_MESSAGE_ROOT : BLUEJ_TESTING_MESSAGE_ROOT)
-                    : (Config.isGreenfoot() ? GREENFOOT_MESSAGE_ROOT : BLUEJ_MESSAGE_ROOT), futureMainWindow),
-            "Fetching news message"
-        ).start();
+        // SuperGreenfoot: greenfoot.org's news message and usage statistics are
+        // for Greenfoot itself, and this fork would report itself as Greenfoot
+        // 3.9.0, so in Greenfoot mode it neither fetches news nor sends statistics.
+        if (!Config.isGreenfoot())
+        {
+            // Must do this after Config initialisation:
+            new Thread(() ->
+                fetchAndShowCentralMsg(
+                    PrefMgr.getFlag(PrefMgr.NEWS_TESTING) ? BLUEJ_TESTING_MESSAGE_ROOT : BLUEJ_MESSAGE_ROOT,
+                    futureMainWindow),
+                "Fetching news message"
+            ).start();
+        }
 
         if (guiHandler == null)
         {
@@ -167,14 +170,17 @@ public class Main
             futureMainWindow.complete(stage);
         });
 
-        // Send usage data back to bluej.org
-        new Thread("Updating central stats") {
-            @Override
-            public void run()
-            {
-                updateStats();
-            }
-        }.start();
+        // Send usage data back to bluej.org (not in Greenfoot mode; see above)
+        if (!Config.isGreenfoot())
+        {
+            new Thread("Updating central stats") {
+                @Override
+                public void run()
+                {
+                    updateStats();
+                }
+            }.start();
+        }
     }
 
     /**
