@@ -31,7 +31,7 @@ jobs:
       - name: Build and Test
         env:
           DISPLAY: ":42.0"
-        run: ./gradlew build test -Pheadless=false --info --stacktrace --no-daemon
+        run: ./gradlew build test -Pheadless=false -PjpackageTests=true --info --stacktrace --no-daemon
       - name: Check copyright
         run: bash check-copyright.sh
 
@@ -57,4 +57,4 @@ jobs:
       - name: Gradle Setup
         uses: gradle/actions/setup-gradle@v3
       - name: Compile and test
-        run: .\gradlew.bat :greenfoot:compileJava :greenfoot:test --stacktrace --no-daemon
+        run: .\gradlew.bat :greenfoot:compileJava :greenfoot:test -PjpackageTests=true --stacktrace --no-daemon

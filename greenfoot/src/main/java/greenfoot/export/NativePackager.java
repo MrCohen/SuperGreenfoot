@@ -516,7 +516,7 @@ public final class NativePackager
         // directory (the default), so deleting blindly would destroy the source.
         if (!looksLikeAppImage(previous)) {
             return previous + " already exists and is not a previously exported app"
-                    + " (an exported app holds 'app' and 'runtime' folders)."
+                    + " (an exported app holds 'app' and 'runtime' folders, under 'lib' on Linux)."
                     + " Choose another folder to export to, or rename it, and export again.";
         }
         listener.progress("Replacing the previous " + previous.getName() + "...");
@@ -592,7 +592,8 @@ public final class NativePackager
 
     /**
      * Whether this is a folder jpackage produced: a macOS .app bundle, or the
-     * app/runtime pair that an app image holds on Windows and Linux.
+     * app/runtime pair that an app image holds, at the top on Windows and under
+     * lib/ on Linux.
      */
     static boolean looksLikeAppImage(File dir)
     {
@@ -602,6 +603,11 @@ public final class NativePackager
         if (isMac() && dir.getName().endsWith(".app")) {
             return new File(dir, "Contents").isDirectory();
         }
+        return holdsAppAndRuntime(dir) || holdsAppAndRuntime(new File(dir, "lib"));
+    }
+
+    private static boolean holdsAppAndRuntime(File dir)
+    {
         return new File(dir, "app").isDirectory() && new File(dir, "runtime").isDirectory();
     }
 

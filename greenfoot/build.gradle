@@ -44,6 +44,9 @@ test {
     // them must rerun the tests:
     inputs.dir 'common'
     inputs.dir 'src/test/templates'
+    // NativeExportIntegrationTest runs jpackage for real (about a minute), so
+    // only with -PjpackageTests=true, as CI does:
+    systemProperty 'supergreenfoot.test.jpackage', findProperty('jpackageTests') ?: 'false'
 }
 
 compileJava {

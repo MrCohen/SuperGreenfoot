@@ -160,6 +160,30 @@ public class NativePackagerTest extends TestCase
         assertTrue(source.isFile());
     }
 
+    /**
+     * jpackage puts an app image's app and runtime folders at the top on Windows
+     * but under lib/ on Linux; both must count as an earlier export that may be
+     * replaced, and a plain folder as neither.
+     */
+    public void testAppImageRecognisedInWindowsAndLinuxLayouts() throws Exception
+    {
+        File windows = java.nio.file.Files.createTempDirectory("sgf-win").toFile();
+        assertTrue(new File(windows, "app").mkdirs());
+        assertTrue(new File(windows, "runtime").mkdirs());
+        assertTrue(NativePackager.looksLikeAppImage(windows));
+
+        File linux = java.nio.file.Files.createTempDirectory("sgf-linux").toFile();
+        assertTrue(new File(linux, "bin").mkdirs());
+        assertTrue(new File(linux, "lib/app").mkdirs());
+        assertTrue(new File(linux, "lib/runtime").mkdirs());
+        assertTrue(NativePackager.looksLikeAppImage(linux));
+
+        File scenario = java.nio.file.Files.createTempDirectory("sgf-scenario").toFile();
+        assertTrue(new File(scenario, "images").mkdirs());
+        assertTrue(new File(scenario, "MyWorld.java").createNewFile());
+        assertFalse(NativePackager.looksLikeAppImage(scenario));
+    }
+
     /** Off macOS the app image is a "<name> app" folder, never the scenario's own. */
     public void testAppImageFolderCannotBeTheScenarioFolder()
     {
