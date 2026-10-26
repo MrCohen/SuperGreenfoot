@@ -22,8 +22,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: ${{ env.java_version }}
-          # jpackage needs jmods, which the "jdk" package does not include.
-          java-package: jdk+fx
+          # Temurin 21's JDK includes the jmods jlink and jpackage need (and
+          # setup-java offers Temurin only as jdk or jre). JavaFX comes from Gradle.
+          java-package: jdk
           architecture: x64
       - name: Install WiX 3
         # JDK 21's jpackage drives WiX 3 only; WiX 4/5 support arrived in JDK 24.
