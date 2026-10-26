@@ -28,7 +28,12 @@ jobs:
           architecture: x64
       - name: Install WiX 3
         # JDK 21's jpackage drives WiX 3 only; WiX 4/5 support arrived in JDK 24.
-        run: choco install wixtoolset --version=3.14.1 -r --no-progress
+        # The runner image already has WiX 3.14 (and choco refuses to install it
+        # again as a "downgrade"), so install it only where it is missing.
+        run: |
+          $bin = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+          if (Test-Path "$bin\candle.exe") { "WiX 3.14 is already installed in $bin" }
+          else { choco install wixtoolset --version=3.14.1 -r --no-progress }
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v3
       - name: Setup Gradle
