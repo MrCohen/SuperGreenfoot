@@ -85,6 +85,9 @@ public class Boot
         "guava-*.jar",
         "failureaccess-*.jar",
         "simple-png*.jar",
+        // SuperGreenfoot: the new IDE's theme. jpackage apps put every jar in lib on
+        // the class path anyway; the Windows standalone launcher does not.
+        "atlantafx-*.jar",
         "http*.jar"};
     
     // A singleton boot object so the rest of BlueJ can pick up args etc.
