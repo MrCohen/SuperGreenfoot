@@ -160,10 +160,16 @@ if [[ -n "$SIGN" ]]; then
   "$JAVA_HOME/bin/jpackage" --type app-image --app-image "$APP" --mac-sign \
       --mac-signing-key-user-name "$SIGN" --mac-entitlements "$ROOT/installer/mac/entitlements.plist"
 fi
-if [[ -n "$SIGN" ]]; then
-  echo "Verifying app signature..."
-  codesign --verify --deep --strict --verbose=2 "$APP"
+if [[ -z "$SIGN" ]]; then
+  # jpackage signs ad hoc, and the Info.plist edit above breaks that
+  # signature. A downloaded app with a broken signature is "damaged and
+  # can't be opened", with no way past it; a valid ad-hoc one can be allowed
+  # in System Settings > Privacy & Security > Open Anyway.
+  echo "Signing the app ad hoc (no Developer ID given)..."
+  codesign --force --deep --sign - "$APP"
 fi
+echo "Verifying app signature..."
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 # ---- 4. DMG with the DrawSimple background and Finder icon layout ----
 DMG="$OUT/SuperGreenfoot-$VERSION.dmg"
