@@ -99,6 +99,28 @@ fi
 # copying its own (signed) runtime image instead (NativePackager.findRuntimeImage).
 du -sh "$RUNTIME" | sed 's/^/  runtime size: /'
 
+# ---- 2b. the runtime may load nothing from outside itself and the OS ----
+# Homebrew's openjdk links libfontmanager to Homebrew's harfbuzz and freetype
+# by absolute path, and jlink copies those links unchanged. 0.2.0 and 0.2.1
+# were built that way, so on a Mac without Homebrew every scenario died as
+# its VM started AWT (UnsatisfiedLinkError: libharfbuzz.0.dylib). Build with a
+# self-contained JDK such as Temurin, which bundles both libraries.
+echo "Checking the runtime's native libraries..."
+FOREIGN=""
+while IFS= read -r -d '' f; do
+  file -b "$f" | grep -q '^Mach-O' || continue
+  id=$(otool -D "$f" | tail -n +2)
+  deps=$(otool -L "$f" | tail -n +2 | awk '{print $1}' | grep -vxF -- "${id:-/nonexistent}" \
+         | grep -vE '^(@rpath/|@loader_path/|@executable_path/|/System/Library/|/usr/lib/)' || true)
+  [[ -n "$deps" ]] && FOREIGN+="  ${f#$RUNTIME/}:"$'\n'"$(sed 's/^/      /' <<< "$deps")"$'\n'
+done < <(find "$RUNTIME/bin" "$RUNTIME/lib" -type f -print0)
+if [[ -n "$FOREIGN" ]]; then
+  echo "The runtime links to libraries outside itself, which other Macs do not have:"
+  printf '%s' "$FOREIGN"
+  echo "JAVA_HOME is $JAVA_HOME. Use a self-contained JDK 21 (e.g. Temurin), not Homebrew's openjdk."
+  exit 1
+fi
+
 # ---- 3. jpackage ----
 echo "Running jpackage..."
 # jpackage on macOS refuses a version whose first number is 0, so 0.x releases

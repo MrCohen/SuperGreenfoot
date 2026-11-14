@@ -14,8 +14,11 @@
 # (~/Library/Preferences/org.supergreenfoot); its log is greenfoot-debuglog.txt there.
 set -euo pipefail
 cd "$(dirname "$0")"
-export JAVA_HOME="${SGF_JAVA_HOME:-/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home}"
-[[ -x "$JAVA_HOME/bin/java" ]] || { echo "JDK 21 not found at $JAVA_HOME (brew install openjdk@21, or set SGF_JAVA_HOME)"; exit 2; }
+# A self-contained JDK 21 (Temurin) first: an installer built from Homebrew's
+# openjdk links to Homebrew's own libraries and fails on Macs without them
+# (build-dmg.sh refuses it). Homebrew's is still fine for run, test and player.
+export JAVA_HOME="${SGF_JAVA_HOME:-$(/usr/libexec/java_home -v 21 2>/dev/null || echo /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)}"
+[[ -x "$JAVA_HOME/bin/java" ]] || { echo "JDK 21 not found at $JAVA_HOME (brew install --cask temurin@21, or set SGF_JAVA_HOME)"; exit 2; }
 SIGN_NAME="${SGF_SIGN_NAME:-Jordan Cohen (QTS5DK2S8Q)}"
 NOTARY_PROFILE="${SGF_NOTARY_PROFILE:-SuperGreenfoot}"
 RUNTIME=greenfoot/build/resources/main/lib/supergreenfoot-runtime.jar

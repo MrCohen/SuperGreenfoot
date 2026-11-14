@@ -35,6 +35,9 @@ serious. Before you try it:
 - **If you used 0.2.0 on Windows or Linux:** its Share > Application with
   "Also build a native app" could delete the scenario's own folder. 0.2.1
   fixes this; please update. macOS was never affected.
+- **If you use 0.2.0 or 0.2.1 on a Mac:** on most Macs no scenario could run
+  (an `UnsatisfiedLinkError` about `libharfbuzz` in the terminal window).
+  0.2.2 fixes this; please update, and export native Mac apps again.
 - Keep backups of your scenarios, and keep the original Greenfoot installed
   beside Super Greenfoot. It reads and writes ordinary Greenfoot scenarios,
   so you can always go back.
@@ -161,7 +164,7 @@ This works on Windows, Linux and any Mac. You need two things installed:
 Then, on macOS or Linux:
 
 ```sh
-git clone --depth 1 --branch v0.2.1 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.2 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 ./gradlew runGreenfoot -x test
 ```
@@ -169,7 +172,7 @@ cd SuperGreenfoot
 On Windows, in Command Prompt or PowerShell:
 
 ```bat
-git clone --depth 1 --branch v0.2.1 https://github.com/MrCohen/SuperGreenfoot.git
+git clone --depth 1 --branch v0.2.2 https://github.com/MrCohen/SuperGreenfoot.git
 cd SuperGreenfoot
 gradlew.bat runGreenfoot -x test
 ```

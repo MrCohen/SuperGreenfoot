@@ -52,6 +52,13 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 ./gradlew runGreenfoot                # launch the IDE
 ```
 
+Homebrew's JDK is fine for compiling, testing and running, but never package
+an installer with it: it links to Homebrew's own harfbuzz, freetype and
+libjpeg, so the app fails on Macs without Homebrew (0.2.0 and 0.2.1 did).
+`./dev dmg` and `build-dmg.sh` use a self-contained JDK 21 (Temurin, found by
+`/usr/libexec/java_home -v 21`), and `build-dmg.sh` stops if the runtime links
+to anything outside itself and macOS.
+
 The owner's shortcut for all of this is the `./dev` script in the repo root
 (`./dev run`, `test`, `player <scenario>`, `app`, `dmg`, `install`, `winzip`, `usb <folder>`); keep it
 working when build steps change.

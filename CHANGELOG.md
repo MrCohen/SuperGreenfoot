@@ -6,6 +6,36 @@ notes are in [docs/api](docs/api), and [docs/provenance.md](docs/provenance.md)
 records every upstream file this fork changes, with what changed and in which
 release, as the notice of modification the GPL asks for.
 
+## 0.2.2 (2026-11-14)
+
+A fix for the macOS download. **If you use Super Greenfoot on a Mac, please
+update.**
+
+### The important one
+
+- **On most Macs, no scenario could run.** The IDE opened, but pressing Run
+  (or even opening a scenario) printed `UnsatisfiedLinkError:
+  .../libfontmanager.dylib ... libharfbuzz.0.dylib (no such file)` in the
+  terminal window, and the world never appeared. The Java runtime inside the
+  0.2.0 and 0.2.1 DMGs came from a Homebrew build of Java, which loads its
+  font, JPEG, PNG and colour libraries from Homebrew's folders instead of
+  carrying them inside. Only Macs that happen to have Homebrew's copies of
+  those libraries could run scenarios. The 0.2.2 runtime is built from
+  Eclipse Temurin, which carries every library it needs, and the installer
+  script now refuses to build a runtime that links to anything outside
+  itself and macOS.
+- **Native Mac apps exported with 0.2.0 or 0.2.1** (Share > Application,
+  "Also build a native app") copied that same runtime and fail the same way
+  on other Macs. Export them again with 0.2.2.
+
+### Also in 0.2.2
+
+- The Windows standalone zip of 0.2.1 stopped at startup with
+  `NoClassDefFoundError: atlantafx/base/theme/Theme`, because its launcher
+  did not put the IDE's theme library on the class path. The fix is in the
+  0.2.2 source; this release ships only the Mac download, so on Windows use
+  the 0.2.1 installer (`.msi`), which was not affected.
+
 ## 0.2.1 (2026-10-26)
 
 A bug-fix release, and the first one with Windows downloads.

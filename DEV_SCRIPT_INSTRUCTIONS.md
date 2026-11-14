@@ -66,7 +66,7 @@ The launchers are unsigned, so Windows SmartScreen may ask once ("More info", "R
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `SGF_JAVA_HOME` | `/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home` | A full JDK 21 or later (needs `jlink` and `jpackage` for `app`, `dmg`, `install`). |
+| `SGF_JAVA_HOME` | the JDK 21 that `/usr/libexec/java_home -v 21` finds, else Homebrew's `openjdk@21` | A full JDK 21 or later (needs `jlink` and `jpackage` for `app`, `dmg`, `install`). Installers need a self-contained JDK such as Temurin (`brew install --cask temurin@21`): Homebrew's `openjdk@21` links to Homebrew's own harfbuzz, freetype, libjpeg and others, so its installers fail on Macs without Homebrew, and `build-dmg.sh` refuses it. |
 | `SGF_SIGN_NAME` | `Jordan Cohen (QTS5DK2S8Q)` | The name part of the "Developer ID Application" certificate. |
 | `SGF_NOTARY_PROFILE` | `SuperGreenfoot` | The keychain profile created with `xcrun notarytool store-credentials`. |
 | `SGF_WIN_CACHE` | `~/Library/Caches/SuperGreenfoot/windows` | Where `winzip` and `usb` keep the downloaded Windows JDK and JavaFX. |

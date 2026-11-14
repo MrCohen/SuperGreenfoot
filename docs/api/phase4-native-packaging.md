@@ -51,7 +51,12 @@ java.compiler, java.management, jdk.jdi, jdk.xml.dom, jdk.unsupported` (from
 ## The fork's own macOS installer
 
 `installer/mac/build-dmg.sh [--sign "<name (TEAM)>"] [--notarize <profile>]` (needs
-`JAVA_HOME` = full JDK 21+ and `./gradlew :greenfoot:assemble :greenfoot:userJavadoc`):
+`JAVA_HOME` = full JDK 21+ and `./gradlew :greenfoot:assemble :greenfoot:userJavadoc`).
+The JDK must be self-contained, such as Eclipse Temurin. Homebrew's `openjdk@21`
+links its font, image and colour libraries to Homebrew's own copies by absolute
+path, so a runtime made from it fails on Macs without Homebrew (0.2.0 and 0.2.1
+shipped that way); the script checks every native library in the runtime and
+stops on any such link. Steps:
 
 1. Stages the flattened `lib` directory (all jars, labels, defs, images, fonts),
    the API docs, `greenfoot/common`, licenses and README, exactly like upstream's
