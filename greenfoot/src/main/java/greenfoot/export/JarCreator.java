@@ -50,6 +50,7 @@ import java.util.zip.ZipOutputStream;
 import bluej.Boot;
 import bluej.Config;
 import bluej.extensions2.SourceType;
+import bluej.pkgmgr.GreenfootProjectFile;
 import bluej.pkgmgr.Project;
 import bluej.utility.BlueJFileReader;
 import bluej.utility.Debug;
@@ -566,13 +567,33 @@ public class JarCreator
             // check against a list of files we don't want to export and also
             // check that we don't try to export the jar file we are writing
             // (hangs the machine)
-            if (!skipFile(sourceFile.getName(), !includeSource)
+            String entryName = entryName(projectDir, sourceFile, pathPrefix, isZip);
+            if (entryName != null && !skipFile(sourceFile.getName(), !includeSource)
                     && !outputFile.equals(sourceFile.getCanonicalFile())) {
-                writeJarEntry(sourceFile, stream, pathPrefix + sourceFile.getName());
+                writeJarEntry(sourceFile, stream, entryName);
             }
         }
     }
     
+    /**
+     * SuperGreenfoot: the name a file gets in the export, or null to leave it
+     * out. A jar is run, not opened as a project, and every player (ours,
+     * stock Greenfoot's, the gallery's) reads /project.greenfoot from it. So
+     * in a jar the scenario's project file goes in under that name, whichever
+     * name it has on disk, and a second project file beside it is left out.
+     * A zip is a project folder, and keeps its files' real names.
+     */
+    static String entryName(File projectDir, File sourceFile, String pathPrefix, boolean isZip)
+    {
+        if (!isZip && projectDir != null && pathPrefix.isEmpty()
+                && GreenfootProjectFile.isProjectFileName(sourceFile.getName())
+                && projectDir.equals(sourceFile.getParentFile())) {
+            return sourceFile.equals(GreenfootProjectFile.fileIn(projectDir))
+                    ? GreenfootProjectFile.LEGACY_FILE_NAME : null;
+        }
+        return pathPrefix + sourceFile.getName();
+    }
+
     /**
      * Write the contents of a jar into another jar stream. If the source file does not exist,
      * this method will just return without doing anything.
