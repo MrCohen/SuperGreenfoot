@@ -48,6 +48,8 @@ import bluej.utility.Debug;
 import bluej.utility.DialogManager;
 import greenfoot.core.GreenfootMain.VersionCheckInfo;
 import greenfoot.core.GreenfootMain.VersionInfo;
+import greenfoot.guifx.controller.IdeWindow;
+import greenfoot.guifx.controller.ProjectRegistry;
 import greenfoot.util.Version;
 import greenfoot.vmcomm.GreenfootDebugHandler;
 import javafx.application.Platform;
@@ -137,6 +139,18 @@ public class ProjectManager
     @OnThread(Tag.FXPlatform)
     public void launchProject(final Project project)
     {
+        // SuperGreenfoot: opening a project that a window already shows (from
+        // the Finder, Open With, the command line) brings that window forward.
+        // Upstream made a second window and controller for the same Project;
+        // closing one cleaned the project up under the other, and closing the
+        // other then failed half-way, stopping Quit from working until a
+        // force quit. The Open menus already checked; this covers every way in.
+        IdeWindow showing = project == null ? null : ProjectRegistry.findWindowForProject(project);
+        if (showing != null)
+        {
+            showing.getWindow().toFront();
+            return;
+        }
         ProjectAPIVersionAccess projectAPIVersionAccess = new ProjectAPIVersionAccess();
         
         GreenfootMain.VersionCheckInfo versionOK = checkVersion(project, projectAPIVersionAccess);

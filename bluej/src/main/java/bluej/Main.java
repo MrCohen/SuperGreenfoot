@@ -331,9 +331,26 @@ public class Main
      */
     @OnThread(Tag.FXPlatform)
     public static void doQuit() {
-        guiHandler.doExitCleanup();
-        ExtensionsManager extMgr = ExtensionsManager.getInstance();
-        extMgr.unloadExtensions();
+        // SuperGreenfoot: quitting always quits. A failure while closing the
+        // projects (one project in a bad state) used to end here, leaving the
+        // application running with Quit doing nothing from then on.
+        try
+        {
+            guiHandler.doExitCleanup();
+        }
+        catch (RuntimeException e)
+        {
+            Debug.reportError("Error while closing projects to quit; quitting anyway", e);
+        }
+        try
+        {
+            ExtensionsManager extMgr = ExtensionsManager.getInstance();
+            extMgr.unloadExtensions();
+        }
+        catch (RuntimeException e)
+        {
+            Debug.reportError("Error while unloading extensions to quit; quitting anyway", e);
+        }
         bluej.Main.exit();
     }
 
