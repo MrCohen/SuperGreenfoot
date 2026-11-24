@@ -331,6 +331,11 @@ public final class Terminal
     
     public void dispose()
     {
+        // SuperGreenfoot: a second dispose is harmless (it threw, and stopped a quit)
+        if (window == null)
+        {
+            return;
+        }
         showHide(false);
         window = null;
     }

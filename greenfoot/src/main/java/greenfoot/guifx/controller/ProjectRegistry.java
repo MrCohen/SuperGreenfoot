@@ -224,8 +224,16 @@ public final class ProjectRegistry
         // Close all windows:
         for (IdeWindow window : windowsCopy)
         {
-            // pass keepLast = true to avoid closing the final window causing infinite recursion:
-            closeWindow(window, true);
+            // pass keepLast = true to avoid closing the final window causing infinite recursion.
+            // One window failing to close must not stop the others being saved and closed:
+            try
+            {
+                closeWindow(window, true);
+            }
+            catch (RuntimeException e)
+            {
+                Debug.reportError("Error closing a window while closing all", e);
+            }
         }
     }
 
