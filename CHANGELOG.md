@@ -6,6 +6,50 @@ notes are in [docs/api](docs/api), and [docs/provenance.md](docs/provenance.md)
 records every upstream file this fork changes, with what changed and in which
 release, as the notice of modification the GPL asks for.
 
+## 0.2.3 (2026-11-24)
+
+Fixes for Quit, for some MP3 files, and a new name for new scenarios'
+project file.
+
+### Fixes
+
+- **Quit could stop working, so the app needed a force quit.** Opening a
+  scenario that was already open (double-clicking its `project.greenfoot`
+  in the Finder, Open With, or a scenario path on the command line) opened
+  it in a second window. Closing both windows closed the scenario twice; the
+  second close failed part-way, and from then on Quit, and closing the last
+  window, did nothing. Opening an open scenario now brings its window to the
+  front, and Quit always quits, even if closing one scenario goes wrong.
+  Greenfoot 3.9.0 has the same fault.
+- **Some MP3 sounds stopped their world from being created.** A
+  `new GreenfootSound("....mp3")` threw `ArrayIndexOutOfBoundsException` (in
+  `LayerIIIDecoder.huffman_decode`) for MP3 files that end with an ID3v1 tag
+  whose last byte is 0xFF, although the files are valid. The MP3 reader asked
+  the decoder for audio past the end of the file; it now stops there.
+  Greenfoot 3.9.0 has the same fault but meets it only when the sound ends,
+  out of sight; Super Greenfoot reads a sound's whole file when the sound is
+  made, so the error reached the scenario.
+
+### Changes
+
+- **A new scenario's project file is `__project.greenfoot`**, so it sorts to
+  the top of the scenario's folder in the Finder and Explorer.
+  - Scenarios that have `project.greenfoot` keep it. Super Greenfoot reads
+    and saves it under that name and never renames it, so they still open in
+    Greenfoot 3.9.0.
+  - Greenfoot 3.9.0 can't open a scenario whose only project file is
+    `__project.greenfoot`; rename it to `project.greenfoot` first.
+  - Renaming either way by hand is fine: Super Greenfoot opens both names
+    alike. If a folder has both, `__project.greenfoot` is used.
+  - Exported apps and gallery uploads still carry `project.greenfoot`, the
+    name every player reads.
+
+### Downloads
+
+This release ships the macOS download only. The fixes are in the source for
+Windows too; the Windows installer stays at 0.2.1 until the next Windows
+build.
+
 ## 0.2.2 (2026-11-14)
 
 A fix for the macOS download. **If you use Super Greenfoot on a Mac, please
