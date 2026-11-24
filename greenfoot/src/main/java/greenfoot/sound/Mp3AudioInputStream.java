@@ -55,6 +55,17 @@ public class Mp3AudioInputStream implements GreenfootAudioInputStream
     private AudioFormat format;
     private SampleBuffer unreadSample;
 
+    /**
+     * SuperGreenfoot: set once the bitstream has returned no frame. JLayer
+     * must not be asked for another one after that: its resync then reads
+     * stale buffer bytes as a frame (an ID3v1 tag whose last byte is 0xFF
+     * does it), and decoding that throws ArrayIndexOutOfBoundsException.
+     * Stock Greenfoot only hit this at the end of playback, on the sound
+     * thread; SuperGreenfoot decodes a whole file when the GreenfootSound is
+     * made, so it escaped into the scenario's constructor.
+     */
+    private boolean endOfStream;
+
     /** Whether the stream is open or not. */
     private boolean open;
 
@@ -96,6 +107,7 @@ public class Mp3AudioInputStream implements GreenfootAudioInputStream
         if (!open) {
             readingHasStarted = false;
             unreadSample = null;
+            endOfStream = false;
 
             if (bitstream != null) {
                 try {
@@ -217,11 +229,15 @@ public class Mp3AudioInputStream implements GreenfootAudioInputStream
             unreadSample = null;
             bitstream.closeFrame();
         }
+        if (endOfStream) {
+            return read > 0 ? read : -1;
+        }
         try {
             header = bitstream.readFrame();
         } catch (BitstreamException e) {
             throw new IOException(e.toString());
         }
+        endOfStream = header == null;
         while (header != null) {
 
             // decode the frame
@@ -250,9 +266,10 @@ public class Mp3AudioInputStream implements GreenfootAudioInputStream
             } catch (BitstreamException e) {
                 throw new IOException(e.toString());
             }
+            endOfStream = header == null;
         }
 
-        return read;
+        return read == 0 && endOfStream ? -1 : read;
     }
 
     final private void toByteArray(short[] samples, int len, byte[] b,  int off)
