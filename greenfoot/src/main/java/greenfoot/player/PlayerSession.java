@@ -53,7 +53,7 @@ public final class PlayerSession
 {
     /** Properties files looked for in the scenario class loader, in order. */
     public static final String STANDALONE_PROPERTIES = "standalone.properties";
-    public static final String PROJECT_PROPERTIES = "project.greenfoot";
+    public static final String PROJECT_PROPERTIES = ExportedProjectProperties.GREENFOOT_PKG_NAME;
 
     private final ClassLoader loader;
     private final Properties props;
@@ -145,15 +145,24 @@ public final class PlayerSession
         return new PlayerSession(loader, props, saveDir, sink);
     }
 
-    /** Read project.greenfoot, then standalone.properties on top, from the loader. */
+    /**
+     * Read the project file (__project.greenfoot, or else project.greenfoot),
+     * then standalone.properties on top, from the loader.
+     */
     public static Properties loadProperties(ClassLoader loader) throws IOException
     {
         Properties p = new Properties();
-        for (String name : new String[] {PROJECT_PROPERTIES, STANDALONE_PROPERTIES}) {
+        for (String name : ExportedProjectProperties.PKG_NAMES) {
             try (InputStream in = loader.getResourceAsStream(name)) {
                 if (in != null) {
                     p.load(in);
+                    break;
                 }
+            }
+        }
+        try (InputStream in = loader.getResourceAsStream(STANDALONE_PROPERTIES)) {
+            if (in != null) {
+                p.load(in);
             }
         }
         return p;

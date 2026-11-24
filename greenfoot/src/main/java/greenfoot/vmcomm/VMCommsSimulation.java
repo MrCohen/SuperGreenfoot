@@ -481,7 +481,7 @@ public class VMCommsSimulation
             catch (Exception e) {}
             // Note: the user will see this message in the terminal, so it should be helpful:
             Debug.message("World size is too large.  If your world contains more than around 2.5 million pixels you will need to do the following.\n"
-                + "Close your project, then edit project.greenfoot in a text editor to add the following line:\n"
+                + "Close your project, then edit its project file (__project.greenfoot, or project.greenfoot in older projects) in a text editor to add the following line:\n"
                 + "shm.size=40000000\n"
                 + "(The default is 20000000, keep increasing if needed.)  Save the file and re-open the project in Greenfoot.");
         }

@@ -38,8 +38,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 /**
- * Saving project.greenfoot leaves the file untouched when nothing in it
- * would change, and rewrites it when something would.
+ * Saving the project file leaves it untouched when nothing in it would
+ * change, and rewrites it when something would. A new project's file is
+ * __project.greenfoot; a project with stock Greenfoot's project.greenfoot
+ * keeps that file and its name.
  */
 public class GreenfootProjectFileTest
 {
@@ -58,7 +60,7 @@ public class GreenfootProjectFileTest
     {
         File dir = Files.createTempDirectory("gpf").toFile();
         GreenfootProjectFile file = new GreenfootProjectFile(dir);
-        File onDisk = new File(dir, "project.greenfoot");
+        File onDisk = new File(dir, GreenfootProjectFile.FILE_NAME);
         assertTrue(file.create());
         file.save(props("main.class", "MyWorld", "simulation.speed", "50"));
         assertTrue(onDisk.isFile());
@@ -191,7 +193,7 @@ public class GreenfootProjectFileTest
     public void aFolderThatTakesNoNewFilesIsStillSaved() throws Exception
     {
         File dir = Files.createTempDirectory("gpf").toFile();
-        File onDisk = new File(dir, "project.greenfoot");
+        File onDisk = new File(dir, GreenfootProjectFile.FILE_NAME);
         GreenfootProjectFile file = new GreenfootProjectFile(dir);
         assertTrue(file.create());
         file.save(props("main.class", "MyWorld"));
@@ -208,18 +210,18 @@ public class GreenfootProjectFileTest
             dir.setWritable(true);
         }
         assertTrue(text(onDisk).contains("main.class=OtherWorld"));
-        assertEquals(Arrays.asList("project.greenfoot"), Arrays.asList(dir.list()));
+        assertEquals(Arrays.asList(GreenfootProjectFile.FILE_NAME), Arrays.asList(dir.list()));
 
         file.save(props("main.class", "OtherWorld"));
         assertTrue(text(onDisk).contains("main.class=OtherWorld"));
-        assertEquals("no temporary file is left behind", Arrays.asList("project.greenfoot"), Arrays.asList(dir.list()));
+        assertEquals("no temporary file is left behind", Arrays.asList(GreenfootProjectFile.FILE_NAME), Arrays.asList(dir.list()));
     }
 
     @Test
     public void aReadOnlyFileIsNotReplaced() throws Exception
     {
         File dir = Files.createTempDirectory("gpf").toFile();
-        File onDisk = new File(dir, "project.greenfoot");
+        File onDisk = new File(dir, GreenfootProjectFile.FILE_NAME);
         GreenfootProjectFile file = new GreenfootProjectFile(dir);
         assertTrue(file.create());
         file.save(props("main.class", "MyWorld"));
@@ -243,5 +245,77 @@ public class GreenfootProjectFileTest
         {
             onDisk.setWritable(true);
         }
+    }
+
+    @Test
+    public void aNewProjectGetsTheNewName() throws Exception
+    {
+        File dir = Files.createTempDirectory("gpf").toFile();
+        GreenfootProjectFile file = new GreenfootProjectFile(dir);
+        assertFalse(GreenfootProjectFile.exists(dir));
+        assertTrue(file.create());
+        file.save(props("main.class", "MyWorld"));
+        assertEquals(Arrays.asList("__project.greenfoot"), Arrays.asList(dir.list()));
+        assertTrue(GreenfootProjectFile.exists(dir));
+        assertFalse("a second create makes nothing", file.create());
+    }
+
+    @Test
+    public void aLegacyProjectIsSavedInPlaceAndNeverRenamed() throws Exception
+    {
+        File dir = Files.createTempDirectory("gpf").toFile();
+        File legacy = new File(dir, "project.greenfoot");
+        Files.write(legacy.toPath(), "main.class=MyWorld\n".getBytes(StandardCharsets.ISO_8859_1));
+        GreenfootProjectFile file = new GreenfootProjectFile(dir);
+        assertTrue(GreenfootProjectFile.exists(dir));
+        // Project.createPackageDirectory calls this on the project's own folder
+        assertFalse("a legacy project must not get a second file", file.create());
+
+        Properties p = new SortedProperties();
+        file.load(p);
+        assertEquals("MyWorld", p.getProperty("main.class"));
+        p.setProperty("simulation.speed", "70");
+        file.save(p);
+        assertTrue(text(legacy).contains("simulation.speed=70"));
+        assertEquals(Arrays.asList("project.greenfoot"), Arrays.asList(dir.list()));
+    }
+
+    @Test
+    public void aFileRenamedByHandIsFollowed() throws Exception
+    {
+        File dir = Files.createTempDirectory("gpf").toFile();
+        File legacy = new File(dir, "project.greenfoot");
+        File current = new File(dir, "__project.greenfoot");
+        Files.write(legacy.toPath(), "main.class=MyWorld\n".getBytes(StandardCharsets.ISO_8859_1));
+        GreenfootProjectFile file = new GreenfootProjectFile(dir);
+        Properties p = new SortedProperties();
+        file.load(p);
+
+        assertTrue(legacy.renameTo(current));
+        p.setProperty("simulation.speed", "70");
+        file.save(p);
+        assertTrue(text(current).contains("simulation.speed=70"));
+        assertEquals(Arrays.asList("__project.greenfoot"), Arrays.asList(dir.list()));
+    }
+
+    @Test
+    public void theNewNameWinsWhenBothAreThere() throws Exception
+    {
+        File dir = Files.createTempDirectory("gpf").toFile();
+        Files.write(new File(dir, "project.greenfoot").toPath(), "main.class=Old\n".getBytes(StandardCharsets.ISO_8859_1));
+        Files.write(new File(dir, "__project.greenfoot").toPath(), "main.class=New\n".getBytes(StandardCharsets.ISO_8859_1));
+        assertEquals(new File(dir, "__project.greenfoot"), GreenfootProjectFile.fileIn(dir));
+        Properties p = new Properties();
+        new GreenfootProjectFile(dir).load(p);
+        assertEquals("New", p.getProperty("main.class"));
+    }
+
+    @Test
+    public void bothNamesAreProjectFileNames()
+    {
+        assertTrue(GreenfootProjectFile.isProjectFileName("__project.greenfoot"));
+        assertTrue(GreenfootProjectFile.isProjectFileName("project.greenfoot"));
+        assertFalse(GreenfootProjectFile.isProjectFileName("myproject.greenfoot"));
+        assertFalse(GreenfootProjectFile.isProjectFileName("package.bluej"));
     }
 }

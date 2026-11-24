@@ -44,9 +44,22 @@ import threadchecker.Tag;
 public class GreenfootProjectFile
     implements PackageFile
 {
-    private static final String pkgfileName = "project.greenfoot";
+    /**
+     * SuperGreenfoot: the name a new project's file gets. The leading
+     * underscores sort it to the top of a folder listed by name (Finder,
+     * Explorer), so students find the file that opens the project.
+     */
+    public static final String FILE_NAME = "__project.greenfoot";
+
+    /**
+     * The name stock Greenfoot uses, and the only one it can open. Projects
+     * that have it keep it: SuperGreenfoot reads and saves it in place and
+     * never renames it, so the project still opens in Greenfoot 3.9.0. An
+     * owner who renames it by hand gets the same behaviour as a new project.
+     */
+    public static final String LEGACY_FILE_NAME = "project.greenfoot";
+
     private File dir;
-    private File pkgFile;
 
     /**
      * @see PackageFileFactory
@@ -55,17 +68,37 @@ public class GreenfootProjectFile
     GreenfootProjectFile(File dir)
     {
         this.dir = dir;
-        this.pkgFile = new File(dir, pkgfileName);
+    }
+
+    /**
+     * The project file in the given directory: {@link #FILE_NAME} if it is
+     * there, else {@link #LEGACY_FILE_NAME} if that is there, else the
+     * {@link #FILE_NAME} a new project would get. When both are there,
+     * {@link #FILE_NAME} wins, since it can only have come from
+     * SuperGreenfoot or from the owner renaming the file.
+     */
+    public static File fileIn(File dir)
+    {
+        File current = new File(dir, FILE_NAME);
+        if (current.exists())
+        {
+            return current;
+        }
+        File legacy = new File(dir, LEGACY_FILE_NAME);
+        return legacy.exists() ? legacy : current;
     }
 
     public String toString()
     {
-        return dir.toString() + File.separator + pkgfileName;
+        return fileIn(dir).toString();
     }
 
     public void load(Properties p)
         throws IOException
     {
+        // Looked up on each use, not kept from construction, so an owner who
+        // renames the file while the project is open is followed.
+        File pkgFile = fileIn(dir);
         FileInputStream input = null;
         try {
             if (pkgFile.canRead()) {
@@ -110,6 +143,7 @@ public class GreenfootProjectFile
         }
         sorted.store(rendered, header, "\n");
         byte[] bytes = rendered.toByteArray();
+        File pkgFile = fileIn(dir);
         if (hasContent(pkgFile, bytes))
         {
             return;
@@ -149,26 +183,18 @@ public class GreenfootProjectFile
         if (!dir.isDirectory())
             return false;
 
-        File packageFile = new File(dir, pkgfileName);
-        return packageFile.exists();
+        return new File(dir, FILE_NAME).exists() || new File(dir, LEGACY_FILE_NAME).exists();
     }
     
     /**
-     * Whether this file is the name has the name of a Greenfoot project file.
+     * Whether this file name is the name of a Greenfoot project file,
+     * either the current or the legacy one.
      */
     public static boolean isProjectFileName(String fileName)
     {
-        return fileName.endsWith(pkgfileName);
+        return fileName.equals(FILE_NAME) || fileName.equals(LEGACY_FILE_NAME);
     }
-    
-    /**
-     * Creates the Greenfoot project file if it does not already exist. 
-     * 
-     * @return true if it created a package file, false if it didn't create any package files.
-     * @param dir The directory to create package file in.
-     * @throws IOException If the package file could not be created.
-     * 
-     */
+
     /**
      * True if the file exists and holds exactly these bytes.
      */
@@ -185,18 +211,25 @@ public class GreenfootProjectFile
         }
     }
 
+    /**
+     * Creates the Greenfoot project file if it does not already exist, under
+     * {@link #FILE_NAME}. A directory that already has either name is left
+     * alone (this is also called on existing projects, when a package is
+     * added), so a legacy project never gets a second, empty file.
+     *
+     * @return true if it created a package file, false if it didn't create any package files.
+     * @throws IOException If the package file could not be created.
+     */
     public boolean create()
         throws IOException
     {
-        File pkgFile = new File(dir, pkgfileName);
-
-        if (pkgFile.exists()) {
+        if (exists(dir)) {
             return false;
         }
         else {
-            pkgFile.createNewFile();
+            new File(dir, FILE_NAME).createNewFile();
             return true;
-        }     
+        }
     }
 
 }

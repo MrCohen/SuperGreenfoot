@@ -40,6 +40,17 @@ public class ExportedProjectProperties implements ReadOnlyProjectProperties
      */
     public static final String GREENFOOT_PKG_NAME = "project.greenfoot";
 
+    /**
+     * SuperGreenfoot: the name the IDE gives a new project's file (see
+     * bluej.pkgmgr.GreenfootProjectFile, which this runtime class cannot
+     * use). An exported jar always holds GREENFOOT_PKG_NAME, but a scenario
+     * run straight from its folder may have either, and this one wins.
+     */
+    public static final String SUPER_PKG_NAME = "__project.greenfoot";
+
+    /** The project file names to look for, the preferred one first. */
+    public static final String[] PKG_NAMES = {SUPER_PKG_NAME, GREENFOOT_PKG_NAME};
+
     /** Holds the actual properties */
     private Properties properties;
 
@@ -67,7 +78,17 @@ public class ExportedProjectProperties implements ReadOnlyProjectProperties
      */
     private void load()
     {
-        URL probsFile = this.getClass().getResource("/" + GREENFOOT_PKG_NAME);
+        URL probsFile = null;
+        for (String name : PKG_NAMES) {
+            probsFile = this.getClass().getResource("/" + name);
+            if (probsFile != null) {
+                break;
+            }
+        }
+        if (probsFile == null) {
+            // As below: older scenarios may have no project file at all.
+            return;
+        }
         InputStream is = null;
         try {
             is = probsFile.openStream();
